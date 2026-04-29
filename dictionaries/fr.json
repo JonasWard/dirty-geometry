@@ -1,0 +1,45 @@
+{
+  "pages": {
+    "home": "Accueil",
+    "about": "À propos",
+    "frame": "Repère 3D"
+  },
+  "home": {
+    "meta": {
+      "title": "dirty-geometry — L'homme aux motifs",
+      "description": "Portfolio de dirty-geometry, un créateur de motifs basé en Suisse."
+    },
+    "hero": {
+      "eyebrow": "Créateur de motifs",
+      "heading": "dirty-geometry",
+      "tagline": "L'homme aux motifs",
+      "cta": "Voir les créations"
+    },
+    "work": {
+      "label": "Travaux sélectionnés",
+      "item1": {
+        "title": "Motifs textiles",
+        "desc": "Structures tissées pour la mode et les intérieurs."
+      },
+      "item2": {
+        "title": "Design de surface",
+        "desc": "Motifs répétitifs pour l'impression et le numérique."
+      },
+      "item3": {
+        "title": "Motifs de marque",
+        "desc": "Motifs signatures qui définissent les systèmes d'identité."
+      }
+    },
+    "contact": {
+      "heading": "Créons quelque chose ensemble.",
+      "cta": "Prendre contact"
+    }
+  },
+  "about": {
+    "meta": {
+      "description": "À propos de dirty-geometry, créateur de motifs basé en Suisse."
+    },
+    "heading": "À propos de dirty-geometry",
+    "subheading": "Basé en Suisse, je crée des motifs qui allient tradition et design contemporain. Retrouvez-moi sur <a href=\"https://jonasward.ch/dirty-geometry\" target=\"_blank\">jonasward.ch/dirty-geometry</a>."
+  }
+}

@@ -1,0 +1,45 @@
+{
+  "pages": {
+    "home": "Startseite",
+    "about": "Über mich",
+    "frame": "3D-Rahmen"
+  },
+  "home": {
+    "meta": {
+      "title": "dirty-geometry — Der Muster Man",
+      "description": "Portfolio von dirty-geometry, einem kreativen Musterdesigner aus der Schweiz."
+    },
+    "hero": {
+      "eyebrow": "Musterdesigner",
+      "heading": "dirty-geometry",
+      "tagline": "Der Muster Man",
+      "cta": "Arbeiten ansehen"
+    },
+    "work": {
+      "label": "Ausgewählte Arbeiten",
+      "item1": {
+        "title": "Textilmuster",
+        "desc": "Gewebte Strukturen für Mode und Innenräume."
+      },
+      "item2": {
+        "title": "Oberflächendesign",
+        "desc": "Einprägsame Wiederholungsmotive für Druck und digitale Medien."
+      },
+      "item3": {
+        "title": "Markenmuster",
+        "desc": "Charakteristische Muster für Identitätssysteme."
+      }
+    },
+    "contact": {
+      "heading": "Lass uns gemeinsam etwas schaffen.",
+      "cta": "Kontakt aufnehmen"
+    }
+  },
+  "about": {
+    "meta": {
+      "description": "Über dirty-geometry, einen kreativen Musterdesigner aus der Schweiz."
+    },
+    "heading": "Über dirty-geometry",
+    "subheading": "Aus der Schweiz heraus schaffe ich Muster, die Tradition und zeitgenössisches Design verbinden. Besuche mich auf <a href=\"https://jonasward.ch/dirty-geometry\" target=\"_blank\">jonasward.ch/dirty-geometry</a>."
+  }
+}

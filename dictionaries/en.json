@@ -1,0 +1,45 @@
+{
+  "pages": {
+    "home": "Home",
+    "about": "About",
+    "frame": "3D Frame"
+  },
+  "home": {
+    "meta": {
+      "title": "dirty-geometry — The Pattern Guy",
+      "description": "Portfolio of dirty-geometry, a creative pattern designer based in Switzerland."
+    },
+    "hero": {
+      "eyebrow": "Pattern Designer",
+      "heading": "dirty-geometry",
+      "tagline": "The Pattern Guy",
+      "cta": "View Work"
+    },
+    "work": {
+      "label": "Selected Work",
+      "item1": {
+        "title": "Textile Patterns",
+        "desc": "Woven structures for fashion & interior spaces."
+      },
+      "item2": {
+        "title": "Surface Design",
+        "desc": "Bold repeating motifs for print & digital media."
+      },
+      "item3": {
+        "title": "Brand Patterns",
+        "desc": "Signature patterns that define identity systems."
+      }
+    },
+    "contact": {
+      "heading": "Let's make something together.",
+      "cta": "Get in Touch"
+    }
+  },
+  "about": {
+    "meta": {
+      "description": "About dirty-geometry, a creative pattern designer based in Switzerland."
+    },
+    "heading": "About dirty-geometry",
+    "subheading": "Based in Switzerland, I create patterns that bridge tradition and contemporary design. Find me at <a href=\"https://jonasward.ch/dirty-geometry\" target=\"_blank\">jonasward.ch/dirty-geometry</a>."
+  }
+}

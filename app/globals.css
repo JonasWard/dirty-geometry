@@ -1,0 +1,21 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    scroll-behavior: smooth;
+  }
+}
+
+p a {
+  color: #c49a4a;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+p a:hover {
+  color: #18181b;
+}

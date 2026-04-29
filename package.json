@@ -1,0 +1,32 @@
+{
+  "name": "dirty-geometry",
+  "scripts": {
+    "dev": "next dev --webpack",
+    "build": "next build",
+    "start": "npx serve@latest out",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "react": "^18",
+    "react-dom": "^18",
+    "next": "16.2.3"
+  },
+  "devDependencies": {
+    "typescript": "^5",
+    "@types/node": "^20",
+    "@types/react": "^18",
+    "@types/react-dom": "^18",
+    "postcss": "^8",
+    "tailwindcss": "^3.4.1",
+    "eslint": "^8",
+    "eslint-config-next": "16.2.3"
+  },
+  "repository": {
+    "url": "https://github.com/JonasWard/dirty-geometry"
+  },
+  "author": {
+    "name": "Jonas Ward",
+    "email": "jonas@jonasward.ch",
+    "url": "https://jonasward.ch/dirty-geometry"
+  }
+}

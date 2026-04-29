@@ -19,6 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       NEXT_PUBLIC_BASE_URL: https://jonasward.ch/dirty-geometry
+      NEXT_PUBLIC_BASE_PATH: /dirty-geometry
     steps:
       - name: Checkout
         uses: actions/checkout@v4

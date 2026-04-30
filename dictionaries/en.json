@@ -12,11 +12,11 @@
     "hero": {
       "eyebrow": "Pattern Designer",
       "heading": "dirty-geometry",
-      "tagline": "The Pattern Guy",
+      "tagline": "Messing about",
       "cta": "View Work"
     },
-    "work": {
-      "label": "Selected Work",
+    "problems": {
+      "entries": "Entries",
       "item1": {
         "title": "Textile Patterns",
         "desc": "Woven structures for fashion & interior spaces."
@@ -41,5 +41,16 @@
     },
     "heading": "About dirty-geometry",
     "subheading": "Based in Switzerland, I create patterns that bridge tradition and contemporary design. Find me at <a href=\"https://jonasward.ch/dirty-geometry\" target=\"_blank\">jonasward.ch/dirty-geometry</a>."
+  },
+  "notFound": {
+    "meta": {
+      "title": "Page not found — dirty-geometry",
+      "description": "This page does not exist or has been moved."
+    },
+    "eyebrow": "404",
+    "heading": "Page not found",
+    "body": "The address may be wrong, or the page was removed.",
+    "backHome": "Back to home",
+    "otherLocales": "Home in another language"
   }
 }

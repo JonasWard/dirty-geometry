@@ -1,5 +1,6 @@
 import { defaultLocale, locales } from "@/config";
-import { getLocale, state } from "@/utilities/l10n";
+import { getLocale, isValidLocale, state } from "@/utilities/l10n";
+import { notFound } from "next/navigation";
 import type { Props } from "./route-params";
 
 export type { LocaleParams, Props } from "./route-params";
@@ -15,6 +16,9 @@ export default async function LocaleLayout({
   params,
 }: Readonly<Props & { children: React.ReactNode }>) {
   const { locale } = await params;
+  if (!locale || !isValidLocale(locale)) {
+    notFound();
+  }
   const activeLocale = getLocale(locale);
   state.locale = activeLocale;
   return children;

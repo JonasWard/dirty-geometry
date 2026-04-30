@@ -12,11 +12,11 @@
     "hero": {
       "eyebrow": "Musterdesigner",
       "heading": "dirty-geometry",
-      "tagline": "Der Muster Man",
+      "tagline": "Am Rumprobieren",
       "cta": "Arbeiten ansehen"
     },
-    "work": {
-      "label": "Ausgewählte Arbeiten",
+    "problems": {
+      "entries": "Ausgewählte Einträge",
       "item1": {
         "title": "Textilmuster",
         "desc": "Gewebte Strukturen für Mode und Innenräume."
@@ -41,5 +41,16 @@
     },
     "heading": "Über dirty-geometry",
     "subheading": "Aus der Schweiz heraus schaffe ich Muster, die Tradition und zeitgenössisches Design verbinden. Besuche mich auf <a href=\"https://jonasward.ch/dirty-geometry\" target=\"_blank\">jonasward.ch/dirty-geometry</a>."
+  },
+  "notFound": {
+    "meta": {
+      "title": "Seite nicht gefunden — dirty-geometry",
+      "description": "Diese Seite existiert nicht oder wurde verschoben."
+    },
+    "eyebrow": "404",
+    "heading": "Seite nicht gefunden",
+    "body": "Die Adresse ist möglicherweise falsch, oder die Seite wurde entfernt.",
+    "backHome": "Zur Startseite",
+    "otherLocales": "Startseite in einer anderen Sprache"
   }
 }

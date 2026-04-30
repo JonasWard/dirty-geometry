@@ -1,0 +1,34 @@
+<svg
+  viewBox="0 0 360 220"
+  xmlns="http://www.w3.org/2000/svg"
+  className="w-full h-auto"
+  role="img"
+  aria-label="3D frame axes"
+>
+  <rect x="0" y="0" width="360" height="220" fill="#f1ebdf" />
+  <line x1="80" y1="170" x2="300" y2="170" stroke="#d5c7ae" strokeWidth="1" />
+  <line x1="80" y1="170" x2="80" y2="30" stroke="#d5c7ae" strokeWidth="1" />
+
+  <circle cx="120" cy="140" r="5" fill="#18181b" />
+  <text x="108" y="158" fontSize="12" fill="#18181b">
+    O
+  </text>
+
+  <line x1="120" y1="140" x2="230" y2="125" stroke="#d27d2f" strokeWidth="4" />
+  <polygon points="230,125 220,119 222,129" fill="#d27d2f" />
+  <text x="238" y="124" fontSize="12" fill="#d27d2f">
+    x
+  </text>
+
+  <line x1="120" y1="140" x2="90" y2="60" stroke="#4a7f6f" strokeWidth="4" />
+  <polygon points="90,60 86,71 96,67" fill="#4a7f6f" />
+  <text x="72" y="58" fontSize="12" fill="#4a7f6f">
+    y
+  </text>
+
+  <line x1="120" y1="140" x2="165" y2="75" stroke="#587ca0" strokeWidth="4" />
+  <polygon points="165,75 155,79 163,86" fill="#587ca0" />
+  <text x="172" y="73" fontSize="12" fill="#587ca0">
+    z
+  </text>
+</svg>

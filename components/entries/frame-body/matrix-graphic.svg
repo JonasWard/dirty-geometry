@@ -1,0 +1,26 @@
+<svg
+  viewBox="0 0 360 220"
+  xmlns="http://www.w3.org/2000/svg"
+  className="w-full h-auto"
+  role="img"
+  aria-label="Frame from rigid transform"
+>
+  <rect x="0" y="0" width="360" height="220" fill="#ebeef5" />
+  <text x="32" y="70" fontSize="24" fill="#18181b">
+    [ R | t ]
+  </text>
+  <text x="36" y="102" fontSize="12" fill="#555">
+    R = [x y z]
+  </text>
+  <text x="36" y="122" fontSize="12" fill="#555">
+    t = origin
+  </text>
+
+  <line x1="170" y1="160" x2="300" y2="160" stroke="#d27d2f" strokeWidth="4" />
+  <line x1="170" y1="160" x2="140" y2="80" stroke="#4a7f6f" strokeWidth="4" />
+  <line x1="170" y1="160" x2="220" y2="90" stroke="#587ca0" strokeWidth="4" />
+  <circle cx="170" cy="160" r="5" fill="#18181b" />
+  <text x="176" y="176" fontSize="12" fill="#18181b">
+    t
+  </text>
+</svg>

@@ -16,10 +16,14 @@ export const getLocale = (input?: string): Locale =>
 export const getTranslations = (input?: string) =>
   translations[getLocale(input)];
 
+const getPageSegment = (page?: Page) => {
+  if (!page || page === "home") return "";
+  if (page === "frame") return "entries/frame/";
+  return `${page}/`;
+};
+
 export const getPath = (locale: Locale, page?: Page) =>
-  `/${locale === defaultLocale ? "" : `${locale}/`}${
-    !page || page === "home" ? "" : `${page}/`
-  }`;
+  `/${locale === defaultLocale ? "" : `${locale}/`}${getPageSegment(page)}`;
 
 export const getUrl = (locale: Locale, page?: Page) =>
   `${baseUrl}${getPath(locale, page)}`.replace(/\/$/, "");

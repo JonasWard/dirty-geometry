@@ -12,11 +12,11 @@
     "hero": {
       "eyebrow": "Designer di motivi",
       "heading": "dirty-geometry",
-      "tagline": "L'uomo dei motivi",
+      "tagline": "A pasticciare",
       "cta": "Vedi i lavori"
     },
-    "work": {
-      "label": "Lavori selezionati",
+    "problems": {
+      "entries": "Voci selezionate",
       "item1": {
         "title": "Motivi tessili",
         "desc": "Strutture intrecciate per moda e interni."
@@ -41,5 +41,16 @@
     },
     "heading": "Chi è dirty-geometry",
     "subheading": "Con sede in Svizzera, creo motivi che uniscono tradizione e design contemporaneo. Trovami su <a href=\"https://jonasward.ch/dirty-geometry\" target=\"_blank\">jonasward.ch/dirty-geometry</a>."
+  },
+  "notFound": {
+    "meta": {
+      "title": "Pagina non trovata — dirty-geometry",
+      "description": "Questa pagina non esiste o è stata spostata."
+    },
+    "eyebrow": "404",
+    "heading": "Pagina non trovata",
+    "body": "L'indirizzo potrebbe essere errato, oppure la pagina è stata rimossa.",
+    "backHome": "Torna alla home",
+    "otherLocales": "Home in un'altra lingua"
   }
 }

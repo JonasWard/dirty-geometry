@@ -1,7 +1,7 @@
-import FrameBody from "@/components/frame-body";
+import FrameBody from "@/components/entries/frame-body";
 import { Metadata } from "next";
 import Main from "@/components/main";
-import type { Props } from "../route-params";
+import type { Props } from "../../route-params";
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { locale } = await params;

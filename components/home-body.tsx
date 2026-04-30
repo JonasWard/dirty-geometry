@@ -88,14 +88,16 @@ export default function HomeBody({
 
   return (
     <div className="min-h-screen bg-[#f8f5f0] text-[#18181b]">
-      <header className="sticky top-0 z-50 bg-[#f8f5f0] border-b border-[#e4ddd3] px-6 md:px-12 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Logo />
-          <span className="text-sm font-bold tracking-[0.2em] uppercase hidden sm:inline">
-            dirty-geometry
-          </span>
+      <header className="sticky top-0 z-50 bg-[#f8f5f0] border-b border-[#e4ddd3]">
+        <div className="max-w-[1400px] mx-auto w-full px-6 md:px-12 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Logo />
+            <span className="text-sm font-bold tracking-[0.2em] uppercase hidden sm:inline">
+              dirty-geometry
+            </span>
+          </div>
+          <Nav locale={locale} page={page} />
         </div>
-        <Nav locale={locale} page={page} />
       </header>
 
       <section className="relative flex flex-col justify-center px-8 md:px-16 lg:px-24 pt-20 pb-28 overflow-hidden min-h-[90vh]">
@@ -111,28 +113,30 @@ export default function HomeBody({
           }}
         />
 
-        <div className="relative">
-          <p className="text-xs font-bold tracking-[0.45em] uppercase mb-6 text-[#c49a4a]">
-            {t.home.hero.eyebrow}
-          </p>
-          <h1
-            className="font-extrabold leading-[0.88] tracking-tight mb-6"
-            style={{ fontSize: "clamp(4.5rem, 17vw, 15rem)" }}
-          >
-            {t.home.hero.heading}
-          </h1>
-          <p
-            className="font-light text-[#777] mb-12"
-            style={{ fontSize: "clamp(1.25rem, 2.5vw, 2.25rem)" }}
-          >
-            {t.home.hero.tagline}
-          </p>
-          <a
-            href="#work"
-            className="inline-flex items-center gap-3 border-2 border-[#18181b] px-8 py-4 text-xs font-bold tracking-[0.25em] uppercase hover:bg-[#18181b] hover:text-[#f8f5f0] transition-all duration-300"
-          >
-            {t.home.hero.cta} <span aria-hidden="true">↓</span>
-          </a>
+        <div className="max-w-[1400px] mx-auto w-full relative z-10">
+          <div className="relative">
+            <p className="text-xs font-bold tracking-[0.45em] uppercase mb-6 text-[#c49a4a]">
+              {t.home.hero.eyebrow}
+            </p>
+            <h1
+              className="font-extrabold leading-[0.88] tracking-tight mb-6"
+              style={{ fontSize: "clamp(4.5rem, 17vw, 15rem)" }}
+            >
+              {t.home.hero.heading}
+            </h1>
+            <p
+              className="font-light text-[#777] mb-12"
+              style={{ fontSize: "clamp(1.25rem, 2.5vw, 2.25rem)" }}
+            >
+              {t.home.hero.tagline}
+            </p>
+            <a
+              href="#work"
+              className="inline-flex items-center gap-3 border-2 border-[#18181b] px-8 py-4 text-xs font-bold tracking-[0.25em] uppercase hover:bg-[#18181b] hover:text-[#f8f5f0] transition-all duration-300"
+            >
+              {t.home.hero.cta} <span aria-hidden="true">↓</span>
+            </a>
+          </div>
         </div>
 
         <div
@@ -148,13 +152,13 @@ export default function HomeBody({
         id="work"
         className="border-t border-[#e4ddd3] px-8 md:px-16 lg:px-24 py-24"
       >
-        <div className="max-w-6xl mx-auto">
+        <div className="max-w-[1400px] mx-auto">
           <p className="text-xs font-bold tracking-[0.45em] uppercase mb-16 text-[#c49a4a]">
-            {t.home.work.label}
+            {t.home.problems.entries}
           </p>
           <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-8 lg:gap-12">
             {workItems.map(({ key, bg }, i) => {
-              const item = t.home.work[key];
+              const item = t.home.problems[key];
               return (
                 <article key={key}>
                   <div
@@ -177,7 +181,7 @@ export default function HomeBody({
       </section>
 
       <section className="border-t border-[#e4ddd3] bg-[#18181b] text-[#f8f5f0] px-8 md:px-16 lg:px-24 py-28">
-        <div className="max-w-6xl mx-auto">
+        <div className="max-w-[1400px] mx-auto">
           <h2
             className="font-bold leading-tight mb-10 max-w-2xl"
             style={{ fontSize: "clamp(2rem, 5vw, 4rem)" }}
@@ -193,9 +197,11 @@ export default function HomeBody({
         </div>
       </section>
 
-      <footer className="bg-[#18181b] border-t border-[#2a2a2a] px-8 md:px-16 lg:px-24 py-6 text-[#555] text-xs flex justify-between items-center">
-        <span>© {new Date().getFullYear()} dirty-geometry</span>
-        <span>jonasward.ch/dirty-geometry</span>
+      <footer className="bg-[#18181b] border-t border-[#2a2a2a] px-8 md:px-16 lg:px-24 py-6 text-[#555] text-xs">
+        <div className="max-w-[1400px] mx-auto w-full flex justify-between items-center">
+          <span>© {new Date().getFullYear()} dirty-geometry</span>
+          <span>jonasward.ch/dirty-geometry</span>
+        </div>
       </footer>
     </div>
   );

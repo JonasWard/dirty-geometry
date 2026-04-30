@@ -1,5 +1,5 @@
 # dirty-geometry
 
-I am dirty-geometry - the Pattern Guy
+Some thoughts on how to describe geometry in different ways
 
-(A portfolio identity focused on pattern-first design.)
+(.)

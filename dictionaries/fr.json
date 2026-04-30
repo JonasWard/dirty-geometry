@@ -12,11 +12,11 @@
     "hero": {
       "eyebrow": "Créateur de motifs",
       "heading": "dirty-geometry",
-      "tagline": "L'homme aux motifs",
+      "tagline": "En train de bidouiller",
       "cta": "Voir les créations"
     },
-    "work": {
-      "label": "Travaux sélectionnés",
+    "problems": {
+      "entries": "Entrées sélectionnées",
       "item1": {
         "title": "Motifs textiles",
         "desc": "Structures tissées pour la mode et les intérieurs."
@@ -41,5 +41,16 @@
     },
     "heading": "À propos de dirty-geometry",
     "subheading": "Basé en Suisse, je crée des motifs qui allient tradition et design contemporain. Retrouvez-moi sur <a href=\"https://jonasward.ch/dirty-geometry\" target=\"_blank\">jonasward.ch/dirty-geometry</a>."
+  },
+  "notFound": {
+    "meta": {
+      "title": "Page introuvable — dirty-geometry",
+      "description": "Cette page n'existe pas ou a été déplacée."
+    },
+    "eyebrow": "404",
+    "heading": "Page introuvable",
+    "body": "L'adresse est peut-être incorrecte, ou la page a été supprimée.",
+    "backHome": "Retour à l'accueil",
+    "otherLocales": "Accueil dans une autre langue"
   }
 }

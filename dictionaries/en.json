@@ -17,9 +17,9 @@
     },
     "problems": {
       "entries": "Entries",
-      "item1": {
-        "title": "Textile Patterns",
-        "desc": "Woven structures for fashion & interior spaces."
+      "how-to-define-a-frame": {
+        "title": "a Frame in Space",
+        "desc": "How one goes about defining a frame in 3D space."
       },
       "item2": {
         "title": "Surface Design",

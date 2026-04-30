@@ -4,9 +4,9 @@ import { Page } from "@/config";
 import { getTranslations } from "@/utilities/l10n";
 
 const workItems = [
-  { key: "item1" as const, bg: "#e8d8c3" },
-  { key: "item2" as const, bg: "#c6d8c2" },
-  { key: "item3" as const, bg: "#bfd0de" },
+  { key: 'how-to-define-a-frame' as const, bg: '#e8d8c3' },
+  { key: 'item2' as const, bg: '#c6d8c2' },
+  { key: 'item3' as const, bg: '#bfd0de' }
 ];
 
 function GridPattern() {

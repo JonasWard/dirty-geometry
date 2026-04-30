@@ -17,9 +17,9 @@
     },
     "problems": {
       "entries": "Entrées sélectionnées",
-      "item1": {
-        "title": "Motifs textiles",
-        "desc": "Structures tissées pour la mode et les intérieurs."
+      "how-to-define-a-frame": {
+        "title": "un repère dans l'espace",
+        "desc": "Comment définir un repère dans l'espace."
       },
       "item2": {
         "title": "Design de surface",

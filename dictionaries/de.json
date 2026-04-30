@@ -17,9 +17,9 @@
     },
     "problems": {
       "entries": "Ausgewählte Einträge",
-      "item1": {
-        "title": "Textilmuster",
-        "desc": "Gewebte Strukturen für Mode und Innenräume."
+      "how-to-define-a-frame": {
+        "title": "ein Rahmen im Raum",
+        "desc": "Wie man einen Rahmen im 3D-Raum definiert."
       },
       "item2": {
         "title": "Oberflächendesign",

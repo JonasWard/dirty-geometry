@@ -39,18 +39,20 @@ export default function FrameBody() {
   return (
     <div className="max-w-5xl space-y-16">
       <section className="max-w-3xl">
-        <p className="text-xs font-bold tracking-[0.45em] uppercase mb-6 text-[#c49a4a]">3D Geometry Notes</p>
+        <p className="text-xs font-bold tracking-[0.45em] uppercase mb-6 text-dg-sky-600">
+          3D Geometry Notes
+        </p>
         <h1 className="text-4xl md:text-6xl font-extrabold leading-tight tracking-tight mb-6">
           Ways to uniquely define a frame in 3D space
         </h1>
-        <p className="text-lg text-[#555] leading-relaxed">
+        <p className="text-lg text-dg-muted leading-relaxed">
           A frame is an origin and three orthonormal axes. Different data can define the same frame, as long as you
           remove ambiguities such as scale, collinearity, and handedness.
         </p>
       </section>
 
       <section className="grid gap-8 md:grid-cols-2">
-        <article className="border border-[#e4ddd3] bg-[#f8f5f0]">
+        <article className="border border-dg-border bg-dg-surface">
           <img
             src={toImageSrc(AxesGraphic)}
             alt="3D frame axes"
@@ -58,14 +60,14 @@ export default function FrameBody() {
           />
           <div className="p-6">
             <h2 className="text-xl font-bold mb-3">Canonical frame components</h2>
-            <p className="text-[#555] leading-relaxed">
+            <p className="text-dg-muted leading-relaxed">
               Start from O and choose unit vectors x and y with x dot y = 0. Then z = x x y. This is the most direct
               definition.
             </p>
           </div>
         </article>
 
-        <article className="border border-[#e4ddd3] bg-[#f8f5f0]">
+        <article className="border border-dg-border bg-dg-surface">
           <img
             src={toImageSrc(ThreePointsGraphic)}
             alt="Frame from three points"
@@ -73,7 +75,7 @@ export default function FrameBody() {
           />
           <div className="p-6">
             <h2 className="text-xl font-bold mb-3">Build from points and constraints</h2>
-            <p className="text-[#555] leading-relaxed">
+            <p className="text-dg-muted leading-relaxed">
               O, A, and B define OA and a plane direction OB. Orthogonalize OB against OA to create a stable second
               axis.
             </p>
@@ -81,7 +83,7 @@ export default function FrameBody() {
         </article>
       </section>
 
-      <section className="border border-[#e4ddd3] bg-[#f8f5f0]">
+      <section className="border border-dg-border bg-dg-surface">
         <img
           src={toImageSrc(MatrixGraphic)}
           alt="Frame from rigid transform"
@@ -89,7 +91,7 @@ export default function FrameBody() {
         />
         <div className="p-6">
           <h2 className="text-xl font-bold mb-3">Rigid transform representation</h2>
-          <p className="text-[#555] leading-relaxed">
+          <p className="text-dg-muted leading-relaxed">
             In graphics and robotics, frames are often carried as transforms. The matrix columns are axis directions and
             translation is the origin.
           </p>
@@ -98,14 +100,14 @@ export default function FrameBody() {
 
       <section className="space-y-6">
         <h2 className="text-2xl font-bold">Quaternion vs Euler angles vs frame in space</h2>
-        <p className="text-[#555] leading-relaxed max-w-4xl">
+        <p className="text-dg-muted leading-relaxed max-w-4xl">
           Quaternion and Euler angles are both ways to encode <span className="font-semibold">orientation</span> only. A
           frame in space is larger: it includes orientation <span className="font-semibold">and</span> position. In
           other words, orientation answers &quot;which way is it pointing?&quot;, while a frame answers both &quot;which
           way?&quot; and &quot;where?&quot;.
         </p>
 
-        <div className="border border-[#e4ddd3] bg-[#f8f5f0]">
+        <div className="border border-dg-border bg-dg-surface">
           <img
             src={toImageSrc(OrientationVsFrameGraphic)}
             alt="Orientation versus frame comparison"
@@ -114,32 +116,32 @@ export default function FrameBody() {
         </div>
 
         <div className="grid gap-4 md:grid-cols-3">
-          <article className="border border-[#e4ddd3] bg-white/60 p-5">
+          <article className="border border-dg-border bg-dg-elevated/80 p-5">
             <h3 className="font-bold mb-2">Euler angles</h3>
-            <p className="text-sm text-[#555] mb-2">Three sequential rotations (for example yaw, pitch, roll).</p>
-            <p className="text-sm text-[#666]">
+            <p className="text-sm text-dg-muted mb-2">Three sequential rotations (for example yaw, pitch, roll).</p>
+            <p className="text-sm text-dg-subtle">
               Intuitive to read, but depends on axis order and can suffer gimbal lock.
             </p>
           </article>
 
-          <article className="border border-[#e4ddd3] bg-white/60 p-5">
+          <article className="border border-dg-border bg-dg-elevated/80 p-5">
             <h3 className="font-bold mb-2">Quaternion</h3>
-            <p className="text-sm text-[#555] mb-2">Compact 4D representation of rotation.</p>
-            <p className="text-sm text-[#666]">
+            <p className="text-sm text-dg-muted mb-2">Compact 4D representation of rotation.</p>
+            <p className="text-sm text-dg-subtle">
               Stable for interpolation and composition; q and -q encode the same orientation.
             </p>
           </article>
 
-          <article className="border border-[#e4ddd3] bg-white/60 p-5">
+          <article className="border border-dg-border bg-dg-elevated/80 p-5">
             <h3 className="font-bold mb-2">Frame (pose)</h3>
-            <p className="text-sm text-[#555] mb-2">Position t plus orientation (Euler, quaternion, or matrix).</p>
-            <p className="text-sm text-[#666]">This is what uniquely places an object in world coordinates.</p>
+            <p className="text-sm text-dg-muted mb-2">Position t plus orientation (Euler, quaternion, or matrix).</p>
+            <p className="text-sm text-dg-subtle">This is what uniquely places an object in world coordinates.</p>
           </article>
         </div>
 
-        <div className="border border-[#e4ddd3] bg-white/70 p-6">
+        <div className="border border-dg-border bg-dg-elevated/90 p-6">
           <h3 className="font-bold mb-3">Practical rule of thumb</h3>
-          <p className="text-[#555] leading-relaxed">
+          <p className="text-dg-muted leading-relaxed">
             If your data has only Euler angles or only a quaternion, you still need an origin (translation) to define a
             full frame. If you have both translation and orientation, you have a complete 3D pose.
           </p>
@@ -150,10 +152,10 @@ export default function FrameBody() {
         <h2 className="text-2xl font-bold mb-6">Equivalently valid definitions</h2>
         <div className="space-y-4">
           {methods.map((method) => (
-            <article key={method.title} className="border border-[#e4ddd3] bg-white/50 p-6">
+            <article key={method.title} className="border border-dg-border bg-dg-elevated/70 p-6">
               <h3 className="text-lg font-bold mb-2">{method.title}</h3>
-              <p className="text-[#444] mb-2">{method.idea}</p>
-              <p className="text-sm text-[#666]">
+              <p className="text-dg-ink/90 mb-2">{method.idea}</p>
+              <p className="text-sm text-dg-subtle">
                 <span className="font-semibold">Uniqueness condition:</span> {method.unique}
               </p>
             </article>

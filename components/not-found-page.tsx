@@ -35,8 +35,8 @@ export default function NotFoundPage() {
   }, [t]);
 
   return (
-    <div className="min-h-screen bg-[#f8f5f0] text-[#18181b]">
-      <header className="sticky top-0 z-50 bg-[#f8f5f0] border-b border-[#e4ddd3]">
+    <div className="min-h-screen bg-dg-canvas text-dg-ink">
+      <header className="sticky top-0 z-50 bg-dg-canvas/95 backdrop-blur-sm border-b border-dg-border">
         <div className="max-w-[1400px] mx-auto w-full px-6 md:px-12 py-4 flex items-center justify-between">
           <Link
             href={getPath(locale, "home")}
@@ -52,27 +52,27 @@ export default function NotFoundPage() {
       <main className="px-8 md:px-16 lg:px-24 py-24">
         <div className="max-w-[1400px] mx-auto w-full">
           <div className="max-w-2xl">
-            <p className="text-xs font-bold tracking-[0.45em] uppercase mb-6 text-[#c49a4a]">
+            <p className="text-xs font-bold tracking-[0.45em] uppercase mb-6 text-dg-sky-600">
               {t.notFound.eyebrow}
             </p>
             <h1 className="text-4xl md:text-5xl font-extrabold leading-tight tracking-tight mb-6">
               {t.notFound.heading}
             </h1>
-            <p className="text-lg text-[#555] leading-relaxed mb-10">
+            <p className="text-lg text-dg-muted leading-relaxed mb-10">
               {t.notFound.body}
             </p>
             <Link
               href={getPath(locale, "home")}
-              className="inline-flex items-center gap-3 border-2 border-[#18181b] px-8 py-4 text-xs font-bold tracking-[0.25em] uppercase hover:bg-[#18181b] hover:text-[#f8f5f0] transition-all duration-300"
+              className="inline-flex items-center gap-3 border-2 border-dg-navy-900 px-8 py-4 text-xs font-bold tracking-[0.25em] uppercase hover:bg-dg-navy-900 hover:text-dg-sky-200 transition-all duration-300"
             >
               {t.notFound.backHome}
             </Link>
 
             <nav
-              className="mt-16 pt-12 border-t border-[#e4ddd3]"
+              className="mt-16 pt-12 border-t border-dg-border"
               aria-label="Languages"
             >
-              <p className="text-xs font-bold tracking-[0.35em] uppercase mb-4 text-[#888]">
+              <p className="text-xs font-bold tracking-[0.35em] uppercase mb-4 text-dg-subtle">
                 {t.notFound.otherLocales}
               </p>
               <div className="flex flex-wrap gap-3">
@@ -82,8 +82,8 @@ export default function NotFoundPage() {
                     href={getPath(l, "home")}
                     className={`text-xs tracking-widest uppercase font-medium px-3 py-1 border transition-colors ${
                       l === locale
-                        ? "border-[#18181b] text-[#18181b]"
-                        : "border-[#e4ddd3] text-[#aaa] hover:text-[#555] hover:border-[#ccc]"
+                        ? "border-dg-navy-900 text-dg-navy-900"
+                        : "border-dg-border text-dg-subtle hover:text-dg-muted hover:border-dg-borderStrong"
                     }`}
                   >
                     {l}

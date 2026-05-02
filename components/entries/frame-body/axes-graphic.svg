@@ -5,30 +5,30 @@
   role="img"
   aria-label="3D frame axes"
 >
-  <rect x="0" y="0" width="360" height="220" fill="#f1ebdf" />
-  <line x1="80" y1="170" x2="300" y2="170" stroke="#d5c7ae" strokeWidth="1" />
-  <line x1="80" y1="170" x2="80" y2="30" stroke="#d5c7ae" strokeWidth="1" />
+  <rect x="0" y="0" width="360" height="220" fill="#e6f0f9" />
+  <line x1="80" y1="170" x2="300" y2="170" stroke="#c8d8e8" strokeWidth="1" />
+  <line x1="80" y1="170" x2="80" y2="30" stroke="#c8d8e8" strokeWidth="1" />
 
-  <circle cx="120" cy="140" r="5" fill="#18181b" />
-  <text x="108" y="158" fontSize="12" fill="#18181b">
+  <circle cx="120" cy="140" r="5" fill="#050c18" />
+  <text x="108" y="158" fontSize="12" fill="#050c18">
     O
   </text>
 
-  <line x1="120" y1="140" x2="230" y2="125" stroke="#d27d2f" strokeWidth="4" />
-  <polygon points="230,125 220,119 222,129" fill="#d27d2f" />
-  <text x="238" y="124" fontSize="12" fill="#d27d2f">
+  <line x1="120" y1="140" x2="230" y2="125" stroke="#4a9ec4" strokeWidth="4" />
+  <polygon points="230,125 220,119 222,129" fill="#4a9ec4" />
+  <text x="238" y="124" fontSize="12" fill="#4a9ec4">
     x
   </text>
 
-  <line x1="120" y1="140" x2="90" y2="60" stroke="#4a7f6f" strokeWidth="4" />
-  <polygon points="90,60 86,71 96,67" fill="#4a7f6f" />
-  <text x="72" y="58" fontSize="12" fill="#4a7f6f">
+  <line x1="120" y1="140" x2="90" y2="60" stroke="#1a4a72" strokeWidth="4" />
+  <polygon points="90,60 86,71 96,67" fill="#1a4a72" />
+  <text x="72" y="58" fontSize="12" fill="#1a4a72">
     y
   </text>
 
-  <line x1="120" y1="140" x2="165" y2="75" stroke="#587ca0" strokeWidth="4" />
-  <polygon points="165,75 155,79 163,86" fill="#587ca0" />
-  <text x="172" y="73" fontSize="12" fill="#587ca0">
+  <line x1="120" y1="140" x2="165" y2="75" stroke="#3d6a9e" strokeWidth="4" />
+  <polygon points="165,75 155,79 163,86" fill="#3d6a9e" />
+  <text x="172" y="73" fontSize="12" fill="#3d6a9e">
     z
   </text>
 </svg>

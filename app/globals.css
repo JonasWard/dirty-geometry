@@ -11,11 +11,9 @@
 }
 
 p a {
-  color: #c49a4a;
-  text-decoration: underline;
-  text-underline-offset: 3px;
+  @apply text-dg-sky-600 underline decoration-dg-sky-600/35 underline-offset-[3px] transition-colors;
 }
 
 p a:hover {
-  color: #18181b;
+  @apply text-dg-navy-900 decoration-dg-navy-900/35;
 }

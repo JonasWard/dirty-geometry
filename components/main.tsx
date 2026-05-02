@@ -13,8 +13,8 @@ export default function Main({
   page: Page;
 }) {
   return (
-    <div className="min-h-screen bg-[#f8f5f0] text-[#18181b]">
-      <header className="sticky top-0 z-50 bg-[#f8f5f0] border-b border-[#e4ddd3]">
+    <div className="min-h-screen bg-dg-canvas text-dg-ink">
+      <header className="sticky top-0 z-50 bg-dg-canvas/95 backdrop-blur-sm border-b border-dg-border">
         <div className="max-w-[1400px] mx-auto w-full px-6 md:px-12 py-4 flex items-center justify-between">
           <Link
             href="/"

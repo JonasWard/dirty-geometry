@@ -12,7 +12,9 @@ const List = ({
       {items.map(({ active, href, text }) => (
         <Link
           className={`text-xs tracking-widest uppercase font-medium transition-colors duration-200 ${
-            active ? "text-[#18181b]" : "text-[#aaa] hover:text-[#555]"
+            active
+              ? "text-dg-navy-900"
+              : "text-dg-subtle hover:text-dg-steel-600"
           }`}
           href={href}
           key={text}

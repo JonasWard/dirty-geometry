@@ -5,34 +5,34 @@
   role="img"
   aria-label="Frame from three points"
 >
-  <rect x="0" y="0" width="360" height="220" fill="#eef1e9" />
+  <rect x="0" y="0" width="360" height="220" fill="#e6f0f9" />
 
-  <circle cx="90" cy="150" r="5" fill="#18181b" />
-  <text x="76" y="168" fontSize="12" fill="#18181b">
+  <circle cx="90" cy="150" r="5" fill="#050c18" />
+  <text x="76" y="168" fontSize="12" fill="#050c18">
     O
   </text>
 
-  <circle cx="250" cy="140" r="5" fill="#18181b" />
-  <text x="257" y="144" fontSize="12" fill="#18181b">
+  <circle cx="250" cy="140" r="5" fill="#050c18" />
+  <text x="257" y="144" fontSize="12" fill="#050c18">
     A
   </text>
 
-  <circle cx="160" cy="70" r="5" fill="#18181b" />
-  <text x="167" y="74" fontSize="12" fill="#18181b">
+  <circle cx="160" cy="70" r="5" fill="#050c18" />
+  <text x="167" y="74" fontSize="12" fill="#050c18">
     B
   </text>
 
-  <line x1="90" y1="150" x2="250" y2="140" stroke="#d27d2f" strokeWidth="4" />
-  <line x1="90" y1="150" x2="160" y2="70" stroke="#4a7f6f" strokeWidth="3" strokeDasharray="6 5" />
-  <line x1="90" y1="150" x2="120" y2="55" stroke="#587ca0" strokeWidth="3" />
+  <line x1="90" y1="150" x2="250" y2="140" stroke="#4a9ec4" strokeWidth="4" />
+  <line x1="90" y1="150" x2="160" y2="70" stroke="#1a4a72" strokeWidth="3" strokeDasharray="6 5" />
+  <line x1="90" y1="150" x2="120" y2="55" stroke="#3d6a9e" strokeWidth="3" />
 
-  <text x="176" y="132" fontSize="12" fill="#d27d2f">
+  <text x="176" y="132" fontSize="12" fill="#4a9ec4">
     OA
   </text>
-  <text x="136" y="100" fontSize="12" fill="#4a7f6f">
+  <text x="136" y="100" fontSize="12" fill="#1a4a72">
     OB
   </text>
-  <text x="124" y="48" fontSize="12" fill="#587ca0">
+  <text x="124" y="48" fontSize="12" fill="#3d6a9e">
     OB_perp
   </text>
 </svg>

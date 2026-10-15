@@ -1,7 +1,7 @@
 import { Aabb2 } from '../bounds/aabb2';
 import { Epsilon } from '../core/epsilon';
 import { Vec2 } from '../core/vec2';
-import { InfiniteLine2 } from '../geometry/primitives/infinite-line2';
+import type { InfiniteLine2 } from '../geometry/primitives/infinite-line2';
 import { Polygon2 } from '../geometry/regions/polygon2';
 import { TriMesh2 } from '../geometry/regions/tri-mesh2';
 import { triangulateSources } from './constrained-delaunay';
@@ -104,7 +104,7 @@ function partitionClips(clips: readonly Boolean2Clip[]): {
   const halfPlanes: InfiniteLine2[] = [];
   const polygons: Polygon2[] = [];
   for (const clip of clips) {
-    if (clip instanceof InfiniteLine2) halfPlanes.push(clip);
+    if (clip.type === 'InfiniteLine2') halfPlanes.push(clip);
     else polygons.push(clip);
   }
   return { halfPlanes, polygons };

@@ -42,8 +42,9 @@ export function douglasPeucker<T extends Polygon2 | Polyline2>(
   curve: T,
   tolerances: DouglasPeuckerTolerances = DOUGLAS_PEUCKER_DEFAULTS,
 ): T {
-  const simplified = douglasPeuckerVertices(curve.vertices, tolerances, curve instanceof Polygon2);
-  return (curve instanceof Polygon2 ? new Polygon2(simplified) : new Polyline2(simplified)) as T;
+  const closed = curve.type === 'Polygon2';
+  const simplified = douglasPeuckerVertices(curve.vertices, tolerances, closed);
+  return (closed ? new Polygon2(simplified) : new Polyline2(simplified)) as T;
 }
 
 /** Ramer-Douglas-Peucker simplification with distance and angle tolerances. */

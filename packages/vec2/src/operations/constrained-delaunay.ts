@@ -14,13 +14,15 @@
  * (e.g. Boolean2 after packing).
  */
 import { Aabb2 } from '../bounds/aabb2';
+import { assertNever } from '../core/assert';
 import { Epsilon } from '../core/epsilon';
 import { dehash2, hash2 } from '../hash/core';
 import { Vec2 } from '../core/vec2';
-import { Polyline2 } from '../geometry/curves/polyline2';
-import { InfiniteLine2 } from '../geometry/primitives/infinite-line2';
+import type { Polyline2 } from '../geometry/curves/polyline2';
+import type { InfiniteLine2 } from '../geometry/primitives/infinite-line2';
 import { Line2 } from '../geometry/primitives/line2';
 import { intersectionLines } from './intersection/line2-like';
+import type { LineLike2IntersectionResult } from '../geometry/kinds';
 import { Circle2 } from '../geometry/regions/circle2';
 import { Polygon2 } from '../geometry/regions/polygon2';
 import { TriMesh2 } from '../geometry/regions/tri-mesh2';
@@ -112,11 +114,23 @@ function partitionGeometries(geometries: TriangulateGeometries): {
   const steiner: Vec2[] = [];
 
   for (const geometry of geometries) {
-    if (geometry instanceof Polygon2) segments.push(...geometry.segments());
-    else if (geometry instanceof Polyline2) segments.push(...geometry.segments());
-    else if (geometry instanceof Line2) segments.push(new Line2(geometry.from.clone(), geometry.to.clone()));
-    else if (geometry instanceof InfiniteLine2) lines.push(geometry);
-    else if (geometry instanceof Vec2) steiner.push(geometry);
+    switch (geometry.type) {
+      case 'Polygon2':
+      case 'Polyline2':
+        segments.push(...geometry.segments());
+        break;
+      case 'Line2':
+        segments.push(new Line2(geometry.from.clone(), geometry.to.clone()));
+        break;
+      case 'InfiniteLine2':
+        lines.push(geometry);
+        break;
+      case 'Vec2':
+        steiner.push(geometry);
+        break;
+      default:
+        assertNever(geometry, 'constrainedDelaunay: unsupported geometry');
+    }
   }
 
   return { segments, lines, steiner };
@@ -157,8 +171,8 @@ function link(a: HitChain, b: HitChain, point: Vec2, registry: PointRegistry): n
 }
 
 /** Narrow intersection results to a point (ignore overlaps / null). */
-function asPoint(result: unknown): Vec2 | null {
-  return result instanceof Vec2 ? result : null;
+function asPoint(result: LineLike2IntersectionResult): Vec2 | null {
+  return result?.type === 'Vec2' ? result : null;
 }
 
 /**

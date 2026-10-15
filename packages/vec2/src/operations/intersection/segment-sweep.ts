@@ -1,5 +1,5 @@
 import { Epsilon } from '../../core/epsilon';
-import { Vec2 } from '../../core/vec2';
+import type { Vec2 } from '../../core/vec2';
 import { Line2 } from '../../geometry/primitives/line2';
 import { intersectionLines } from './line2-like';
 
@@ -41,7 +41,7 @@ export function findSegmentCrossings(segments: readonly Line2[], slack: Epsilon 
 
     for (const prior of active) {
       const hit = intersectionLines(prior.segment, current.segment);
-      if (!(hit instanceof Vec2)) continue;
+      if (hit?.type !== 'Vec2') continue;
 
       const lo = Math.min(prior.index, current.index);
       const hi = Math.max(prior.index, current.index);

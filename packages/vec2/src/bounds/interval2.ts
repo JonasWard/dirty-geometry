@@ -3,6 +3,11 @@ import { Epsilon } from '../core/epsilon';
 /** Closed numeric interval `[min, max]`. Endpoints may be `±Infinity`. */
 export class Interval2 {
   static readonly type = 'Interval2' as const;
+
+  /** Type tag for dispatch (`switch (value.type)`). A prototype getter, so JSON and equality ignore it. */
+  get type(): typeof Interval2.type {
+    return Interval2.type;
+  }
   static readonly unit = Object.freeze(new Interval2(0, 1));
   static readonly ray = Object.freeze(new Interval2(0, Infinity));
   /** Closed negative indexes `(-∞, -1]`. */

@@ -7,6 +7,11 @@ import { GridRectangle2 } from './grid-rectangle2';
 export class GridLine2 {
   static readonly type = 'GridLine2' as const;
 
+  /** Type tag for dispatch (`switch (value.type)`). A prototype getter, so JSON and equality ignore it. */
+  get type(): typeof GridLine2.type {
+    return GridLine2.type;
+  }
+
   readonly from: GridCell2;
   readonly to: GridCell2;
 

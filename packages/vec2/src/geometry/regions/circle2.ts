@@ -7,6 +7,11 @@ import { Vec2, type Vec2Json } from '../../core/vec2';
 export class Circle2 {
   static readonly type = 'Circle2' as const;
 
+  /** Type tag for dispatch (`switch (value.type)`). A prototype getter, so JSON and equality ignore it. */
+  get type(): typeof Circle2.type {
+    return Circle2.type;
+  }
+
   readonly center: Vec2;
   readonly radius: number;
 

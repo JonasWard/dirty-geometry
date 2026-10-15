@@ -9,6 +9,11 @@ import { Line2 } from '../primitives/line2';
 export class Polygon2 {
   static readonly type = 'Polygon2' as const;
 
+  /** Type tag for dispatch (`switch (value.type)`). A prototype getter, so JSON and equality ignore it. */
+  get type(): typeof Polygon2.type {
+    return Polygon2.type;
+  }
+
   readonly vertices: readonly Vec2[];
 
   constructor(vertices: Vec2[]) {

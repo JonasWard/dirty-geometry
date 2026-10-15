@@ -6,6 +6,11 @@ import type { Mat3 } from './mat3';
 export class Vec2 {
   static readonly type = 'Vec2' as const;
 
+  /** Type tag for dispatch (`switch (value.type)`). A prototype getter, so JSON and equality ignore it. */
+  get type(): typeof Vec2.type {
+    return Vec2.type;
+  }
+
   constructor(
     readonly x = 0,
     readonly y = 0,

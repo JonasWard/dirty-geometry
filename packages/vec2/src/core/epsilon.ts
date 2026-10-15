@@ -1,6 +1,11 @@
 export class Epsilon {
   static readonly type = 'Epsilon' as const;
 
+  /** Type tag for dispatch (`switch (value.type)`). A prototype getter, so JSON and equality ignore it. */
+  get type(): typeof Epsilon.type {
+    return Epsilon.type;
+  }
+
   static readonly value = 1e-6;
   static readonly sq = Epsilon.value * Epsilon.value;
 

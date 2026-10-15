@@ -14,6 +14,11 @@ export type BoundaryLoop2 = {
 
 export class TriMesh2 {
   static readonly type = 'TriMesh2' as const;
+
+  /** Type tag for dispatch (`switch (value.type)`). A prototype getter, so JSON and equality ignore it. */
+  get type(): typeof TriMesh2.type {
+    return TriMesh2.type;
+  }
   /** Frozen after construction, so the boundary-loop caches cannot go stale. */
   readonly vertices: readonly Vec2[];
   readonly triangles: readonly (readonly [number, number, number])[];

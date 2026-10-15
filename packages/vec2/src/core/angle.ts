@@ -34,6 +34,11 @@ const DefaultAngleShape = {
 /** Angle in radians with an explicit domain (`τ` or `π`) and hash precision. */
 export class Angle {
   static readonly type = 'Angle' as const;
+
+  /** Type tag for dispatch (`switch (value.type)`). A prototype getter, so JSON and equality ignore it. */
+  get type(): typeof Angle.type {
+    return Angle.type;
+  }
   static readonly tauDomain = Object.freeze(new Interval2(0, TAU));
   static readonly piDomain = Object.freeze(new Interval2(0, Math.PI));
   static readonly degreeScale = 180 / Math.PI;

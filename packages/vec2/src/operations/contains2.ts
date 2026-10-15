@@ -1,15 +1,15 @@
 import { Aabb2 } from '../bounds/aabb2';
 import { Interval2 } from '../bounds/interval2';
+import { assertNever } from '../core/assert';
 import { Epsilon } from '../core/epsilon';
 import { Vec2 } from '../core/vec2';
-import { Polyline2 } from '../geometry/curves/polyline2';
-import { InfiniteLine2 } from '../geometry/primitives/infinite-line2';
+import type { InfiniteLine2 } from '../geometry/primitives/infinite-line2';
 import { Line2 } from '../geometry/primitives/line2';
-import { Ray2 } from '../geometry/primitives/ray2';
-import { Circle2 } from '../geometry/regions/circle2';
+import type { Ray2 } from '../geometry/primitives/ray2';
+import type { Circle2 } from '../geometry/regions/circle2';
 import type { Container2, Geometry2 } from '../geometry/kinds';
 import { Polygon2 } from '../geometry/regions/polygon2';
-import { TriMesh2 } from '../geometry/regions/tri-mesh2';
+import type { TriMesh2 } from '../geometry/regions/tri-mesh2';
 
 export type { Container2, Geometry2, Region2 } from '../geometry/kinds';
 
@@ -61,35 +61,29 @@ export class Contains2 {
   }
 
   private static containsGuest(container: Container2, geometry: Geometry2, slack: Epsilon): boolean {
-    if (geometry instanceof Vec2) {
-      return Contains2.pointIn(container, geometry, slack);
+    switch (geometry.type) {
+      case 'Vec2':
+        return Contains2.pointIn(container, geometry, slack);
+      case 'Line2':
+        return Contains2.lineIn(container, geometry, slack);
+      case 'Ray2':
+        return Contains2.rayIn(container, geometry, slack);
+      case 'InfiniteLine2':
+        return Contains2.infiniteLineIn(container, geometry, slack);
+      case 'Hesse2':
+        return Contains2.infiniteLineIn(container, geometry.infiniteLine(), slack);
+      case 'Circle2':
+        return Contains2.circleIn(container, geometry, slack);
+      case 'Aabb2':
+        return Contains2.aabbIn(container, geometry, slack);
+      case 'Polyline2':
+      case 'Polygon2':
+        return Contains2.linesIn(container, geometry.segments(), slack);
+      case 'TriMesh2':
+        return Contains2.triMeshIn(container, geometry, slack);
+      default:
+        return assertNever(geometry, 'Contains2: unknown guest');
     }
-    if (geometry instanceof Line2) {
-      return Contains2.lineIn(container, geometry, slack);
-    }
-    if (geometry instanceof Ray2) {
-      return Contains2.rayIn(container, geometry, slack);
-    }
-    if (geometry instanceof InfiniteLine2) {
-      return Contains2.infiniteLineIn(container, geometry, slack);
-    }
-    if (geometry instanceof Circle2) {
-      return Contains2.circleIn(container, geometry, slack);
-    }
-    if (geometry instanceof Aabb2) {
-      return Contains2.aabbIn(container, geometry, slack);
-    }
-    if (geometry instanceof Polyline2) {
-      return Contains2.linesIn(container, geometry.segments(), slack);
-    }
-    if (geometry instanceof Polygon2) {
-      return Contains2.linesIn(container, geometry.segments(), slack);
-    }
-    if (geometry instanceof TriMesh2) {
-      return Contains2.triMeshIn(container, geometry, slack);
-    }
-
-    return false;
   }
 
   private static lineIn(container: Container2, line: Line2, slack: Epsilon): boolean {
@@ -101,7 +95,7 @@ export class Contains2 {
       return true;
     }
 
-    if (container instanceof Polygon2 || container instanceof TriMesh2) {
+    if (container.type === 'Polygon2' || container.type === 'TriMesh2') {
       return segmentStaysIn(container, line.from, line.to, slack);
     }
 
@@ -118,16 +112,16 @@ export class Contains2 {
   }
 
   private static circleIn(container: Container2, circle: Circle2, slack: Epsilon): boolean {
-    if (container instanceof Circle2) {
+    if (container.type === 'Circle2') {
       const gap = container.radius - circle.radius - circle.center.distance(container.center);
       return inside(gap, slack, true);
     }
 
-    if (container instanceof InfiniteLine2) {
+    if (container.type === 'InfiniteLine2') {
       return inside(container.signedDistance(circle.center) + circle.radius, slack);
     }
 
-    if (container instanceof Polygon2 || container instanceof TriMesh2 || container instanceof Aabb2) {
+    if (container.type === 'Polygon2' || container.type === 'TriMesh2' || container.type === 'Aabb2') {
       if (!Contains2.pointIn(container, circle.center, slack)) {
         const onBoundary =
           slack.value > 0 &&
@@ -145,7 +139,7 @@ export class Contains2 {
   }
 
   private static rayIn(container: Container2, ray: Ray2, slack: Epsilon): boolean {
-    if (container instanceof InfiniteLine2) {
+    if (container.type === 'InfiniteLine2') {
       if (!Contains2.pointIn(container, ray.start, slack)) {
         return false;
       }
@@ -172,7 +166,7 @@ export class Contains2 {
   }
 
   private static infiniteLineIn(container: Container2, line: InfiniteLine2, slack: Epsilon): boolean {
-    if (!(container instanceof InfiniteLine2)) {
+    if (container.type !== 'InfiniteLine2') {
       return false;
     }
 
@@ -243,7 +237,7 @@ function asGuestList(guests: Geometry2Input): readonly Geometry2[] {
 }
 
 function containerAabb(container: Container2): Aabb2 {
-  if (container instanceof Aabb2) {
+  if (container.type === 'Aabb2') {
     return container;
   }
 
@@ -251,7 +245,7 @@ function containerAabb(container: Container2): Aabb2 {
 }
 
 function guestAabb(geometry: Geometry2): Aabb2 {
-  if (geometry instanceof Vec2) {
+  if (geometry.type === 'Vec2') {
     return Aabb2.fromPoints(geometry);
   }
 
@@ -276,7 +270,7 @@ function axisBroadPhaseContains(container: Interval2, guest: Interval2, slack: E
 }
 
 function isConvexContainer(container: Container2): boolean {
-  return container instanceof Circle2 || container instanceof InfiniteLine2 || container instanceof Aabb2;
+  return container.type === 'Circle2' || container.type === 'InfiniteLine2' || container.type === 'Aabb2';
 }
 
 /** True when `value` is inside relative to a zero boundary, honouring slack. */
@@ -290,7 +284,7 @@ function inside(value: number, slack: Epsilon, inverted = false): boolean {
 }
 
 function clearanceAt(container: Polygon2 | TriMesh2 | Aabb2, point: Vec2): number {
-  if (container instanceof Aabb2) {
+  if (container.type === 'Aabb2') {
     return -container.signedDistance(point);
   }
 
@@ -308,7 +302,7 @@ function segmentStaysIn(container: Polygon2 | TriMesh2, from: Vec2, to: Vec2, sl
     return false;
   }
 
-  const boundary: Line2[] = container instanceof Polygon2 ? [...container.segments()] : meshBoundarySegments(container);
+  const boundary: Line2[] = container.type === 'Polygon2' ? [...container.segments()] : meshBoundarySegments(container);
 
   for (const edge of boundary) {
     if (segmentsProperlyIntersect(from, to, edge.from, edge.to, slack)) {

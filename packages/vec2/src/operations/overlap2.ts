@@ -2,15 +2,14 @@ import { Aabb2 } from '../bounds/aabb2';
 import { Interval2 } from '../bounds/interval2';
 import { Epsilon } from '../core/epsilon';
 import { Vec2 } from '../core/vec2';
-import { Polyline2 } from '../geometry/curves/polyline2';
-import { Hesse2 } from '../geometry/primitives/hesse2';
-import { InfiniteLine2 } from '../geometry/primitives/infinite-line2';
+import type { Polyline2 } from '../geometry/curves/polyline2';
+import type { InfiniteLine2 } from '../geometry/primitives/infinite-line2';
 import { Line2 } from '../geometry/primitives/line2';
-import { Ray2 } from '../geometry/primitives/ray2';
-import { Circle2 } from '../geometry/regions/circle2';
+import type { Ray2 } from '../geometry/primitives/ray2';
+import type { Circle2 } from '../geometry/regions/circle2';
 import type { Container2, Geometry2 } from '../geometry/kinds';
 import { Polygon2 } from '../geometry/regions/polygon2';
-import { TriMesh2 } from '../geometry/regions/tri-mesh2';
+import type { TriMesh2 } from '../geometry/regions/tri-mesh2';
 import { intersectionLines } from './intersection/line2-like';
 
 export type { Geometry2 } from '../geometry/kinds';
@@ -23,7 +22,7 @@ type LineLike2 = InfiniteLine2 | Ray2 | Line2;
  */
 export class Overlap2 {
   static overlaps(a: Geometry2, b: Geometry2, slack: Epsilon = Epsilon.preferIn): boolean {
-    if (!(a instanceof InfiniteLine2 || b instanceof InfiniteLine2)) {
+    if (!(a.type === 'InfiniteLine2' || b.type === 'InfiniteLine2')) {
       if (!aabbOverlap(geometryAabb(a), geometryAabb(b), slack)) {
         return false;
       }
@@ -34,17 +33,17 @@ export class Overlap2 {
 }
 
 function overlapPair(a: Geometry2, b: Geometry2, slack: Epsilon): boolean {
-  if (a instanceof InfiniteLine2 && !(b instanceof InfiniteLine2)) {
+  if (a.type === 'InfiniteLine2' && b.type !== 'InfiniteLine2') {
     return overlapsHalfPlane(a, b, slack);
   }
-  if (b instanceof InfiniteLine2 && !(a instanceof InfiniteLine2)) {
+  if (b.type === 'InfiniteLine2' && a.type !== 'InfiniteLine2') {
     return overlapsHalfPlane(b, a, slack);
   }
 
-  if (a instanceof Vec2) {
+  if (a.type === 'Vec2') {
     return overlapsPoint(a, b, slack);
   }
-  if (b instanceof Vec2) {
+  if (b.type === 'Vec2') {
     return overlapsPoint(b, a, slack);
   }
 
@@ -56,17 +55,17 @@ function overlapPair(a: Geometry2, b: Geometry2, slack: Epsilon): boolean {
     return overlapsCurves(a, b, slack);
   }
 
-  if (a instanceof Circle2) {
+  if (a.type === 'Circle2') {
     return overlapsCircle(a, b, slack);
   }
-  if (b instanceof Circle2) {
+  if (b.type === 'Circle2') {
     return overlapsCircle(b, a, slack);
   }
 
-  if (a instanceof Aabb2) {
+  if (a.type === 'Aabb2') {
     return overlapsAabb(a, b, slack);
   }
-  if (b instanceof Aabb2) {
+  if (b.type === 'Aabb2') {
     return overlapsAabb(b, a, slack);
   }
 
@@ -74,27 +73,27 @@ function overlapPair(a: Geometry2, b: Geometry2, slack: Epsilon): boolean {
 }
 
 function overlapsPoint(point: Vec2, other: Geometry2, slack: Epsilon): boolean {
-  if (other instanceof Vec2) {
+  if (other.type === 'Vec2') {
     return withinDistance(point.distance(other), slack);
   }
 
-  if (other instanceof Line2 || other instanceof Polyline2 || other instanceof Ray2) {
+  if (other.type === 'Line2' || other.type === 'Polyline2' || other.type === 'Ray2') {
     return withinDistance(other.distanceToPoint(point), slack);
   }
 
-  if (other instanceof InfiniteLine2) {
+  if (other.type === 'InfiniteLine2') {
     return withinDistance(other.distanceToPoint(point), slack);
   }
 
-  if (other instanceof Circle2) {
+  if (other.type === 'Circle2') {
     return withinSeparation(other.signedDistance(point), slack);
   }
 
-  if (other instanceof Aabb2) {
+  if (other.type === 'Aabb2') {
     return pointInContainer(other, point, slack);
   }
 
-  if (other instanceof Hesse2) {
+  if (other.type === 'Hesse2') {
     return withinDistance(other.distanceToPoint(point), slack);
   }
 
@@ -111,11 +110,11 @@ function overlapsLineLikes(a: LineLike2, b: LineLike2, slack: Epsilon): boolean 
     return true;
   }
 
-  if (hit instanceof Vec2) {
+  if (hit.type === 'Vec2') {
     return false;
   }
 
-  if (hit instanceof Line2) {
+  if (hit.type === 'Line2') {
     return hit.length() > -slack.value;
   }
 
@@ -152,16 +151,16 @@ function overlapsSegments(a: Line2, b: Line2, slack: Epsilon): boolean {
 }
 
 function overlapsCircle(circle: Circle2, other: Geometry2, slack: Epsilon): boolean {
-  if (other instanceof Circle2) {
+  if (other.type === 'Circle2') {
     const gap = circle.center.distance(other.center) - circle.radius - other.radius;
     return withinSeparation(gap, slack);
   }
 
-  if (other instanceof Line2) {
+  if (other.type === 'Line2') {
     return withinSeparation(other.distanceToPoint(circle.center) - circle.radius, slack);
   }
 
-  if (other instanceof Polyline2) {
+  if (other.type === 'Polyline2') {
     for (const segment of other.segments()) {
       if (overlapsCircle(circle, segment, slack)) {
         return true;
@@ -170,15 +169,15 @@ function overlapsCircle(circle: Circle2, other: Geometry2, slack: Epsilon): bool
     return false;
   }
 
-  if (other instanceof Ray2) {
+  if (other.type === 'Ray2') {
     return withinSeparation(other.distanceToPoint(circle.center) - circle.radius, slack);
   }
 
-  if (other instanceof InfiniteLine2) {
+  if (other.type === 'InfiniteLine2') {
     return withinSeparation(Math.abs(other.signedDistance(circle.center)) - circle.radius, slack);
   }
 
-  if (other instanceof Aabb2) {
+  if (other.type === 'Aabb2') {
     return overlapsCircle(circle, Polygon2.fromAabb2(other), slack);
   }
 
@@ -188,7 +187,7 @@ function overlapsCircle(circle: Circle2, other: Geometry2, slack: Epsilon): bool
     }
   }
 
-  if (other instanceof Polygon2 || other instanceof TriMesh2) {
+  if (other.type === 'Polygon2' || other.type === 'TriMesh2') {
     if (pointInContainer(other, circle.center, slack)) {
       return true;
     }
@@ -204,7 +203,7 @@ function overlapsCircle(circle: Circle2, other: Geometry2, slack: Epsilon): bool
 }
 
 function overlapsHalfPlane(plane: InfiniteLine2, other: Geometry2, slack: Epsilon): boolean {
-  if (other instanceof Vec2) {
+  if (other.type === 'Vec2') {
     return inside(plane.signedDistance(other), slack);
   }
 
@@ -220,7 +219,7 @@ function overlapsHalfPlane(plane: InfiniteLine2, other: Geometry2, slack: Epsilo
     }
   }
 
-  if (other instanceof Circle2) {
+  if (other.type === 'Circle2') {
     return withinSeparation(Math.abs(plane.signedDistance(other.center)) - other.radius, slack);
   }
 
@@ -228,11 +227,11 @@ function overlapsHalfPlane(plane: InfiniteLine2, other: Geometry2, slack: Epsilo
 }
 
 function overlapsAabb(box: Aabb2, other: Geometry2, slack: Epsilon): boolean {
-  if (other instanceof Aabb2) {
+  if (other.type === 'Aabb2') {
     return aabbOverlap(box, other, slack);
   }
 
-  if (other instanceof Circle2) {
+  if (other.type === 'Circle2') {
     return overlapsCircle(other, box, slack);
   }
 
@@ -290,19 +289,19 @@ function overlapsFilledRegions(a: Geometry2, b: Geometry2, slack: Epsilon): bool
 }
 
 function isCurve(geometry: Geometry2): geometry is Line2 | Polyline2 | Ray2 {
-  return geometry instanceof Line2 || geometry instanceof Polyline2 || geometry instanceof Ray2;
+  return geometry.type === 'Line2' || geometry.type === 'Polyline2' || geometry.type === 'Ray2';
 }
 
 function isLineLike(geometry: Geometry2): geometry is LineLike2 {
-  return geometry instanceof Line2 || geometry instanceof Ray2 || geometry instanceof InfiniteLine2;
+  return geometry.type === 'Line2' || geometry.type === 'Ray2' || geometry.type === 'InfiniteLine2';
 }
 
 function geometryAabb(geometry: Geometry2): Aabb2 {
-  if (geometry instanceof Vec2) {
+  if (geometry.type === 'Vec2') {
     return Aabb2.fromPoints(geometry);
   }
 
-  if (geometry instanceof Aabb2) {
+  if (geometry.type === 'Aabb2') {
     return geometry;
   }
 
@@ -338,11 +337,11 @@ function withinDistance(distance: number, slack: Epsilon): boolean {
 }
 
 function pointInContainer(container: Container2, point: Vec2, slack: Epsilon): boolean {
-  if (container instanceof TriMesh2) {
+  if (container.type === 'TriMesh2') {
     return container.containsPoint(point, slack);
   }
 
-  if (container instanceof Aabb2) {
+  if (container.type === 'Aabb2') {
     return container.x.contains(point.x, slack) && container.y.contains(point.y, slack);
   }
 
@@ -367,11 +366,11 @@ function segmentsCross(a: Vec2, b: Vec2, c: Vec2, d: Vec2, slack: Epsilon): bool
 }
 
 function segmentsOf(curve: Line2 | Polyline2 | Ray2): Line2[] {
-  if (curve instanceof Line2) {
+  if (curve.type === 'Line2') {
     return [curve];
   }
 
-  if (curve instanceof Polyline2) {
+  if (curve.type === 'Polyline2') {
     return curve.segments();
   }
 
@@ -379,23 +378,23 @@ function segmentsOf(curve: Line2 | Polyline2 | Ray2): Line2[] {
 }
 
 function verticesOf(geometry: Geometry2): Vec2[] {
-  if (geometry instanceof Vec2) {
+  if (geometry.type === 'Vec2') {
     return [geometry];
   }
 
-  if (geometry instanceof Line2) {
+  if (geometry.type === 'Line2') {
     return [geometry.from, geometry.to];
   }
 
-  if (geometry instanceof Polyline2 || geometry instanceof Polygon2) {
+  if (geometry.type === 'Polyline2' || geometry.type === 'Polygon2') {
     return [...geometry.vertices];
   }
 
-  if (geometry instanceof TriMesh2) {
+  if (geometry.type === 'TriMesh2') {
     return [...geometry.vertices];
   }
 
-  if (geometry instanceof Ray2) {
+  if (geometry.type === 'Ray2') {
     return [geometry.start, geometry.evaluate(1)];
   }
 
@@ -403,19 +402,19 @@ function verticesOf(geometry: Geometry2): Vec2[] {
 }
 
 function edgesOf(geometry: Geometry2): Line2[] {
-  if (geometry instanceof Line2) {
+  if (geometry.type === 'Line2') {
     return [geometry];
   }
 
-  if (geometry instanceof Polyline2) {
+  if (geometry.type === 'Polyline2') {
     return geometry.segments();
   }
 
-  if (geometry instanceof Polygon2) {
+  if (geometry.type === 'Polygon2') {
     return geometry.segments();
   }
 
-  if (geometry instanceof TriMesh2) {
+  if (geometry.type === 'TriMesh2') {
     const edges: Line2[] = [];
     for (const [i, j, k] of geometry.triangles) {
       const a = geometry.vertices[i]!;
@@ -426,7 +425,7 @@ function edgesOf(geometry: Geometry2): Line2[] {
     return edges;
   }
 
-  if (geometry instanceof Ray2) {
+  if (geometry.type === 'Ray2') {
     return [Line2.definitionOf(geometry)];
   }
 

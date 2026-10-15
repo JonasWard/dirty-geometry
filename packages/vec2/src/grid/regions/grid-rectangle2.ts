@@ -8,6 +8,11 @@ import { GridPolygon2 } from './grid-polygon2';
 export class GridRectangle2 {
   static readonly type = 'GridRectangle2' as const;
 
+  /** Type tag for dispatch (`switch (value.type)`). A prototype getter, so JSON and equality ignore it. */
+  get type(): typeof GridRectangle2.type {
+    return GridRectangle2.type;
+  }
+
   readonly bottomLeft: GridCell2;
   readonly topRight: GridCell2;
 

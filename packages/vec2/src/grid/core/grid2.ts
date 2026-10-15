@@ -25,6 +25,11 @@ export type Grid2Options = {
 export class Grid2 {
   static readonly type = 'Grid2' as const;
 
+  /** Type tag for dispatch (`switch (value.type)`). A prototype getter, so JSON and equality ignore it. */
+  get type(): typeof Grid2.type {
+    return Grid2.type;
+  }
+
   static readonly minIndex = GRID_MIN_INDEX;
   static readonly maxIndex = GRID_MAX_INDEX;
 

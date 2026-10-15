@@ -15,6 +15,11 @@ export type AxisKind = 'unit' | 'uniform' | 'custom';
  */
 export class Axis {
   static readonly type = 'Axis' as const;
+
+  /** Type tag for dispatch (`switch (value.type)`). A prototype getter, so JSON and equality ignore it. */
+  get type(): typeof Axis.type {
+    return Axis.type;
+  }
   static readonly epsilon = Epsilon.preferIn;
 
   /** Absolute index limits used when no domain is set (matches hashable GridCell2 range). */

@@ -7,6 +7,11 @@ import { InfiniteLine2 } from './infinite-line2';
 /** Half-infinite ray starting at a point and extending in one direction. */
 export class Ray2 {
   static readonly type = 'Ray2' as const;
+
+  /** Type tag for dispatch (`switch (value.type)`). A prototype getter, so JSON and equality ignore it. */
+  get type(): typeof Ray2.type {
+    return Ray2.type;
+  }
   static readonly parameterInterval = Interval2.ray;
 
   constructor(

@@ -9,6 +9,11 @@ import { InfiniteLine2 } from './infinite-line2';
 /** Finite line segment between two points. */
 export class Line2 {
   static readonly type = 'Line2' as const;
+
+  /** Type tag for dispatch (`switch (value.type)`). A prototype getter, so JSON and equality ignore it. */
+  get type(): typeof Line2.type {
+    return Line2.type;
+  }
   static readonly parameterInterval = Interval2.unit;
 
   constructor(

@@ -6,6 +6,11 @@ import { Vec2 } from '../core/vec2';
 export class Aabb2 {
   static readonly type = 'Aabb2' as const;
 
+  /** Type tag for dispatch (`switch (value.type)`). A prototype getter, so JSON and equality ignore it. */
+  get type(): typeof Aabb2.type {
+    return Aabb2.type;
+  }
+
   readonly x: Interval2;
   readonly y: Interval2;
 

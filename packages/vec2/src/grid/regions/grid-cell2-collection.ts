@@ -4,6 +4,11 @@ import { GridCell2, type GridCell2Json } from '../core/grid-cell2';
 export class GridCell2Collection {
   static readonly type = 'CellCollection' as const;
 
+  /** Type tag for dispatch (`switch (value.type)`). A prototype getter, so JSON and equality ignore it. */
+  get type(): typeof GridCell2Collection.type {
+    return GridCell2Collection.type;
+  }
+
   private readonly cells: GridCell2[];
   private readonly hashes: ReadonlySet<number>;
 

@@ -7,6 +7,11 @@ import { segmentsFromVertices } from './segments';
 export class Polyline2 {
   static readonly type = 'Polyline2' as const;
 
+  /** Type tag for dispatch (`switch (value.type)`). A prototype getter, so JSON and equality ignore it. */
+  get type(): typeof Polyline2.type {
+    return Polyline2.type;
+  }
+
   readonly vertices: readonly Vec2[];
 
   constructor(vertices: Vec2[]) {

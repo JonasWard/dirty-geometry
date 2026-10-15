@@ -17,6 +17,11 @@ import type { Aabb2 } from '../../bounds/aabb2';
 export class Hesse2 {
   static readonly type = 'Hesse2' as const;
 
+  /** Type tag for dispatch (`switch (value.type)`). A prototype getter, so JSON and equality ignore it. */
+  get type(): typeof Hesse2.type {
+    return Hesse2.type;
+  }
+
   /** τ-domain precision whose bucket count fits in `HASH_ANGLE_BITWIDTH` (3600 ≤ 2^12). */
   private static readonly HASH_ANGLE_PRECISION: AnglePrecisions = 1e-1;
   private static readonly HASH_ANGLE_BITWIDTH = Angle.getBitWidthForPrecision(Hesse2.HASH_ANGLE_PRECISION, 'tau');

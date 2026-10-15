@@ -7,6 +7,11 @@ import { Vec2, type Vec2Json } from '../../core/vec2';
 /** Infinite line passing through a point in both directions. */
 export class InfiniteLine2 {
   static readonly type = 'InfiniteLine2' as const;
+
+  /** Type tag for dispatch (`switch (value.type)`). A prototype getter, so JSON and equality ignore it. */
+  get type(): typeof InfiniteLine2.type {
+    return InfiniteLine2.type;
+  }
   static readonly parameterInterval = Interval2.infinite;
 
   constructor(

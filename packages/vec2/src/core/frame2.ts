@@ -5,6 +5,11 @@ import { Vec2, type Vec2Json } from './vec2';
 export class Frame2 {
   static readonly type = 'Frame2' as const;
 
+  /** Type tag for dispatch (`switch (value.type)`). A prototype getter, so JSON and equality ignore it. */
+  get type(): typeof Frame2.type {
+    return Frame2.type;
+  }
+
   readonly origin: Vec2;
   readonly xAxis: Vec2;
   readonly yAxis: Vec2;

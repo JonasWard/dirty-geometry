@@ -5,6 +5,11 @@ import { GRID_MAX_INDEX, GRID_MIN_INDEX } from './limits';
 export class GridCell2 {
   static readonly type = 'GridCell2' as const;
 
+  /** Type tag for dispatch (`switch (value.type)`). A prototype getter, so JSON and equality ignore it. */
+  get type(): typeof GridCell2.type {
+    return GridCell2.type;
+  }
+
   constructor(
     public readonly i: number,
     public readonly j: number,

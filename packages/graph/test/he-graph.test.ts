@@ -1,6 +1,6 @@
 import { test, expect } from 'bun:test';
 import { Vec2 } from '@dirty-geometry/vec2/core/vec2';
-import { NGonMesh } from '@dirty-geometry/vec2/geometry/regions/ngon-mesh';
+import { NGonMesh } from '../src/he-graph/ngon-mesh';
 import { createFromNGon } from '../src/he-graph/factory';
 
 test('createFromNGon builds twins and face loops for two quads', () => {

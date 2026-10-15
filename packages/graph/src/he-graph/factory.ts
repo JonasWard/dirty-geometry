@@ -1,5 +1,5 @@
 import { hash2 } from '@dirty-geometry/vec2/hash/core';
-import type { NGonMesh } from '@dirty-geometry/vec2/geometry/regions/ngon-mesh';
+import type { NGonMesh } from './ngon-mesh';
 import { HalfEdge } from './half-edge';
 import { HalfEdgeFace } from './half-edge-face';
 import { HalfEdgeGraph } from './half-edge-graph';

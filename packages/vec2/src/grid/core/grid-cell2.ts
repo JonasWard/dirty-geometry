@@ -1,6 +1,6 @@
 import { mooreNeighborCellHashes, vonNeumannNeighborCellHashes } from '../../hash/neighbors';
 import { dehash2, hash2 } from '../../hash/core';
-import { Grid2 } from './grid2';
+import { GRID_MAX_INDEX, GRID_MIN_INDEX } from './limits';
 
 /** Integer grid index pair. World position is derived via `Grid2` + `Frame2`. */
 export class GridCell2 {
@@ -10,7 +10,7 @@ export class GridCell2 {
     public readonly i: number,
     public readonly j: number,
   ) {
-    if (i < Grid2.minIndex || i > Grid2.maxIndex || j < Grid2.minIndex || j > Grid2.maxIndex) {
+    if (i < GRID_MIN_INDEX || i > GRID_MAX_INDEX || j < GRID_MIN_INDEX || j > GRID_MAX_INDEX) {
       throw new Error('Grid cell index out of bounds');
     }
   }
@@ -33,7 +33,7 @@ export class GridCell2 {
   }
 
   hash(): number {
-    return hash2(this.i - Grid2.minIndex, this.j - Grid2.minIndex);
+    return hash2(this.i - GRID_MIN_INDEX, this.j - GRID_MIN_INDEX);
   }
 
   clone(): GridCell2 {
@@ -46,7 +46,7 @@ export class GridCell2 {
 
   static fromHash(hash: number): GridCell2 {
     const [i, j] = dehash2(hash);
-    return new GridCell2(i + Grid2.minIndex, j + Grid2.minIndex);
+    return new GridCell2(i + GRID_MIN_INDEX, j + GRID_MIN_INDEX);
   }
 
   static cellsHashSet(cells: Iterable<GridCell2>): Set<number> {

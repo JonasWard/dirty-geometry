@@ -7,15 +7,8 @@ const EXAMPLES = 'packages/vec2/examples';
 
 /** Known cycles; remove entries as they are broken. The test fails on new cycles and on stale entries. */
 const ALLOWED_CYCLES: string[][] = [
-  [
-    'grid/core/grid-cell2',
-    'grid/core/grid2',
-    'grid/helper/bresenham',
-    'grid/regions/grid-cell2-collection',
-    'grid/regions/grid-line2',
-    'grid/regions/grid-polygon2',
-    'grid/regions/grid-rectangle2',
-  ],
+  // Grid regions convert into each other (bounding rectangles, edges, outlines); kept as one unit.
+  ['grid/regions/grid-line2', 'grid/regions/grid-polygon2', 'grid/regions/grid-rectangle2'],
 ];
 
 /** Known imports that point to a higher layer; same shrink-only rule. */

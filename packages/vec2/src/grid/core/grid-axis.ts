@@ -1,5 +1,6 @@
 import { Epsilon } from '../../core/epsilon';
 import { Interval2, type Interval2Json } from '../../bounds/interval2';
+import { GRID_MAX_INDEX, GRID_MIN_INDEX } from './limits';
 
 export type AxisKind = 'unit' | 'uniform' | 'custom';
 
@@ -17,7 +18,7 @@ export class Axis {
   static readonly epsilon = Epsilon.preferIn;
 
   /** Absolute index limits used when no domain is set (matches hashable GridCell2 range). */
-  static readonly limits = new Interval2(-(2 ** 25), 2 ** 25 - 1);
+  static readonly limits = new Interval2(GRID_MIN_INDEX, GRID_MAX_INDEX);
 
   private _defaultSize: number;
   private _customSizes: Record<number, number> | null;

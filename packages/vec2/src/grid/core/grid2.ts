@@ -5,6 +5,7 @@ import { GridCell2 } from './grid-cell2';
 import { Frame2 } from '../../core/frame2';
 import type { Mat3 } from '../../core/mat3';
 import { Axis, type AxisJson } from './grid-axis';
+import { GRID_MAX_INDEX, GRID_MIN_INDEX } from './limits';
 import { GridRectangle2 } from '../regions/grid-rectangle2';
 
 export type { AxisJson, AxisKind } from './grid-axis';
@@ -24,8 +25,8 @@ export type Grid2Options = {
 export class Grid2 {
   static readonly type = 'Grid2' as const;
 
-  static readonly minIndex = Axis.limits.min;
-  static readonly maxIndex = Axis.limits.max;
+  static readonly minIndex = GRID_MIN_INDEX;
+  static readonly maxIndex = GRID_MAX_INDEX;
 
   u: Axis;
   v: Axis;

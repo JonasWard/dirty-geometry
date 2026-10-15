@@ -25,7 +25,7 @@ import { Circle2 } from '../geometry/regions/circle2';
 import { Polygon2 } from '../geometry/regions/polygon2';
 import { TriMesh2 } from '../geometry/regions/tri-mesh2';
 import { findSegmentCrossings } from './intersection/segment-sweep';
-import { dedupVertices } from './spatial/dedup-vertices';
+import { dedupVertices } from '../spatial/dedup-vertices';
 
 /** Undirected edge key — same `hash2` convention as TriMesh2. */
 export type ConstraintEdge = number;

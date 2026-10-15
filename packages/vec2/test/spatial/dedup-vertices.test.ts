@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test';
-import { Epsilon } from '../../../src/core/epsilon';
-import { Vec2 } from '../../../src/core/vec2';
-import { dedupVertices } from '../../../src/operations/spatial/dedup-vertices';
+import { Epsilon } from '../../src/core/epsilon';
+import { Vec2 } from '../../src/core/vec2';
+import { dedupVertices } from '../../src/spatial/dedup-vertices';
 
 describe('dedupVertices', () => {
   test('keeps distinct vertices', () => {

@@ -1,6 +1,6 @@
-import { Epsilon } from '../../core/epsilon';
-import { mooreNeighborCellHashes } from '../../hash/neighbors';
-import { Vec2 } from '../../core/vec2';
+import { Epsilon } from '../core/epsilon';
+import { mooreNeighborCellHashes } from '../hash/neighbors';
+import { Vec2 } from '../core/vec2';
 
 const DEFAULT_DEDUP_GRID_SIZE = 0.1;
 

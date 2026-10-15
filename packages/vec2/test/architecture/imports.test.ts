@@ -20,7 +20,6 @@ const ALLOWED_CYCLES: string[][] = [
 
 /** Known imports that point to a higher layer; same shrink-only rule. */
 const ALLOWED_LAYER_VIOLATIONS: string[] = [
-  'geometry/regions/tri-mesh2 -> operations/spatial/dedup-vertices',
 ];
 
 const graph = buildImportGraph([SRC]);

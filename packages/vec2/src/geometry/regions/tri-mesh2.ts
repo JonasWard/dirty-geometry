@@ -2,7 +2,7 @@ import { Aabb2 } from '../../bounds/aabb2';
 import { Epsilon } from '../../core/epsilon';
 import { dehash2, hash2 } from '../../hash/core';
 import { Vec2, type Vec2Json } from '../../core/vec2';
-import { dedupVertices } from '../../operations/spatial/dedup-vertices';
+import { dedupVertices } from '../../spatial/dedup-vertices';
 import { Line2 } from '../primitives/line2';
 import { Polygon2 } from './polygon2';
 

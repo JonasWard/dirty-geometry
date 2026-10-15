@@ -1,0 +1,73 @@
+import { describe, expect, test } from 'bun:test';
+import { buildImportGraph, findCycles, relativeModule } from '../../../../scripts/import-graph';
+import { vec2Layer } from './layers';
+
+const SRC = 'packages/vec2/src';
+const EXAMPLES = 'packages/vec2/examples';
+
+/** Known cycles; remove entries as they are broken. The test fails on new cycles and on stale entries. */
+const ALLOWED_CYCLES: string[][] = [
+  ['core/angle', 'core/vec2'],
+  [
+    'bounds/aabb2',
+    'geometry/curves/segments',
+    'geometry/primitives/hesse2',
+    'geometry/primitives/infinite-line2',
+    'geometry/primitives/line2',
+    'geometry/primitives/ray2',
+    'geometry/regions/polygon2',
+    'operations/intersection/line2-like',
+  ],
+  [
+    'grid/core/grid-cell2',
+    'grid/core/grid2',
+    'grid/helper/bresenham',
+    'grid/regions/grid-cell2-collection',
+    'grid/regions/grid-line2',
+    'grid/regions/grid-polygon2',
+    'grid/regions/grid-rectangle2',
+  ],
+];
+
+/** Known imports that point to a higher layer; same shrink-only rule. */
+const ALLOWED_LAYER_VIOLATIONS: string[] = [
+  'bounds/aabb2 -> geometry/regions/polygon2',
+  'geometry/primitives/infinite-line2 -> operations/intersection/line2-like',
+  'geometry/primitives/line2 -> operations/intersection/line2-like',
+  'geometry/primitives/ray2 -> operations/intersection/line2-like',
+  'geometry/regions/tri-mesh2 -> operations/spatial/dedup-vertices',
+];
+
+const graph = buildImportGraph([SRC]);
+
+describe('vec2 import architecture', () => {
+  test('has no import cycles beyond the allowlist', () => {
+    const cycles = findCycles(graph).map((cycle) => cycle.map((file) => relativeModule(SRC, file)).sort());
+    const key = (cycle: readonly string[]) => [...cycle].sort().join(' ↔ ');
+    expect(cycles.map(key).sort()).toEqual(ALLOWED_CYCLES.map(key).sort());
+  });
+
+  test('only imports from the same or a lower layer', () => {
+    const violations: string[] = [];
+    for (const [file, targets] of graph) {
+      const from = relativeModule(SRC, file);
+      for (const target of targets) {
+        const to = relativeModule(SRC, target);
+        if (vec2Layer(to) > vec2Layer(from)) violations.push(`${from} -> ${to}`);
+      }
+    }
+    expect(violations.sort()).toEqual([...ALLOWED_LAYER_VIOLATIONS].sort());
+  });
+
+  test('src never imports from examples or other packages', () => {
+    const outside: string[] = [];
+    for (const [file, targets] of graph) {
+      for (const target of targets) {
+        if (relativeModule(SRC, target).startsWith('..')) {
+          outside.push(`${relativeModule(SRC, file)} -> ${relativeModule(EXAMPLES, target)}`);
+        }
+      }
+    }
+    expect(outside).toEqual([]);
+  });
+});

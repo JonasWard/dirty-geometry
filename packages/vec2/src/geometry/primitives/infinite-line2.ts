@@ -52,7 +52,7 @@ export class InfiniteLine2 {
   }
 
   transform(matrix: Mat3): InfiniteLine2 {
-    return new InfiniteLine2(this.through.transform(matrix), this.direction.transform(matrix));
+    return new InfiniteLine2(this.through.transform(matrix), this.direction.transformDirection(matrix));
   }
 
   infiniteLine(): InfiniteLine2 {

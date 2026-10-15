@@ -70,6 +70,9 @@ describe('Hesse2', () => {
     const probe = new Vec2(4, -1);
 
     expectClose(transformed.signedDistance(probe), expected.signedDistance(probe));
+    // Absolute check (M3): y = 1 rotated by 90° is x = -1, translated by (2, 3) is x = 1.
+    expectClose(transformed.signedDistance(new Vec2(1, 7)), 0);
+    expectClose(Math.abs(transformed.signedDistance(probe)), 3);
   });
 
   test('toJson', () => {

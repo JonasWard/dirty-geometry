@@ -98,9 +98,16 @@ export class Vec2 {
     return new Vec2(this.x, this.y);
   }
 
+  /** Transform as a point (translation applies). */
   transform(m: Mat3): Vec2 {
     const e = m.elements;
     return new Vec2(e[0]! * this.x + e[3]! * this.y + e[6]!, e[1]! * this.x + e[4]! * this.y + e[7]!);
+  }
+
+  /** Transform as a direction: only the linear part of `m` applies, translation is ignored. */
+  transformDirection(m: Mat3): Vec2 {
+    const e = m.elements;
+    return new Vec2(e[0]! * this.x + e[3]! * this.y, e[1]! * this.x + e[4]! * this.y);
   }
 
   hash(scale = Epsilon.value): number {

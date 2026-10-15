@@ -20,10 +20,11 @@ export class Frame2 {
   }
 
   transform(matrix: Mat3): Frame2 {
-    const newOrigin = this.origin.transform(matrix);
-    const newXAxis = this.xAxis.transform(matrix).subtract(newOrigin);
-    const newYAxis = this.yAxis.transform(matrix).subtract(newOrigin);
-    return new Frame2(newOrigin, newXAxis, newYAxis);
+    return new Frame2(
+      this.origin.transform(matrix),
+      this.xAxis.transformDirection(matrix),
+      this.yAxis.transformDirection(matrix),
+    );
   }
 
   toWorld(local: Vec2): Vec2 {

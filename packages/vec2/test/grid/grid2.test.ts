@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import { Vec2 } from '../../src/core/vec2';
 import { Frame2 } from '../../src/core/frame2';
+import { Mat3 } from '../../src/core/mat3';
 import { Interval2 } from '../../src/bounds/interval2';
 import { Axis } from '../../src/grid/core/grid-axis';
 import { GridCell2 } from '../../src/grid/core/grid-cell2';
@@ -197,5 +198,14 @@ describe('GridCell2', () => {
     const cell = new GridCell2(-3, -7);
     expect(GridCell2.fromHash(cell.hash()).equals(cell)).toBe(true);
     expect(cell.hash()).not.toBe(new GridCell2(3, 7).hash());
+  });
+});
+
+describe('Grid2.transform', () => {
+  test('transform moves the grid with its frame (M2)', () => {
+    const grid = Grid2.unit({ frame: new Frame2(new Vec2(10, 0)) }).transform(Mat3.translation(5, 0));
+    const center = grid.cellWorldCenter(new GridCell2(0, 0));
+    expect(center.x).toBeCloseTo(15.5);
+    expect(center.y).toBeCloseTo(0.5);
   });
 });

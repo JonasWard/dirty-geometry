@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test';
+import { Mat3 } from '../../../src/core/mat3';
 import { Hesse2 } from '../../../src/geometry/primitives/hesse2';
 import { InfiniteLine2 } from '../../../src/geometry/primitives/infinite-line2';
 import { Vec2 } from '../../../src/core/vec2';
@@ -56,5 +57,11 @@ describe('InfiniteLine2', () => {
     const point = new Vec2(-2, 5);
 
     expectClose(Math.abs(angled.signedDistance(point)), angled.distanceToPoint(point));
+  });
+
+  test('transform does not translate the direction (M3)', () => {
+    const line = new InfiniteLine2(new Vec2(0, 0), new Vec2(0, 1)).transform(Mat3.translation(10, 0));
+    expectVec2Close(line.through, new Vec2(10, 0));
+    expectVec2Close(line.direction, new Vec2(0, 1));
   });
 });

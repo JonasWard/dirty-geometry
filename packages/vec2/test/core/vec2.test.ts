@@ -127,4 +127,10 @@ describe('Vec2', () => {
     expect(() => zero.anglePositive()).toThrow('zero-length');
     expect(() => Angle.fromPt3(zero, new Vec2(0, 0), x)).toThrow('zero-length');
   });
+
+  test('transformDirection applies the linear part only', () => {
+    expectVec2Close(new Vec2(0, 1).transformDirection(Mat3.translation(10, 0)), new Vec2(0, 1));
+    expectVec2Close(new Vec2(1, 0).transformDirection(Mat3.rotation(Math.PI / 2)), new Vec2(0, 1));
+    expectVec2Close(new Vec2(1, 2).transformDirection(Mat3.scale(2, 3)), new Vec2(2, 6));
+  });
 });

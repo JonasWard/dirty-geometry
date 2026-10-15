@@ -47,7 +47,7 @@ export class Ray2 {
   }
 
   transform(matrix: Mat3): Ray2 {
-    return new Ray2(this.start.transform(matrix), this.direction.transform(matrix));
+    return new Ray2(this.start.transform(matrix), this.direction.transformDirection(matrix));
   }
 
   toJson(): Ray2Json {

@@ -1,3 +1,4 @@
+import { clusterSortedValues } from '../../analysis/clustering/center';
 import { pairwiseDifference } from '../../analysis/aggregation/pairwise-difference';
 import { Frame2 } from '../../core/frame2';
 import type { Epsilon } from '../../core/epsilon';
@@ -20,7 +21,7 @@ function mostCommonSpanSize(sizes: readonly number[], epsilon: Epsilon): number 
     throw new Error('buildGrid2FromWorldVertices requires at least one span');
   }
 
-  const uniqueSizes = epsilon.clusterSortedValues([...sizes]);
+  const uniqueSizes = clusterSortedValues([...sizes], epsilon);
   let bestSize = uniqueSizes[0]!;
   let bestCount = 0;
 
@@ -68,8 +69,8 @@ export function buildGrid2FromWorldVertices(vertices: readonly Vec2[], epsilon: 
     throw new Error('buildGrid2FromWorldVertices requires at least one vertex');
   }
 
-  const xCoordinates = epsilon.clusterSortedValues(vertices.map((vertex) => vertex.x));
-  const yCoordinates = epsilon.clusterSortedValues(vertices.map((vertex) => vertex.y));
+  const xCoordinates = clusterSortedValues(vertices.map((vertex) => vertex.x), epsilon);
+  const yCoordinates = clusterSortedValues(vertices.map((vertex) => vertex.y), epsilon);
 
   if (xCoordinates.length < 2 || yCoordinates.length < 2) {
     throw new Error('buildGrid2FromWorldVertices requires at least two distinct x and y coordinates');

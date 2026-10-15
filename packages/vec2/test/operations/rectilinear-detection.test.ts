@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test';
+import { clusterSortedValues } from '../../src/analysis/clustering/center';
 import { Epsilon } from '../../src/core/epsilon';
 import { Vec2 } from '../../src/core/vec2';
 import { Polygon2 } from '../../src/geometry/regions/polygon2';
@@ -18,54 +19,54 @@ import {
 import { GridCell2 } from '../../src/grid/core/grid-cell2';
 import { GridCell2Collection } from '../../src/grid/regions/grid-cell2-collection';
 
-describe('Epsilon.clusterSortedValues', () => {
+describe('clusterSortedValues', () => {
   test('merges coordinates within epsilon', () => {
     const epsilon = Epsilon.custom(1e-3);
-    expect(epsilon.clusterSortedValues([0, 0.0005, 1, 1.0004, 2])).toEqual([0.00025, 1.0002, 2]);
+    expect(clusterSortedValues([0, 0.0005, 1, 1.0004, 2], epsilon)).toEqual([0.00025, 1.0002, 2]);
   });
 
   test('returns empty / singleton unchanged', () => {
     const epsilon = Epsilon.custom(1e-3);
-    expect(epsilon.clusterSortedValues([])).toEqual([]);
-    expect(epsilon.clusterSortedValues([4.2])).toEqual([4.2]);
+    expect(clusterSortedValues([], epsilon)).toEqual([]);
+    expect(clusterSortedValues([4.2], epsilon)).toEqual([4.2]);
   });
 
   test('sorts before clustering', () => {
     const epsilon = Epsilon.custom(1e-3);
-    expect(epsilon.clusterSortedValues([2, 0.0005, 0, 1.0004, 1])).toEqual([0.00025, 1.0002, 2]);
+    expect(clusterSortedValues([2, 0.0005, 0, 1.0004, 1], epsilon)).toEqual([0.00025, 1.0002, 2]);
   });
 
   test('keeps values farther than epsilon apart', () => {
     const epsilon = Epsilon.custom(1e-3);
-    expect(epsilon.clusterSortedValues([0, 0.002, 1])).toEqual([0, 0.002, 1]);
+    expect(clusterSortedValues([0, 0.002, 1], epsilon)).toEqual([0, 0.002, 1]);
   });
 
   test('larger epsilon collapses a wider run into one average', () => {
     const epsilon = Epsilon.custom(0.1);
     // 0 + 0.05 → 0.025; 0.025 + 0.1 → 0.0625
-    expect(epsilon.clusterSortedValues([0, 0.05, 0.1])).toEqual([0.0625]);
+    expect(clusterSortedValues([0, 0.05, 0.1], epsilon)).toEqual([0.0625]);
   });
 
   test('tighter epsilon refuses a merge that a looser one accepts', () => {
     const values = [0, 5e-4, 1];
-    expect(Epsilon.custom(1e-3).clusterSortedValues(values)).toEqual([2.5e-4, 1]);
-    expect(Epsilon.custom(1e-4).clusterSortedValues(values)).toEqual([0, 5e-4, 1]);
+    expect(clusterSortedValues(values, Epsilon.custom(1e-3))).toEqual([2.5e-4, 1]);
+    expect(clusterSortedValues(values, Epsilon.custom(1e-4))).toEqual([0, 5e-4, 1]);
   });
 
   test('preferIn clusters near-duplicates at default tolerance', () => {
     const epsilon = Epsilon.preferIn;
-    expect(epsilon.clusterSortedValues([0, Epsilon.value * 0.5, 1])).toEqual([Epsilon.value * 0.25, 1]);
+    expect(clusterSortedValues([0, Epsilon.value * 0.5, 1], epsilon)).toEqual([Epsilon.value * 0.25, 1]);
   });
 
   test('negative and preferOut epsilons are rejected', () => {
-    expect(() => Epsilon.preferOut.clusterSortedValues([0, 1])).toThrow();
-    expect(() => Epsilon.custom(-1e-3).clusterSortedValues([0, 1])).toThrow();
+    expect(() => clusterSortedValues([0, 1], Epsilon.preferOut)).toThrow();
+    expect(() => clusterSortedValues([0, 1], Epsilon.custom(-1e-3))).toThrow();
   });
 
   test('chains pairwise merges into a running mean', () => {
     const epsilon = Epsilon.custom(1);
     // 0 + 0.5 → 0.25; 0.25 + 0.9 → 0.575; next 3 is outside
-    expect(epsilon.clusterSortedValues([0, 0.5, 0.9, 3])).toEqual([0.575, 3]);
+    expect(clusterSortedValues([0, 0.5, 0.9, 3], epsilon)).toEqual([0.575, 3]);
   });
 });
 

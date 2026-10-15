@@ -6,6 +6,7 @@ import {
   clusterByGap,
   clusterByKmeans,
   clusterByRange,
+  clusterSortedValues,
 } from '../../../src/analysis/clustering';
 
 const eps = Epsilon.custom(0.1);
@@ -82,10 +83,10 @@ describe('clusterByRange', () => {
 });
 
 describe('clusterByCenter', () => {
-  test('matches Epsilon.clusterSortedValues means', () => {
+  test('matches clusterSortedValues means', () => {
     const values = [0, 0.0005, 1, 1.0004, 2];
     const clusters = clusterByCenter(values, tight);
-    expect(clusters.map((c) => c.mean)).toEqual(tight.clusterSortedValues([...values]));
+    expect(clusters.map((c) => c.mean)).toEqual(clusterSortedValues([...values], tight));
   });
 
   test('chains successive averages into mean', () => {

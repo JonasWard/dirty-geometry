@@ -1,5 +1,3 @@
-import { clusterByCenter } from '../analysis/clustering/center';
-
 export class Epsilon {
   static readonly type = 'Epsilon' as const;
 
@@ -50,11 +48,6 @@ export class Epsilon {
 
   areEqual(a: number, b: number): boolean {
     return Math.abs(a - b) <= this.value;
-  }
-
-  /** Merge values that fall within this `epsilon` of an existing cluster representative. */
-  clusterSortedValues(values: number[]): number[] {
-    return clusterByCenter(values, this).map((cluster) => cluster.mean);
   }
 
   toJson(): EpsilonJson {

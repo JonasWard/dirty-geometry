@@ -4,7 +4,7 @@ import type { Cluster1D } from './types';
 
 /**
  * Merge values within ±`epsilon` of a running successive-average representative.
- * `Cluster1D.mean` is that final representative (matches historical `Epsilon.clusterSortedValues`).
+ * `Cluster1D.mean` is that final representative.
  */
 export function clusterByCenter(values: readonly number[], epsilon: Epsilon): Cluster1D[] {
   epsilon.isPositive('clustering', 'center');
@@ -30,4 +30,9 @@ export function clusterByCenter(values: readonly number[], epsilon: Epsilon): Cl
 
   clusters.push(buildCluster(members, representative));
   return clusters;
+}
+
+/** Merge values that fall within `epsilon` of an existing cluster representative; returns the representatives. */
+export function clusterSortedValues(values: readonly number[], epsilon: Epsilon): number[] {
+  return clusterByCenter(values, epsilon).map((cluster) => cluster.mean);
 }

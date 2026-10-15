@@ -1,4 +1,3 @@
-import { mooreNeighborCellHashes, vonNeumannNeighborCellHashes } from '../../hash/neighbors';
 import { dehash2, hash2 } from '../../hash/core';
 import { GRID_MAX_INDEX, GRID_MIN_INDEX } from './limits';
 
@@ -27,9 +26,20 @@ export class GridCell2 {
     return new GridCell2(this.i - other.i, this.j - other.j);
   }
 
+  /** Cells within `count` steps (Manhattan for von Neumann, Chebyshev for Moore); cells past the index limits are skipped. */
   neighbors(count = 1, type: 'vonNeumann' | 'moore' = 'vonNeumann'): GridCell2[] {
-    if (type === 'vonNeumann') return vonNeumannNeighborCellHashes(this.hash(), count).map(GridCell2.fromHash);
-    return mooreNeighborCellHashes(this.hash(), count).map(GridCell2.fromHash);
+    const cells: GridCell2[] = [];
+    for (let di = -count; di <= count; di++) {
+      const reach = type === 'vonNeumann' ? count - Math.abs(di) : count;
+      for (let dj = -reach; dj <= reach; dj++) {
+        if (di === 0 && dj === 0) continue;
+        const i = this.i + di;
+        const j = this.j + dj;
+        if (i < GRID_MIN_INDEX || i > GRID_MAX_INDEX || j < GRID_MIN_INDEX || j > GRID_MAX_INDEX) continue;
+        cells.push(new GridCell2(i, j));
+      }
+    }
+    return cells;
   }
 
   hash(): number {

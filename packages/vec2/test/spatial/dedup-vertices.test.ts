@@ -44,4 +44,19 @@ describe('dedupVertices', () => {
     expect(vertices).toHaveLength(2);
     expect(remap).toEqual([0, 1]);
   });
+
+  test('merges vertices on either side of x = 0 (M5)', () => {
+    const { vertices } = dedupVertices([new Vec2(-1e-7, 0.05), new Vec2(1e-7, 0.05)], Epsilon.custom(1e-3));
+    expect(vertices).toHaveLength(1);
+  });
+
+  test('merges vertices on either side of y = 0 (M5)', () => {
+    const { vertices } = dedupVertices([new Vec2(0.05, -1e-7), new Vec2(0.05, 1e-7)], Epsilon.custom(1e-3));
+    expect(vertices).toHaveLength(1);
+  });
+
+  test('searches far enough when the slack exceeds the grid size', () => {
+    const { vertices } = dedupVertices([new Vec2(0, 0), new Vec2(0.25, 0)], Epsilon.custom(0.3), 0.1);
+    expect(vertices).toHaveLength(1);
+  });
 });

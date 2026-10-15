@@ -209,3 +209,17 @@ describe('Grid2.transform', () => {
     expect(center.y).toBeCloseTo(0.5);
   });
 });
+
+describe('GridCell2.neighbors at the index limits', () => {
+  test('skips cells outside the grid instead of throwing', () => {
+    const corner = new GridCell2(Grid2.minIndex, 0);
+    expect(
+      corner
+        .neighbors(1)
+        .map((cell) => `${cell.i - Grid2.minIndex},${cell.j}`)
+        .sort(),
+    ).toEqual(['0,-1', '0,1', '1,0']);
+    expect(corner.neighbors(1, 'moore')).toHaveLength(5);
+    expect(new GridCell2(Grid2.maxIndex, Grid2.maxIndex).neighbors(1, 'moore')).toHaveLength(3);
+  });
+});

@@ -23,11 +23,13 @@ export function dedupVertices(
   // for all vertices in a cell check all the neighbouring cells, see whether vertices are within slack of each other
   // first hit in case of duplicate, always first entry is kept, keep track in map
   // on next comparison, the mapped vertex is checked (not the original one)
+  // Search enough rings of cells to cover the slack radius.
+  const rings = Math.max(1, Math.ceil(slack.value / gridSize));
   const remap = new Array<number>(vertices.length);
   const deduped: Vec2[] = [];
 
   for (const [cellHash, indices] of cellMap) {
-    const nearby = [cellHash, ...mooreNeighborCellHashes(cellHash)].flatMap((hash) => cellMap.get(hash) ?? []);
+    const nearby = [cellHash, ...mooreNeighborCellHashes(cellHash, rings)].flatMap((hash) => cellMap.get(hash) ?? []);
 
     for (const i of indices) {
       let matched = -1;

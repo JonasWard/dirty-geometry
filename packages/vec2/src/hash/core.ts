@@ -13,9 +13,14 @@ export function hash2(a: number, b: number): number {
   return a * HASH_SCALE_2 + b;
 }
 
+/** Wrap an integer index into `[0, 2**26)`, the range each half of a `hash2` holds. */
+export function wrapHashIndex(index: number): number {
+  return ((index % HASH_SCALE_2) + HASH_SCALE_2) % HASH_SCALE_2;
+}
+
 /** helper method that forces a value to be within the range of 0 to 2**26 */
 function valueToHashScale2Range(v: number, scale: number) {
-  return ((Math.floor(v / scale) % HASH_SCALE_2) + HASH_SCALE_2) % HASH_SCALE_2;
+  return wrapHashIndex(Math.floor(v / scale));
 }
 
 /** Hashing two numbers with a scale factor, this is useful when you want to hash non-integer values */

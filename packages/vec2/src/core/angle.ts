@@ -1,6 +1,6 @@
 import { Interval2 } from '../bounds/interval2';
 import { Epsilon } from './epsilon';
-import { Vec2 } from './vec2';
+import type { Vec2 } from './vec2';
 
 export const TAU = 2 * Math.PI;
 
@@ -52,10 +52,6 @@ export class Angle {
 
   degrees(): number {
     return this.value * Angle.degreeScale;
-  }
-
-  getDomainInDegrees(): Interval2 {
-    return this.getDomain().scale(Angle.degreeScale);
   }
 
   getDomain(): Interval2 {
@@ -110,15 +106,21 @@ export class Angle {
       throw new Error('Angle.fromTwoVectors cannot be used with a zero-length vector');
     }
 
-    const directed = Angle.wrapToTau(Math.atan2(to.y, to.x) - Math.atan2(from.y, from.x));
-    if (ignoreSens) {
-      return new Angle(Angle.foldToPi(directed), 'pi', precision);
-    }
-    return new Angle(directed, 'tau', precision);
+    return Angle.fromDirected(Math.atan2(to.y, to.x) - Math.atan2(from.y, from.x), ignoreSens, precision);
   }
 
+  /** Same as `fromTwoVectors(Vec2.baseX(), v, options)`. */
   static vectorWithX(v: Vec2, options: AngleOptions = DefaultAngleShape): Angle {
-    return Angle.fromTwoVectors(Vec2.baseX(), v, options);
+    const { ignoreSens = false, precision = DEFAULT_ANGLE_PRECISION } = options;
+    if (v.isZeroLength()) {
+      throw new Error('Angle.vectorWithX cannot be used with a zero-length vector');
+    }
+    return Angle.fromDirected(Math.atan2(v.y, v.x), ignoreSens, precision);
+  }
+
+  private static fromDirected(radians: number, ignoreSens: boolean, precision: AnglePrecisions): Angle {
+    const directed = Angle.wrapToTau(radians);
+    return ignoreSens ? new Angle(Angle.foldToPi(directed), 'pi', precision) : new Angle(directed, 'tau', precision);
   }
 
   static fromPt3(a: Vec2, b: Vec2, c: Vec2, options: AngleOptions = {}): Angle {

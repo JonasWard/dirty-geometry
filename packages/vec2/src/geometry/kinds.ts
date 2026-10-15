@@ -1,7 +1,7 @@
 import type { Aabb2 } from '../bounds/aabb2';
 import type { Vec2 } from '../core/vec2';
 import type { Polyline2 } from './curves/polyline2';
-import { Hesse2 } from './primitives/hesse2';
+import type { Hesse2 } from './primitives/hesse2';
 import type { InfiniteLine2 } from './primitives/infinite-line2';
 import type { Line2 } from './primitives/line2';
 import type { Ray2 } from './primitives/ray2';

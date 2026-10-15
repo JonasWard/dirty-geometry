@@ -7,7 +7,6 @@ const EXAMPLES = 'packages/vec2/examples';
 
 /** Known cycles; remove entries as they are broken. The test fails on new cycles and on stale entries. */
 const ALLOWED_CYCLES: string[][] = [
-  ['core/angle', 'core/vec2'],
   [
     'bounds/aabb2',
     'geometry/curves/segments',

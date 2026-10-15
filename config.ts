@@ -16,5 +16,5 @@ export type Locale = keyof typeof translations;
 export const locales = Object.keys(translations) as Locale[];
 export const defaultLocale: Locale = "en" as const;
 
-export const pages = ["home", "about", "frame"] as const;
+export const pages = ["home", "about", "frame", "lab"] as const;
 export type Page = (typeof pages)[number];

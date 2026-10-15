@@ -2,7 +2,8 @@
   "pages": {
     "home": "Startseite",
     "about": "Über mich",
-    "frame": "3D-Rahmen"
+    "frame": "3D-Rahmen",
+    "lab": "Labor"
   },
   "home": {
     "meta": {

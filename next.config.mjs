@@ -11,6 +11,12 @@ const nextConfig = {
   // In dev, this prevents dynamic-segment export errors on unknown URLs.
   ...(isProduction ? { output: "export" } : {}),
   ...(basePath ? { basePath } : {}),
+  // Workspace packages ship TypeScript source; let Next compile them.
+  transpilePackages: [
+    "@dirty-geometry/vec2",
+    "@dirty-geometry/graph",
+    "@dirty-geometry/visualisation",
+  ],
   images: {
     unoptimized: true, // https://stackoverflow.com/a/72833238/3130281
   },

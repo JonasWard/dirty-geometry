@@ -2,7 +2,8 @@
   "pages": {
     "home": "Home",
     "about": "Chi sono",
-    "frame": "Riferimento 3D"
+    "frame": "Riferimento 3D",
+    "lab": "Laboratorio"
   },
   "home": {
     "meta": {

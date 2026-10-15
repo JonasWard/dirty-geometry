@@ -2,7 +2,8 @@
   "pages": {
     "home": "Accueil",
     "about": "À propos",
-    "frame": "Repère 3D"
+    "frame": "Repère 3D",
+    "lab": "Labo"
   },
   "home": {
     "meta": {

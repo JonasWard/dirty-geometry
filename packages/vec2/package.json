@@ -1,0 +1,15 @@
+{
+  "name": "@dirty-geometry/vec2",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "2D vector, geometry, bounds, grid and polygon operations.",
+  "exports": {
+    "./examples/*": "./examples/*.ts",
+    "./*": "./src/*.ts"
+  },
+  "scripts": {
+    "test": "bun test",
+    "typecheck": "tsc --noEmit -p ."
+  }
+}

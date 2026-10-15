@@ -2,7 +2,8 @@
   "pages": {
     "home": "Home",
     "about": "About",
-    "frame": "3D Frame"
+    "frame": "3D Frame",
+    "lab": "Lab"
   },
   "home": {
     "meta": {

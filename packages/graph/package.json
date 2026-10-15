@@ -1,0 +1,18 @@
+{
+  "name": "@dirty-geometry/graph",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Undirected 2D graph with path search, and a half-edge graph built from n-gon meshes.",
+  "exports": {
+    ".": "./src/index.ts",
+    "./*": "./src/*.ts"
+  },
+  "dependencies": {
+    "@dirty-geometry/vec2": "workspace:*"
+  },
+  "scripts": {
+    "test": "bun test",
+    "typecheck": "tsc --noEmit -p ."
+  }
+}

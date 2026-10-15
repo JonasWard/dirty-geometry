@@ -95,12 +95,21 @@ export class Line2 {
 
     const lengthTable = Line2.lengthTable(segments);
     const rawSegmentIndex = lengthTable.findIndex((cumulative) => cumulative > length);
-    const segmentIndex = rawSegmentIndex < 0 ? segments.length - 1 : rawSegmentIndex ? rawSegmentIndex - 1 : 0;
-    const segment = segments[segmentIndex]!;
-    const segmentStartLength = lengthTable[segmentIndex]!;
-    const segmentLength = segment.length();
-    const segmentT = (length - segmentStartLength) / segmentLength;
+    // Interior lengths always land on a segment with positive length; beyond either end, extrapolate
+    // along the last / first segment that has a length (zero-length segments would give 0 / 0).
+    let segmentIndex = rawSegmentIndex - 1;
+    if (rawSegmentIndex <= 0) {
+      const indexes = segments.map((_, index) => index);
+      if (rawSegmentIndex < 0) indexes.reverse();
+      segmentIndex = indexes.find((index) => segments[index]!.length() > 0) ?? -1;
+    }
 
+    if (segmentIndex < 0) {
+      return segments[0]!.from.clone();
+    }
+
+    const segment = segments[segmentIndex]!;
+    const segmentT = (length - lengthTable[segmentIndex]!) / segment.length();
     return segment.evaluate(segmentT);
   }
 

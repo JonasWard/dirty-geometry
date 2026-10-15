@@ -92,4 +92,16 @@ describe('Polyline2', () => {
     const point = new Vec2(5, 3);
     expect(polyline.closestParametersForPoint(point, 0)).toEqual(polyline.closestParametersForPoint(point));
   });
+
+  test('evaluateAtLength skips zero-length end segments (M7)', () => {
+    const trailing = new Polyline2([new Vec2(0, 0), new Vec2(1, 0), new Vec2(1, 0)]);
+    expectVec2Close(trailing.evaluateAtLength(1), new Vec2(1, 0));
+    expectVec2Close(trailing.evaluateAtLength(2), new Vec2(2, 0));
+
+    const leading = new Polyline2([new Vec2(0, 0), new Vec2(0, 0), new Vec2(0, 1)]);
+    expectVec2Close(leading.evaluateAtLength(-1), new Vec2(0, -1));
+
+    const degenerate = new Polyline2([new Vec2(3, 4), new Vec2(3, 4)]);
+    expectVec2Close(degenerate.evaluateAtLength(5), new Vec2(3, 4));
+  });
 });

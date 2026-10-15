@@ -33,7 +33,7 @@ export function GeometryRender({
 }: GeometryRenderProps): ReactNode {
   const ctx: GeometryDisplayContext = { fit, offset, definitionGeometry };
 
-  if (geometry instanceof Vec2) {
+  if (geometry.type === 'Vec2') {
     const [x, y] = vec2ToTuple(fit(geometry), offset);
     return (
       <mesh key={`${keyPrefix}-point`} position={[x, y, z]}>

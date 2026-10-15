@@ -13,7 +13,6 @@ export { ContainerInteriorMesh } from './components/ContainerInteriorMesh';
 export { createGeometryOutline, OUTLINE_CREATORS } from './display/outline';
 export { createContainerFill, FILL_CREATORS } from './display/interior';
 export {
-  GEOMETRY_KIND,
   GEOMETRY_OUTLINE_THREE_KIND,
   CONTAINER_FILL_THREE_KIND,
   geometryKindOf,

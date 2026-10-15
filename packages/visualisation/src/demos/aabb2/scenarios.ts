@@ -8,7 +8,7 @@ import { Ray2 } from '@dirty-geometry/vec2/geometry/primitives/ray2';
 import { TriMesh2 } from '@dirty-geometry/vec2/geometry/regions/tri-mesh2';
 import { Vec2 } from '@dirty-geometry/vec2/core/vec2';
 import type { Geometry2 } from '@dirty-geometry/vec2/geometry/kinds';
-import { frameAnchorPoints, geometryKind as geometryKindFromVisual } from '../../geometry';
+import { frameAnchorPoints } from '../../geometry';
 
 export type Aabb2Geometry = Line2 | Circle2 | Polyline2 | Polygon2 | TriMesh2 | Ray2 | InfiniteLine2;
 
@@ -119,7 +119,7 @@ export const aabb2Scenarios: Aabb2Scenario[] = [
 ];
 
 export function aabbOfGeometry(geometry: Aabb2Geometry, definitionGeometry = false): Aabb2 {
-  if (geometry instanceof Ray2 || geometry instanceof InfiniteLine2) {
+  if (geometry.type === 'Ray2' || geometry.type === 'InfiniteLine2') {
     return geometry.aabb2(definitionGeometry);
   }
   return geometry.aabb2();
@@ -129,7 +129,7 @@ export function evaluateAabbScenario(scenario: Aabb2Scenario): Aabb2 {
   if (scenario.unionItems) {
     return Aabb2.union(
       ...scenario.unionItems.map((item) =>
-        item instanceof Vec2 ? item : aabbOfGeometry(item, scenario.definitionGeometry),
+        item.type === 'Vec2' ? item : aabbOfGeometry(item, scenario.definitionGeometry),
       ),
     );
   }
@@ -154,7 +154,7 @@ export function scenarioAnchorPoints(scenario: Aabb2Scenario): Vec2[] {
 }
 
 export function geometryKind(geometry: Aabb2Geometry): string {
-  return geometryKindFromVisual(geometry);
+  return geometry.type;
 }
 
 export function formatAabb(box: Aabb2): string {

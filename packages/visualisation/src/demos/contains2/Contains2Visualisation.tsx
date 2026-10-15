@@ -77,7 +77,7 @@ function Contains2ScenarioVisual({ scenario, offset }: { scenario: Contains2Scen
         lineWidth={2.5}
       />
 
-      {scenario.guest instanceof Vec2 ? (
+      {scenario.guest.type === 'Vec2' ? (
         <mesh key='guest-point' position={vec2ToTuple(fit(scenario.guest), offset)}>
           <sphereGeometry args={[0.08, 16, 16]} />
           <meshBasicMaterial color={inside ? INSIDE_COLOR : OUTSIDE_COLOR} />

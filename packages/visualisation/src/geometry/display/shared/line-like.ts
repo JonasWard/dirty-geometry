@@ -59,11 +59,11 @@ export function fittedDisplayLineLike(
   line: LineLike2,
   { fit, definitionGeometry = false }: GeometryDisplayContext,
 ): Line2 | null {
-  if (line instanceof Hesse2) {
+  if (line.type === 'Hesse2') {
     line = line.infiniteLine();
   }
 
-  if (line instanceof Line2) {
+  if (line.type === 'Line2') {
     return new Line2(fit(line.from), fit(line.to));
   }
 
@@ -72,7 +72,7 @@ export function fittedDisplayLineLike(
     return new Line2(fit(segment.from), fit(segment.to));
   }
 
-  if (line instanceof Ray2) {
+  if (line.type === 'Ray2') {
     return fittedUnboundedSegment(line.start, line.direction, fit, false);
   }
 
@@ -103,7 +103,7 @@ export function halfPlaneFrameClippedPolygon(line: InfiniteLine2, fit: (point: V
 
     if (currentInside !== nextInside) {
       const hit = intersectionLines(new Line2(current, next), fittedLine);
-      if (hit instanceof Vec2) {
+      if (hit?.type === 'Vec2') {
         clipped.push(hit.clone());
       }
     }
@@ -118,7 +118,7 @@ export function lineLikeFramePoints(line: Ray2 | InfiniteLine2, definitionGeomet
     return [segment.from.clone(), segment.to.clone()];
   }
 
-  if (line instanceof Ray2) {
+  if (line.type === 'Ray2') {
     return [line.start.clone(), line.evaluate(1)];
   }
 

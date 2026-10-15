@@ -47,7 +47,7 @@ function Aabb2ScenarioVisual({ scenario, offset }: { scenario: Aabb2Scenario; of
 
       {scenario.unionItems
         ? scenario.unionItems.map((item, index) =>
-            item instanceof Vec2 ? (
+            item.type === 'Vec2' ? (
               <GeometryRender
                 key={`point-${index}`}
                 geometry={item}

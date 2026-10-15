@@ -280,7 +280,7 @@ function CurveScenarioVisual({ scenario, offset }: { scenario: CurveScenario; of
   const fit = fitPointsToFrame(fitPoints);
 
   const outline = scenario.vertices.map(fit);
-  if (curve instanceof Polygon2) {
+  if (curve.type === 'Polygon2') {
     outline.push(fit(scenario.vertices[0]!));
   }
 
@@ -363,7 +363,7 @@ function CurveScenarioVisual({ scenario, offset }: { scenario: CurveScenario; of
         <div className='max-w-32 rounded bg-black/75 px-1.5 py-0.5 text-center text-[8px] leading-tight text-white'>
           <div className='font-semibold'>{scenario.name}</div>
           <div className='text-white/70'>
-            {curve instanceof Polyline2 ? 'Polyline2' : 'Polygon2'} · n=
+            {curve.type === 'Polyline2' ? 'Polyline2' : 'Polygon2'} · n=
             {curve.n()}
           </div>
           <div className='text-cyan-300/90'>index t · {scenario.indexSamples.map((t) => t.toFixed(1)).join(', ')}</div>

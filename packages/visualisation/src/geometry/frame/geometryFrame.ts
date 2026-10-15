@@ -1,14 +1,8 @@
 import { Aabb2 } from '@dirty-geometry/vec2/bounds/aabb2';
-import { Circle2 } from '@dirty-geometry/vec2/geometry/regions/circle2';
 import type { Geometry2 } from '@dirty-geometry/vec2/geometry/kinds';
-import { Hesse2 } from '@dirty-geometry/vec2/geometry/primitives/hesse2';
-import { InfiniteLine2 } from '@dirty-geometry/vec2/geometry/primitives/infinite-line2';
-import { Line2 } from '@dirty-geometry/vec2/geometry/primitives/line2';
-import { Polygon2 } from '@dirty-geometry/vec2/geometry/regions/polygon2';
-import { Polyline2 } from '@dirty-geometry/vec2/geometry/curves/polyline2';
-import { Ray2 } from '@dirty-geometry/vec2/geometry/primitives/ray2';
 import { Vec2 } from '@dirty-geometry/vec2/core/vec2';
 import { fitPointsToFrame, FRAME_CONTENT_MARGIN, FRAME_MAX, FRAME_MIN } from '../../core/frame';
+import { dispatchByType, type DispatchTable } from '../display/dispatch';
 import { lineLikeFramePoints } from '../display/shared/line-like';
 import { circleDisplayPoints } from '../display/shared/circle';
 import { INFINITE_DISPLAY_SCALE, type GeometryFrameOptions } from './constants';
@@ -118,41 +112,21 @@ export function aabbFrameClippedCorners(fit: (point: Vec2) => Vec2, box: Aabb2):
   return [min, new Vec2(max.x, min.y), max, new Vec2(min.x, max.y)];
 }
 
+const FRAME_POINTS = {
+  Vec2: (point) => [point.clone()],
+  Line2: (line) => [line.from.clone(), line.to.clone()],
+  Ray2: (ray, definitionGeometry) => lineLikeFramePoints(ray, definitionGeometry),
+  InfiniteLine2: (line, definitionGeometry) => lineLikeFramePoints(line, definitionGeometry),
+  Hesse2: (hesse, definitionGeometry) => lineLikeFramePoints(hesse.infiniteLine(), definitionGeometry),
+  Circle2: (circle) => circleDisplayPoints(circle),
+  Polyline2: (polyline) => polyline.vertices.map((vertex) => vertex.clone()),
+  Polygon2: (polygon) => polygon.vertices.map((vertex) => vertex.clone()),
+  TriMesh2: (mesh) => mesh.vertices.map((vertex) => vertex.clone()),
+  Aabb2: (box) => (box.isInfinite() ? [aabbDisplayAnchor(box)] : box.corners().map((corner) => corner.clone())),
+} satisfies DispatchTable<Geometry2, [boolean], Vec2[]>;
+
 export function geometryFramePoints(geometry: Geometry2, options: GeometryFrameOptions = {}): Vec2[] {
-  const definitionGeometry = options.definitionGeometry ?? false;
-
-  if (geometry instanceof Vec2) {
-    return [geometry.clone()];
-  }
-
-  if (geometry instanceof Line2) {
-    return [geometry.from.clone(), geometry.to.clone()];
-  }
-
-  if (geometry instanceof Ray2 || geometry instanceof InfiniteLine2) {
-    return lineLikeFramePoints(geometry, definitionGeometry);
-  }
-
-  if (geometry instanceof Hesse2) {
-    return lineLikeFramePoints(geometry.infiniteLine(), definitionGeometry);
-  }
-
-  if (geometry instanceof Circle2) {
-    return circleDisplayPoints(geometry);
-  }
-
-  if (geometry instanceof Polyline2 || geometry instanceof Polygon2) {
-    return geometry.vertices.map((vertex) => vertex.clone());
-  }
-
-  if (geometry instanceof Aabb2) {
-    if (geometry.isInfinite()) {
-      return [aabbDisplayAnchor(geometry)];
-    }
-    return geometry.corners().map((corner) => corner.clone());
-  }
-
-  return geometry.vertices.map((vertex) => vertex.clone());
+  return dispatchByType<Geometry2, [boolean], Vec2[]>(FRAME_POINTS, geometry, options.definitionGeometry ?? false);
 }
 
 export function frameAnchorPoints(geometries: readonly Geometry2[], options: GeometryFrameOptions = {}): Vec2[] {

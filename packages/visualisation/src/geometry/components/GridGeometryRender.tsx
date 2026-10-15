@@ -2,7 +2,6 @@ import { Line } from '@react-three/drei';
 import { useMemo } from 'react';
 import type { ReactNode } from 'react';
 import type { Vec2 } from '@dirty-geometry/vec2/core/vec2';
-import type { Frame2 } from '@dirty-geometry/vec2/core/frame2';
 import type { Grid2 } from '@dirty-geometry/vec2/grid/core/grid2';
 import { GridCell2Collection } from '@dirty-geometry/vec2/grid/regions/grid-cell2-collection';
 import type { GridGeometry2 } from '@dirty-geometry/vec2/grid/regions/kinds';
@@ -104,16 +103,16 @@ export function GridGeometryRender({
 
   const geometryDisplay = useMemo(() => {
     if (!geometry) return null;
-    if (geometry instanceof GridCell2Collection) return null;
-    if (geometry instanceof GridLine2) return createGridLine2Display(geometry, ctx);
-    if (geometry instanceof GridPolyline2) return createGridPolyline2Display(geometry, ctx);
-    if (geometry instanceof GridPolygon2) return createGridPolygon2Display(geometry, ctx);
-    if (geometry instanceof GridRectangle2) return createGridRectangle2Display(geometry, ctx);
+    if (geometry.type === 'CellCollection') return null;
+    if (geometry.type === 'GridLine2') return createGridLine2Display(geometry, ctx);
+    if (geometry.type === 'GridPolyline2') return createGridPolyline2Display(geometry, ctx);
+    if (geometry.type === 'GridPolygon2') return createGridPolygon2Display(geometry, ctx);
+    if (geometry.type === 'GridRectangle2') return createGridRectangle2Display(geometry, ctx);
     return null;
   }, [geometry, ctx]);
 
   const collectionFill = useMemo(() => {
-    if (geometry instanceof GridCell2Collection) {
+    if (geometry?.type === 'CellCollection') {
       return createCellCollectionFillDisplay(grid, geometry, ctx);
     }
     if (cellCollection && !geometry) {

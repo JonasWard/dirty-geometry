@@ -2,13 +2,7 @@
 
 import { Html, Line } from '@react-three/drei';
 import { useMemo } from 'react';
-import { Aabb2 } from '@dirty-geometry/vec2/bounds/aabb2';
-import type { Container2 } from '@dirty-geometry/vec2/operations/contains2';
-import type { Geometry2 } from '@dirty-geometry/vec2/operations/overlap2';
-import { InfiniteLine2 } from '@dirty-geometry/vec2/geometry/primitives/infinite-line2';
-import { Circle2 } from '@dirty-geometry/vec2/geometry/regions/circle2';
-import { Polygon2 } from '@dirty-geometry/vec2/geometry/regions/polygon2';
-import { TriMesh2 } from '@dirty-geometry/vec2/geometry/regions/tri-mesh2';
+import { isContainer2 } from '@dirty-geometry/vec2/geometry/kinds';
 import { Vec2 } from '@dirty-geometry/vec2/core/vec2';
 import { Epsilon } from '@dirty-geometry/vec2/core/epsilon';
 import {
@@ -56,16 +50,6 @@ const overlap2ScenarioRows = [
 
 const COLOR_A = '#4da3ff';
 const COLOR_B = '#ffb347';
-
-function isContainer2(geometry: Geometry2): geometry is Container2 {
-  return (
-    geometry instanceof Polygon2 ||
-    geometry instanceof Circle2 ||
-    geometry instanceof TriMesh2 ||
-    geometry instanceof InfiniteLine2 ||
-    geometry instanceof Aabb2
-  );
-}
 
 function Overlap2ScenarioVisual({ scenario, offset }: { scenario: Overlap2Scenario; offset: Vec2 }) {
   const overlaps = evaluateOverlapScenario(scenario);

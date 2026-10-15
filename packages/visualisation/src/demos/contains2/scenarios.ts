@@ -1,5 +1,4 @@
 import { Circle2 } from '@dirty-geometry/vec2/geometry/regions/circle2';
-import { Aabb2 } from '@dirty-geometry/vec2/bounds/aabb2';
 import {
   Contains2,
   type Container2 as ContainingGeometry2,
@@ -424,21 +423,9 @@ export function scenarioAnchorPoints(scenario: Contains2Scenario): Vec2[] {
 }
 
 export function containerKind(container: ContainingGeometry2): string {
-  if (container instanceof Circle2) return Circle2.type;
-  if (container instanceof Polygon2) return Polygon2.type;
-  if (container instanceof InfiniteLine2) return InfiniteLine2.type;
-  if (container instanceof Aabb2) return Aabb2.type;
-  return TriMesh2.type;
+  return container.type;
 }
 
 export function guestKind(guest: ContainedGeometry2): string {
-  if (guest instanceof Vec2) return Vec2.type;
-  if (guest instanceof Line2) return Line2.type;
-  if (guest instanceof Ray2) return Ray2.type;
-  if (guest instanceof InfiniteLine2) return InfiniteLine2.type;
-  if (guest instanceof Polyline2) return Polyline2.type;
-  if (guest instanceof Polygon2) return Polygon2.type;
-  if (guest instanceof Circle2) return Circle2.type;
-  if (guest instanceof Aabb2) return Aabb2.type;
-  return TriMesh2.type;
+  return guest.type;
 }

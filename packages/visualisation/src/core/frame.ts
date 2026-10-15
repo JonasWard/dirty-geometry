@@ -170,8 +170,8 @@ export function frameCorners(offset: Vec2): [number, number, number][] {
 }
 
 export function lineLikeKind(line: LineLike2): string {
-  if (line instanceof Line2) return 'Line2';
-  if (line instanceof Ray2) return 'Ray2';
+  if (line.type === 'Line2') return 'Line2';
+  if (line.type === 'Ray2') return 'Ray2';
   return 'InfiniteLine2';
 }
 

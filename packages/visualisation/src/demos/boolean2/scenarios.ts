@@ -367,7 +367,7 @@ export function scenarioAnchorPoints(scenario: Boolean2Scenario): Vec2[] {
 }
 
 export function removedHalfSamplePoint(scenario: Boolean2Scenario): Vec2 | null {
-  const halfPlane = scenarioClips(scenario).find((clip): clip is InfiniteLine2 => clip instanceof InfiniteLine2);
+  const halfPlane = scenarioClips(scenario).find((clip): clip is InfiniteLine2 => clip.type === 'InfiniteLine2');
   if (!halfPlane) {
     return null;
   }

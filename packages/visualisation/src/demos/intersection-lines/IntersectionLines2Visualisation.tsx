@@ -50,11 +50,11 @@ function IntersectionScenarioVisual({ scenario, offset }: { scenario: Intersecti
       <GeometryRender geometry={scenario.a} fit={fit} offset={offset} color='#4da3ff' keyPrefix='a' lineWidth={2} />
       <GeometryRender geometry={scenario.b} fit={fit} offset={offset} color='#ffb347' keyPrefix='b' lineWidth={2} />
 
-      {result instanceof Line2 || result instanceof Ray2 || result instanceof InfiniteLine2 ? (
+      {result?.type === 'Line2' || result?.type === 'Ray2' || result?.type === 'InfiniteLine2' ? (
         <GeometryRender geometry={result} fit={fit} offset={offset} color='#7dff7d' keyPrefix='overlap' lineWidth={3} />
       ) : null}
 
-      {result instanceof Vec2 ? (
+      {result?.type === 'Vec2' ? (
         <mesh position={vec2ToTuple(fit(result), offset)}>
           <sphereGeometry args={[0.08, 16, 16]} />
           <meshBasicMaterial color='#7dff7d' />
@@ -83,9 +83,9 @@ function IntersectionScenarioVisual({ scenario, offset }: { scenario: Intersecti
 
 function formatIntersectionResult(result: LineLike2IntersectionResult): string {
   if (!result) return 'no intersection';
-  if (result instanceof Vec2) return 'point';
-  if (result instanceof Line2) return 'segment overlap';
-  if (result instanceof Ray2) return 'ray overlap';
+  if (result?.type === 'Vec2') return 'point';
+  if (result?.type === 'Line2') return 'segment overlap';
+  if (result?.type === 'Ray2') return 'ray overlap';
   return 'line overlap';
 }
 

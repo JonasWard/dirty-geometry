@@ -11,7 +11,7 @@ import { Polyline2 } from '@dirty-geometry/vec2/geometry/curves/polyline2';
 import { Ray2 } from '@dirty-geometry/vec2/geometry/primitives/ray2';
 import { TriMesh2 } from '@dirty-geometry/vec2/geometry/regions/tri-mesh2';
 import { Vec2 } from '@dirty-geometry/vec2/core/vec2';
-import { frameAnchorPoints, geometryKind as geometryKindFromVisual } from '../../geometry';
+import { frameAnchorPoints } from '../../geometry';
 
 export type Overlap2ScenarioSection = 'curve' | 'region' | 'circle' | 'halfPlane' | 'box' | 'polyline' | 'touching';
 
@@ -354,5 +354,5 @@ export function scenarioAnchorPoints(scenario: Overlap2Scenario): Vec2[] {
 }
 
 export function geometryKind(geometry: Geometry2): string {
-  return geometryKindFromVisual(geometry);
+  return geometry.type;
 }

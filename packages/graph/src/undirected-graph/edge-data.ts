@@ -4,7 +4,7 @@ import { Polyline2 } from '@dirty-geometry/vec2/geometry/curves/polyline2';
 import { InfiniteLine2 } from '@dirty-geometry/vec2/geometry/primitives/infinite-line2';
 import { Line2 } from '@dirty-geometry/vec2/geometry/primitives/line2';
 import { Ray2 } from '@dirty-geometry/vec2/geometry/primitives/ray2';
-import type { Geometry2 } from '@dirty-geometry/vec2/geometry/kinds';
+import { isGeometry2, type Geometry2 } from '@dirty-geometry/vec2/geometry/kinds';
 import { Circle2 } from '@dirty-geometry/vec2/geometry/regions/circle2';
 import { Polygon2 } from '@dirty-geometry/vec2/geometry/regions/polygon2';
 import { TriMesh2 } from '@dirty-geometry/vec2/geometry/regions/tri-mesh2';
@@ -34,19 +34,7 @@ const GEOMETRY_JSON_TYPES = new Set<string>([
   Aabb2.type,
 ]);
 
-export function isGeometry2(value: unknown): value is Geometry2 {
-  return (
-    value instanceof Vec2 ||
-    value instanceof Line2 ||
-    value instanceof Ray2 ||
-    value instanceof InfiniteLine2 ||
-    value instanceof Polyline2 ||
-    value instanceof Polygon2 ||
-    value instanceof Circle2 ||
-    value instanceof TriMesh2 ||
-    value instanceof Aabb2
-  );
-}
+export { isGeometry2 };
 
 export function isJsonValue(value: unknown): value is JsonValue {
   if (value === null) return true;

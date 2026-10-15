@@ -14,7 +14,7 @@ describe('Circle2', () => {
   test('clones the center', () => {
     const center = new Vec2(1, 2);
     const circle = new Circle2(center, 3);
-    center.x = 99;
+    expect(circle.center).not.toBe(center);
     expect(circle.center.x).toBe(1);
   });
 

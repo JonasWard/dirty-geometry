@@ -5,7 +5,7 @@ import { Vec2 } from '../core/vec2';
 const DEFAULT_DEDUP_GRID_SIZE = 0.1;
 
 export function dedupVertices(
-  vertices: Vec2[],
+  vertices: readonly Vec2[],
   slack: Epsilon,
   gridSize: number = DEFAULT_DEDUP_GRID_SIZE,
 ): { vertices: Vec2[]; remap: number[] } {

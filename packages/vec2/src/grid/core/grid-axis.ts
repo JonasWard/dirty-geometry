@@ -84,7 +84,7 @@ export class Axis {
   }
 
   private static constrainDomain(domain: Interval2 | null): Interval2 | null {
-    return domain ? Interval2.clampedInteger(domain, Axis.limits, Axis.epsilon) : domain;
+    return domain ? Interval2.clampedInteger(domain, Axis.limits) : domain;
   }
 
   private assertConsistentState(): void {

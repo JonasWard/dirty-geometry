@@ -4,6 +4,9 @@ import type { Vec2 } from './vec2';
 
 export const TAU = 2 * Math.PI;
 
+/** `Object.freeze` that keeps the class type (so private members still type-check). */
+const frozen = <T extends object>(value: T): T => Object.freeze(value) as T;
+
 /** Degrees-per-bucket base; precision `1` → 360 buckets over a full turn. */
 const MINIMAL_ANGLE_BUCKETS = 360;
 const DEFAULT_ANGLE_PRECISION: AnglePrecisions = 1e-1;
@@ -32,13 +35,13 @@ const DefaultAngleShape = {
 /** Angle in radians with an explicit domain (`τ` or `π`) and hash precision. */
 export class Angle {
   static readonly type = 'Angle' as const;
-  static readonly tauDomain = new Interval2(0, TAU);
-  static readonly piDomain = new Interval2(0, Math.PI);
+  static readonly tauDomain = Object.freeze(new Interval2(0, TAU));
+  static readonly piDomain = Object.freeze(new Interval2(0, Math.PI));
   static readonly degreeScale = 180 / Math.PI;
-  static readonly Pi = new Angle(Math.PI, 'tau', DEFAULT_ANGLE_PRECISION);
-  static readonly Tau = new Angle(TAU, 'tau', DEFAULT_ANGLE_PRECISION);
-  static readonly PiOver2 = new Angle(Math.PI / 2, 'tau', DEFAULT_ANGLE_PRECISION);
-  static readonly ThreePiOver4 = new Angle((3 * Math.PI) / 4, 'tau', DEFAULT_ANGLE_PRECISION);
+  static readonly Pi = frozen(new Angle(Math.PI, 'tau', DEFAULT_ANGLE_PRECISION));
+  static readonly Tau = frozen(new Angle(TAU, 'tau', DEFAULT_ANGLE_PRECISION));
+  static readonly PiOver2 = frozen(new Angle(Math.PI / 2, 'tau', DEFAULT_ANGLE_PRECISION));
+  static readonly ThreePiOver4 = frozen(new Angle((3 * Math.PI) / 4, 'tau', DEFAULT_ANGLE_PRECISION));
 
   constructor(
     private readonly value: number,

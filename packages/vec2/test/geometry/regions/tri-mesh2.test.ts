@@ -272,9 +272,14 @@ describe('TriMesh2 cleanup', () => {
     ];
     const mesh = TriMesh2.withoutCleanup(vertices, triangles);
 
-    expect(mesh.vertices).toBe(vertices);
-    expect(mesh.triangles).toBe(triangles);
+    expect(mesh.vertices).toEqual(vertices);
+    expect(mesh.triangles).toEqual(triangles);
     expect(mesh.vertices).toHaveLength(4);
+    expect(mesh.triangles).toHaveLength(2);
+    // Frozen copies: later changes to the caller's arrays cannot stale the boundary caches.
+    expect(Object.isFrozen(mesh.vertices)).toBe(true);
+    expect(Object.isFrozen(mesh.triangles[0])).toBe(true);
+    triangles.pop();
     expect(mesh.triangles).toHaveLength(2);
   });
 });

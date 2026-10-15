@@ -12,7 +12,7 @@ import { Vec2 } from '../../src/core/vec2';
 import { cdtBasicScenarios, cdtComplexScenarios, cdtShapeScenarios } from '../../examples/constrained-delaunay/scenarios';
 import { expectClose } from '../testHelpers';
 
-function edgeSet(triangles: [number, number, number][]): Set<string> {
+function edgeSet(triangles: readonly (readonly [number, number, number])[]): Set<string> {
   const edges = new Set<string>();
   for (const [a, b, c] of triangles) {
     edges.add(key(a, b));

@@ -3,45 +3,34 @@ import { Epsilon } from '../core/epsilon';
 /** Closed numeric interval `[min, max]`. Endpoints may be `±Infinity`. */
 export class Interval2 {
   static readonly type = 'Interval2' as const;
-  static readonly unit = new Interval2(0, 1);
-  static readonly ray = new Interval2(0, Infinity);
+  static readonly unit = Object.freeze(new Interval2(0, 1));
+  static readonly ray = Object.freeze(new Interval2(0, Infinity));
   /** Closed negative indexes `(-∞, -1]`. */
-  static readonly negativeRay = new Interval2(-Infinity, -1);
-  static readonly infinite = new Interval2(-Infinity, Infinity);
+  static readonly negativeRay = Object.freeze(new Interval2(-Infinity, -1));
+  static readonly infinite = Object.freeze(new Interval2(-Infinity, Infinity));
 
   constructor(
-    public min: number,
-    public max: number,
+    readonly min: number,
+    readonly max: number,
   ) {
     if (!Interval2.hasInfiniteEndpoint(min, max) && min > max) {
       throw new Error('Interval2 min must be less than or equal to max');
     }
   }
 
-  /** Empty accumulator; expand via `include` before reading bounds. */
+  /** Empty accumulator; expand via `including` before reading bounds. */
   static empty(): Interval2 {
     return new Interval2(Infinity, -Infinity);
   }
 
-  /**
-   * Floor endpoints to integers, clamp into `range`, and order so min ≤ max.
-   * Warns when the result differs from the input (beyond epsilon).
-   */
+  /** Floor endpoints to integers, clamp into `range`, and order so min ≤ max. */
   static clampedInteger(
     domain: { readonly min: number; readonly max: number },
     range: { readonly min: number; readonly max: number },
-    epsilon: Epsilon = Epsilon.preferIn,
   ): Interval2 {
     const min = Math.max(range.min, Math.floor(domain.min));
     const max = Math.min(range.max, Math.floor(domain.max));
-
-    const result = new Interval2(Math.min(min, max), Math.max(min, max));
-
-    if (!epsilon.areEqual(domain.min, result.min) || !epsilon.areEqual(domain.max, result.max)) {
-      console.warn('Interval2 domain constrained', domain, result);
-    }
-
-    return result;
+    return new Interval2(Math.min(min, max), Math.max(min, max));
   }
 
   /**
@@ -53,9 +42,9 @@ export class Interval2 {
       throw new Error('Interval2.union requires at least one item');
     }
 
-    const result = Interval2.empty();
+    let result = Interval2.empty();
     for (const item of items) {
-      result.include(item);
+      result = result.including(item);
     }
     return result;
   }
@@ -69,15 +58,15 @@ export class Interval2 {
     if (intervals.length === 0) return [];
 
     const sorted = [...intervals].sort((a, b) => a.min - b.min);
-    const merged: Interval2[] = [sorted[0]!.clone()];
+    const merged: Interval2[] = [sorted[0]!];
 
     for (let i = 1; i < sorted.length; i++) {
       const curr = sorted[i]!;
       const prev = merged[merged.length - 1]!;
       if (curr.min <= prev.max + slack.value) {
-        prev.max = Math.max(prev.max, curr.max);
+        merged[merged.length - 1] = new Interval2(prev.min, Math.max(prev.max, curr.max));
       } else {
-        merged.push(curr.clone());
+        merged.push(curr);
       }
     }
 
@@ -199,16 +188,10 @@ export class Interval2 {
     return this.containsInterval(other) && other.containsInterval(this);
   }
 
-  /** Expand to cover a scalar or another interval (mutates). */
-  include(value: number | Interval2): this {
-    if (typeof value === 'number') {
-      this.min = Interval2.mergeMin(this.min, value);
-      this.max = Interval2.mergeMax(this.max, value);
-    } else {
-      this.min = Interval2.mergeMin(this.min, value.min);
-      this.max = Interval2.mergeMax(this.max, value.max);
-    }
-    return this;
+  /** New interval that also covers a scalar or another interval. */
+  including(value: number | Interval2): Interval2 {
+    const [min, max] = typeof value === 'number' ? [value, value] : [value.min, value.max];
+    return new Interval2(Interval2.mergeMin(this.min, min), Interval2.mergeMax(this.max, max));
   }
 
   /** Image of `origin + t * delta` for `t` in this interval. */

@@ -5,9 +5,9 @@ import { Vec2, type Vec2Json } from './vec2';
 export class Frame2 {
   static readonly type = 'Frame2' as const;
 
-  origin: Vec2;
-  xAxis: Vec2;
-  yAxis: Vec2;
+  readonly origin: Vec2;
+  readonly xAxis: Vec2;
+  readonly yAxis: Vec2;
 
   constructor(origin: Vec2 = Vec2.origin(), xAxis: Vec2 = Vec2.baseX(), yAxis: Vec2 = Vec2.baseY()) {
     this.origin = origin.clone();

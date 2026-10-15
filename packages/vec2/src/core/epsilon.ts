@@ -7,8 +7,8 @@ export class Epsilon {
   readonly value: number;
   readonly sq: number;
 
-  static readonly preferIn = new Epsilon(Epsilon.value);
-  static readonly preferOut = new Epsilon(-Epsilon.value);
+  static readonly preferIn = Object.freeze(new Epsilon(Epsilon.value));
+  static readonly preferOut = Object.freeze(new Epsilon(-Epsilon.value));
 
   private constructor(value: number) {
     Epsilon.validateSlackNumber(value);

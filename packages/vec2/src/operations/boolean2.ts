@@ -158,7 +158,7 @@ function emptyResult(options: Boolean2Options): Boolean2Result {
 }
 
 function filterTriangles(mesh: TriMesh2, keep: (point: Vec2) => boolean): TriMesh2 {
-  const keptTriangles: [number, number, number][] = [];
+  const keptTriangles: (readonly [number, number, number])[] = [];
 
   for (const triangle of mesh.triangles) {
     const a = mesh.vertices[triangle[0]!]!;

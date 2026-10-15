@@ -7,8 +7,8 @@ export class Vec2 {
   static readonly type = 'Vec2' as const;
 
   constructor(
-    public x = 0,
-    public y = 0,
+    readonly x = 0,
+    readonly y = 0,
   ) {}
 
   add(v: Vec2): Vec2 {

@@ -14,8 +14,9 @@ export type BoundaryLoop2 = {
 
 export class TriMesh2 {
   static readonly type = 'TriMesh2' as const;
-  public vertices: Vec2[];
-  public triangles: [number, number, number][];
+  /** Frozen after construction, so the boundary-loop caches cannot go stale. */
+  readonly vertices: readonly Vec2[];
+  readonly triangles: readonly (readonly [number, number, number])[];
 
   private boundaryLoopsCache: BoundaryLoop2[] | null = null;
   private boundaryLoopPolygonsCache: Polygon2[] | null = null;
@@ -29,8 +30,8 @@ export class TriMesh2 {
    * @param gridSize - The size of the grid cells.
    */
   constructor(
-    vertices: Vec2[],
-    triangles: [number, number, number][],
+    vertices: readonly Vec2[],
+    triangles: readonly (readonly [number, number, number])[],
     slack: Epsilon = Epsilon.preferIn,
     gridSize?: number,
   ) {
@@ -42,14 +43,14 @@ export class TriMesh2 {
       slack,
     );
     const unusedResult = TriMesh2.removeUnusedVertices(reducedResult.newVertices, cleanedTriangles);
-    this.vertices = unusedResult.newVertices;
-    this.triangles = unusedResult.newTriangles;
+    this.vertices = Object.freeze(unusedResult.newVertices);
+    this.triangles = Object.freeze(unusedResult.newTriangles.map((triangle) => Object.freeze(triangle)));
   }
 
   /** reduce duplicate vertices */
   private static reduceVertices(
-    vertices: Vec2[],
-    triangles: [number, number, number][],
+    vertices: readonly Vec2[],
+    triangles: readonly (readonly [number, number, number])[],
     slack: Epsilon,
     gridSize?: number,
   ): { newVertices: Vec2[]; newTriangles: [number, number, number][] } {
@@ -64,8 +65,8 @@ export class TriMesh2 {
 
   /** remove degenerate triangles */
   private static removeDegenerateTriangles(
-    vertices: Vec2[],
-    triangles: [number, number, number][],
+    vertices: readonly Vec2[],
+    triangles: readonly (readonly [number, number, number])[],
     slack: Epsilon,
   ): [number, number, number][] {
     const cleaned: [number, number, number][] = [];
@@ -94,8 +95,8 @@ export class TriMesh2 {
 
   /** remove unused vertices */
   private static removeUnusedVertices(
-    vertices: Vec2[],
-    triangles: [number, number, number][],
+    vertices: readonly Vec2[],
+    triangles: readonly (readonly [number, number, number])[],
   ): { newVertices: Vec2[]; newTriangles: [number, number, number][] } {
     if (triangles.length === 0) {
       return { newVertices: vertices.map((vertex) => vertex.clone()), newTriangles: [] };
@@ -344,13 +345,16 @@ export class TriMesh2 {
    * Create a mesh from vertices and triangles without dedupe, degenerate, or unused-vertex cleanup.
    * Use when the caller already provides a consistent mesh (e.g. after CDT).
    */
-  static withoutCleanup(vertices: Vec2[], triangles: [number, number, number][]): TriMesh2 {
-    const mesh = Object.create(TriMesh2.prototype) as TriMesh2;
-    mesh.vertices = vertices;
-    mesh.triangles = triangles;
-    mesh.boundaryLoopsCache = null;
-    mesh.boundaryLoopPolygonsCache = null;
-    return mesh;
+  static withoutCleanup(
+    vertices: readonly Vec2[],
+    triangles: readonly (readonly [number, number, number])[],
+  ): TriMesh2 {
+    return Object.assign(Object.create(TriMesh2.prototype) as TriMesh2, {
+      vertices: Object.freeze([...vertices]),
+      triangles: Object.freeze(triangles.map(([a, b, c]) => Object.freeze([a, b, c] as const))),
+      boundaryLoopsCache: null,
+      boundaryLoopPolygonsCache: null,
+    });
   }
 
   toJson(): TriMesh2Json {

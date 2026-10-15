@@ -59,17 +59,24 @@ describe('Interval2', () => {
     expect(Interval2.infinite.mapLinear(4, 0)).toEqual(new Interval2(4, 4));
   });
 
-  test('include and union expand intervals', () => {
+  test('including and union expand intervals without mutating', () => {
     const interval = new Interval2(1, 3);
-    interval.include(5);
-    expect(interval.min).toBe(1);
-    expect(interval.max).toBe(5);
+    const wider = interval.including(5);
+    expect([wider.min, wider.max]).toEqual([1, 5]);
+    expect([interval.min, interval.max]).toEqual([1, 3]);
 
-    interval.include(new Interval2(-1, 0));
-    expect(interval.min).toBe(-1);
-    expect(interval.max).toBe(5);
+    const widest = wider.including(new Interval2(-1, 0));
+    expect([widest.min, widest.max]).toEqual([-1, 5]);
 
     expect(Interval2.union(new Interval2(0, 2), 4, new Interval2(3, 6))).toEqual(new Interval2(0, 6));
+  });
+
+  test('shared constants are frozen', () => {
+    expect(Object.isFrozen(Interval2.unit)).toBe(true);
+    expect(() => {
+      (Interval2.unit as { max: number }).max = 2;
+    }).toThrow();
+    expect(Interval2.unit.max).toBe(1);
   });
 
   test('containsInterval respects slack', () => {

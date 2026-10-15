@@ -20,8 +20,7 @@ describe('Polyline2', () => {
   test('clones vertices', () => {
     const source = [new Vec2(0, 0), new Vec2(1, 0)];
     const pl = new Polyline2(source);
-    source[0]!.x = 99;
-
+    expect(pl.vertices[0]).not.toBe(source[0]);
     expect(pl.vertices[0]!.x).toBe(0);
   });
 

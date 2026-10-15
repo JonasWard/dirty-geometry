@@ -1,5 +1,4 @@
 import { Interval2 } from '../bounds/interval2';
-import { Epsilon } from './epsilon';
 import type { Vec2 } from './vec2';
 
 export const TAU = 2 * Math.PI;
@@ -42,6 +41,7 @@ export class Angle {
   static readonly Tau = frozen(new Angle(TAU, 'tau', DEFAULT_ANGLE_PRECISION));
   static readonly PiOver2 = frozen(new Angle(Math.PI / 2, 'tau', DEFAULT_ANGLE_PRECISION));
   static readonly ThreePiOver4 = frozen(new Angle((3 * Math.PI) / 4, 'tau', DEFAULT_ANGLE_PRECISION));
+  static readonly ThreePiOver2 = frozen(new Angle((3 * Math.PI) / 2, 'tau', DEFAULT_ANGLE_PRECISION));
 
   constructor(
     private readonly value: number,
@@ -65,13 +65,20 @@ export class Angle {
     return this.value;
   }
 
-  // ToDo, figure out whether to migrate AnglePrecisions to Epsilon
+  /**
+   * Equal within the coarser of the two precisions, which are in degrees (as for hashing).
+   * Two τ-domain angles are compared around the circle, so 359.99° equals 0°.
+   */
   equals(other: Angle): boolean {
-    return Epsilon.custom(this.precision).areEqual(this.value, other.value);
+    const tolerance = Math.max(this.precision, other.precision) / Angle.degreeScale;
+    const difference = Math.abs(this.value - other.value);
+    const distance = this.isTauDomain() && other.isTauDomain() ? Math.min(difference, TAU - difference) : difference;
+    return distance <= tolerance;
   }
 
+  /** 90° or 270°. */
   isRightAngle(): boolean {
-    return this.equals(Angle.PiOver2) || this.equals(Angle.ThreePiOver4);
+    return this.equals(Angle.PiOver2) || this.equals(Angle.ThreePiOver2);
   }
 
   isTauDomain(): boolean {
@@ -132,7 +139,9 @@ export class Angle {
 
   static wrapToTau(radians: number): number {
     const r = radians % TAU;
-    return r < 0 ? r + TAU : r;
+    const wrapped = r < 0 ? r + TAU : r;
+    // A tiny negative remainder rounds up to exactly TAU when shifted.
+    return wrapped >= TAU ? 0 : wrapped;
   }
 
   static foldToPi(thetaInTau: number): number {
@@ -165,7 +174,8 @@ export class Angle {
     const span = Angle.domainSpan(domain);
     const wrapped = domain === 'tau' ? ((angle % span) + span) % span : Math.min(Math.max(angle, 0), span);
     const bucket = Math.floor((wrapped / span) * buckets + 0.5);
-    return Math.min(bucket, buckets - 1);
+    // τ is periodic, so the half-bucket shift past the last bucket wraps to 0; π clamps.
+    return domain === 'tau' ? bucket % buckets : Math.min(bucket, buckets - 1);
   }
 
   static dehashAngle(hashValue: number, angleShape: AngleHashShape): number {

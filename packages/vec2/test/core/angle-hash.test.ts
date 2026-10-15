@@ -32,4 +32,13 @@ describe('Angle hash', () => {
     const restored = Angle.dehashAngle(Angle.getAngleHash(original, shape.precision, shape.domainKind), shape);
     expect(Math.abs(restored - original)).toBeLessThan(TAU / 3600);
   });
+
+  test('wraps the last tau bucket back to 0 instead of clamping (M11)', () => {
+    const degrees = (value: number) => value / Angle.degreeScale;
+    expect(Angle.getAngleHash(degrees(359.9), 1, 'tau')).toBe(0);
+    expect(Angle.getAngleHash(degrees(359.4), 1, 'tau')).toBe(359);
+    expect(Angle.getAngleHash(degrees(359.96), 0.1, 'tau')).toBe(0);
+    // The π domain is not periodic: its top bucket still clamps.
+    expect(Angle.getAngleHash(Math.PI, 1, 'pi')).toBe(179);
+  });
 });

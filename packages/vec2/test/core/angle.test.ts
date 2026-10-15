@@ -66,4 +66,28 @@ describe('Angle', () => {
     expect(() => Angle.fromTwoVectors(new Vec2(0, 0), new Vec2(1, 0))).toThrow('zero-length');
     expect(() => Angle.vectorWithX(new Vec2(0, 0))).toThrow('zero-length');
   });
+
+  test('isRightAngle accepts 90° and 270°, not 135° or 180° (M1)', () => {
+    expect(Angle.fromDegrees(90).isRightAngle()).toBe(true);
+    expect(Angle.fromDegrees(270).isRightAngle()).toBe(true);
+    expect(Angle.fromDegrees(135).isRightAngle()).toBe(false);
+    expect(Angle.fromDegrees(180).isRightAngle()).toBe(false);
+  });
+
+  test('equals uses precision in degrees and wraps around the full turn (M9)', () => {
+    expect(Angle.fromDegrees(90).equals(Angle.fromDegrees(93))).toBe(false);
+    expect(Angle.fromDegrees(90).equals(Angle.fromDegrees(90.05))).toBe(true);
+    expect(Angle.fromDegrees(90, 1).equals(Angle.fromDegrees(90.9, 1))).toBe(true);
+    expect(Angle.fromDegrees(90, 1).equals(Angle.fromDegrees(91.5, 1))).toBe(false);
+    expect(Angle.fromDegrees(359.99).equals(Angle.fromDegrees(0))).toBe(true);
+    expect(Angle.Tau.equals(Angle.fromDegrees(0))).toBe(true);
+  });
+
+  test('wrapToTau never returns 2π (M10)', () => {
+    for (const radians of [-1e-17, -1e-300, -Number.EPSILON, TAU, -TAU, 3 * TAU]) {
+      const wrapped = Angle.wrapToTau(radians);
+      expect(wrapped).toBeGreaterThanOrEqual(0);
+      expect(wrapped).toBeLessThan(TAU);
+    }
+  });
 });

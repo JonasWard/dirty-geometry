@@ -168,12 +168,20 @@ export class Interval2 {
     return -Math.min(value - this.min, this.max - value);
   }
 
+  /** 0 for the empty interval, `Infinity` for an unbounded one. */
   width(): number {
+    if (this.isEmpty()) return 0;
     return this.isInfinite() ? Infinity : this.max - this.min;
   }
 
+  /** True for {@link Interval2.empty} (`min > max`). */
+  isEmpty(): boolean {
+    return this.min > this.max;
+  }
+
+  /** True when an endpoint is unbounded; the empty interval is not infinite. */
   isInfinite(): boolean {
-    return Interval2.hasInfiniteEndpoint(this.min, this.max);
+    return !this.isEmpty() && Interval2.hasInfiniteEndpoint(this.min, this.max);
   }
 
   isFullyInfinite(): boolean {
@@ -191,7 +199,7 @@ export class Interval2 {
   /** New interval that also covers a scalar or another interval. */
   including(value: number | Interval2): Interval2 {
     const [min, max] = typeof value === 'number' ? [value, value] : [value.min, value.max];
-    return new Interval2(Interval2.mergeMin(this.min, min), Interval2.mergeMax(this.max, max));
+    return new Interval2(Math.min(this.min, min), Math.max(this.max, max));
   }
 
   /** Image of `origin + t * delta` for `t` in this interval. */
@@ -250,20 +258,6 @@ export class Interval2 {
 
   private static hasInfiniteEndpoint(min: number, max: number): boolean {
     return !Number.isFinite(min) || !Number.isFinite(max);
-  }
-
-  private static mergeMax(current: number, next: number): number {
-    if (!Number.isFinite(next)) return Infinity;
-    if (current === -Infinity) return next;
-    if (!Number.isFinite(current)) return current;
-    return Math.max(current, next);
-  }
-
-  private static mergeMin(current: number, next: number): number {
-    if (!Number.isFinite(next)) return -Infinity;
-    if (current === Infinity) return next;
-    if (!Number.isFinite(current)) return current;
-    return Math.min(current, next);
   }
 }
 

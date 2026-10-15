@@ -168,4 +168,18 @@ describe('Interval2', () => {
     expect(Interval2.longest([new Interval2(1, 1)])).toBeNull();
     expect(Interval2.longest([new Interval2(0, 0.5)], Epsilon.custom(1))).toBeNull();
   });
+
+  test('empty is the identity of union and has no width (M6)', () => {
+    const empty = Interval2.empty();
+    expect(empty.isEmpty()).toBe(true);
+    expect(empty.width()).toBe(0);
+    expect(empty.isInfinite()).toBe(false);
+    expect(new Interval2(0, 1).isEmpty()).toBe(false);
+
+    expect(Interval2.union(new Interval2(0, 1), Interval2.empty())).toEqual(new Interval2(0, 1));
+    expect(Interval2.union(Interval2.empty(), 3)).toEqual(new Interval2(3, 3));
+    expect(Interval2.union(0, Infinity)).toEqual(new Interval2(0, Infinity));
+    expect(new Interval2(0, 1).including(Interval2.infinite)).toEqual(Interval2.infinite);
+    expect(new Interval2(0, 1).including(Interval2.ray)).toEqual(new Interval2(0, Infinity));
+  });
 });

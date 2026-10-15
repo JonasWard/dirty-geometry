@@ -22,7 +22,7 @@ Paths are relative to `packages/<name>/`. The move left line numbers in vec2 and
 
 | Package | Structure | One-line verdict |
 | --- | --- | --- |
-| vec2 | **6 / 10** | Sensible layering and naming, but import cycles, mutable shared statics, absolute tolerances, and about 30 logic bugs. Some of those bugs are in core transform and hash paths. |
+| vec2 | **6 / 10** | Sensible layering and naming, but import cycles, mutable shared statics, absolute tolerances, and about 20 logic bugs, some of them in the core transform and vertex-dedup paths. |
 | graph | **7 / 10** | Small and generic with a clean API. The half-edge rotation is wrong, and a few subgraph helpers don't do what their docs say. |
 | visualisation | **6.5 / 10** | The scenario and canvas pattern is consistent. Layering is inverted, `instanceof` dispatch is repeated, nothing is memoised, and GPU geometry leaks. |
 
@@ -86,7 +86,6 @@ What costs points:
 | M1 | run | `core/angle.ts:74-76` `isRightAngle` | `Angle.fromDegrees(135)` / `(270)` | `true` / `false` | 270° is the right angle. The code compares against `ThreePiOver4` (135°). wall-graph's `feature-outline.ts:778` works around this. |
 | M2 | run | `core/frame2.ts:22-26` `Frame2.transform` | `new Frame2(V(10,0)).transform(Mat3.identity()).xAxis` | `(-9, 0)` | `(1, 0)`. The axes are transformed as points and then the new origin is subtracted. This breaks `Grid2.transform` (`grid/core/grid2.ts:163`). |
 | M3 | run | `geometry/primitives/infinite-line2.ts:62-64`, `ray2.ts:56-58`, and `Hesse2.transform` through them | `InfiniteLine2(V(0,0), V(0,1)).transform(Mat3.translation(10,0)).direction` | `(10, 1)` | `(0, 1)`. Direction vectors are translated. `test/geometry/primitives/hesse-normal2.test.ts:65-73` compares two outputs that share this bug, so it cannot catch it. |
-| M4 | run | `core/vec2.ts:106` + `hash/core.ts:17-19` | `V(0,0).hash() === V(67.108864,0).hash()` | `true` | With the default 1e-6 scale, hashes wrap at 2²⁶, so points collide every ~67 units. |
 | M5 | run | `hash/neighbors.ts:10` vs `hash2scale` | `dedupVertices([V(-1e-7,0.05), V(1e-7,0.05)], Epsilon.custom(1e-3))` | 2 vertices | 1. Neighbour cell hashes skip the modulo wrap that cell hashes apply, so lookups across x = 0 / y = 0 miss. This affects TriMesh2 cleanup and CDT. |
 | M6 | run | `bounds/interval2.ts:272-284` `mergeMin/mergeMax` | `Interval2.union([0,1], Interval2.empty())` | `[-∞, ∞]` | `[0, 1]`. Also, `Interval2.empty().width()` is `∞` and `isInfinite()` is `true`. |
 | M7 | run | `geometry/primitives/line2.ts:102` `evaluateAtLength` | `Polyline2([V(0,0),V(1,0),V(1,0)]).evaluateAtLength(1)` | `(NaN, NaN)` | `(1, 0)`. Division by a zero-length last segment. |
@@ -105,6 +104,8 @@ What costs points:
 | M20 | traced | `operations/intersection/line2-like.ts:24,51-57` | `Line2` of length 1e7 vs a collinear `InfiniteLine2` | A point is returned instead of the overlap. | Tolerances are in parameter space, so they shrink or grow with segment length. |
 | M21 | traced | JSON round-trip | `Aabb2.infinite()`, `Interval2.empty()` | `JSON.stringify` turns `Infinity` into `null`, so parsing throws. `Grid2.toJson` drops `frame`/`epsilon`. | Lossless round-trip. |
 | M22 | traced | `bounds/interval2.ts:41` | | `console.warn` in library code | No side effects. |
+
+M4 is withdrawn. `Vec2.hash(scale)` wrapping is not a bug: the hash quantises coordinates to `scale` and packs 2²⁶ buckets per axis, so it distinguishes points over a range of 2²⁶ · `scale` (about 67 units at the default 1e-6). Set `scale` to the coordinate precision of the data being hashed. It would help to say this in the doc comment on `Vec2.hash` and `hash2scale`.
 
 `Mat3` element order was checked and is consistent: row-major constructor, column-major storage, and `Vec2.transform`, `multiply` and `Frame2.toMat3` all agree. There is no `inverse()` or `determinant()`.
 
@@ -268,7 +269,7 @@ What costs points:
 
 1. **Core math correctness, with tests:**
    - M2/M3: transforms
-   - M4/M5: hashing and neighbour lookup (these silently affect dedup and CDT)
+   - M5: neighbour lookup in the spatial hash (silently affects dedup and CDT)
    - M1: right angle
    - M6: empty interval merge
    - M8: angle JSON precedence

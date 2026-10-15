@@ -6,7 +6,7 @@ export class HalfEdgeFace<
   TFaceData extends object = Record<string, never>,
 > {
   constructor(
-    public edge: HalfEdge<TEdgeData, TFaceData>,
+    public readonly edge: HalfEdge<TEdgeData, TFaceData>,
     public data: TFaceData,
   ) {}
 }

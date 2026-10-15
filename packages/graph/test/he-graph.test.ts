@@ -47,3 +47,73 @@ test('createFromNGon rejects non-manifold edges', () => {
 
   expect(() => createFromNGon(mesh)).toThrow('Non-manifold edge');
 });
+
+// Two CCW triangles sharing edge 1–2: vertex 1 has outgoing 1→3 (90°) then 1→2 (135°) counter-clockwise.
+function twoTriangles() {
+  return createFromNGon(
+    new NGonMesh(
+      [new Vec2(0, 0), new Vec2(1, 0), new Vec2(0, 1), new Vec2(1, 1)],
+      [
+        [0, 1, 2],
+        [1, 3, 2],
+      ],
+    ),
+  );
+}
+
+// Centre vertex 4 surrounded by four CCW triangles.
+function fan() {
+  return createFromNGon(
+    new NGonMesh(
+      [new Vec2(1, 0), new Vec2(0, 1), new Vec2(-1, 0), new Vec2(0, -1), new Vec2(0, 0)],
+      [
+        [4, 0, 1],
+        [4, 1, 2],
+        [4, 2, 3],
+        [4, 3, 0],
+      ],
+    ),
+  );
+}
+
+const edgeLabel = (edge: { origin: number; destination(): number } | null) =>
+  edge ? `${edge.origin}->${edge.destination()}` : null;
+
+test('rotateAroundOrigin steps counter-clockwise to the next outgoing edge (G1)', () => {
+  const graph = twoTriangles();
+  const find = (from: number, to: number) =>
+    graph.halfEdges.find((edge) => edge.origin === from && edge.destination() === to)!;
+
+  expect(edgeLabel(find(1, 3).rotateAroundOrigin())).toBe('1->2');
+  expect(find(1, 2).rotateAroundOrigin()).toBeNull();
+  expect(edgeLabel(find(1, 2).rotateAroundOriginCw())).toBe('1->3');
+});
+
+test('rotateAroundDestination steps counter-clockwise to the next incoming edge (G2)', () => {
+  const graph = fan();
+  const oneToCentre = graph.halfEdges.find((edge) => edge.origin === 1 && edge.destination() === 4)!;
+  expect(edgeLabel(oneToCentre.rotateAroundDestination())).toBe('2->4');
+});
+
+test('iterateVertex sweeps every outgoing edge counter-clockwise', () => {
+  expect([...twoTriangles().iterateVertex(1)].map(edgeLabel)).toEqual(['1->3', '1->2']);
+
+  const around = [...fan().iterateVertex(4)].map((edge) => edge.destination());
+  expect(around).toHaveLength(4);
+  const start = around.indexOf(0);
+  expect([...around.slice(start), ...around.slice(0, start)]).toEqual([0, 1, 2, 3]);
+});
+
+test('createFromNGon rejects loops that repeat a vertex (G10)', () => {
+  const vertices = [new Vec2(0, 0), new Vec2(1, 0), new Vec2(1, 1), new Vec2(0, 1), new Vec2(-1, 1)];
+  expect(() => createFromNGon(new NGonMesh(vertices, [[0, 1, 1, 2]]))).toThrow('repeats vertex');
+  expect(() => createFromNGon(new NGonMesh(vertices, [[0, 1, 2, 0, 3, 4]]))).toThrow('repeats vertex');
+});
+
+test('half-edge links are read-only from outside the factory', () => {
+  const edge = twoTriangles().halfEdges[0]!;
+  expect(() => {
+    // @ts-expect-error links are set by the factory only
+    edge.next = edge;
+  }).toThrow();
+});

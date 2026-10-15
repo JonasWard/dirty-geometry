@@ -19,9 +19,19 @@ export class HalfEdgeGraph<
     return vertex;
   }
 
+  private outgoingByVertex: Map<number, HalfEdge<TEdgeData, TFaceData>[]> | null = null;
+
   /** Half-edges that originate at `index`. */
   halfEdgesFrom(index: number): HalfEdge<TEdgeData, TFaceData>[] {
-    return this.halfEdges.filter((halfEdge) => halfEdge.origin === index);
+    if (!this.outgoingByVertex) {
+      this.outgoingByVertex = new Map();
+      for (const halfEdge of this.halfEdges) {
+        const outgoing = this.outgoingByVertex.get(halfEdge.origin) ?? [];
+        outgoing.push(halfEdge);
+        this.outgoingByVertex.set(halfEdge.origin, outgoing);
+      }
+    }
+    return [...(this.outgoingByVertex.get(index) ?? [])];
   }
 
   /** Boundary half-edges (no twin across the mesh border). */
@@ -49,17 +59,23 @@ export class HalfEdgeGraph<
     } while (current !== face.edge);
   }
 
-  /** Iterate outgoing half-edges around a vertex in counter-clockwise order. */
+  /**
+   * Outgoing half-edges around a vertex, counter-clockwise. At a boundary vertex the sweep starts at
+   * the clockwise-most edge, so every outgoing edge of the vertex's fan is visited once.
+   */
   *iterateVertex(index: number): Generator<HalfEdge<TEdgeData, TFaceData>> {
     const first = this.halfEdgesFrom(index)[0];
     if (!first) return;
 
-    let current = first;
-    while (true) {
-      yield current;
-      const next = current.rotateAroundOrigin();
-      if (next === first || next === current) break;
-      current = next;
+    let start = first;
+    for (let cw = start.rotateAroundOriginCw(); cw && cw !== first; cw = cw.rotateAroundOriginCw()) {
+      start = cw;
     }
+
+    let current: HalfEdge<TEdgeData, TFaceData> | null = start;
+    do {
+      yield current;
+      current = current.rotateAroundOrigin();
+    } while (current && current !== start);
   }
 }

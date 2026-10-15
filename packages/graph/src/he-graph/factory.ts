@@ -1,4 +1,3 @@
-import { hash2 } from '@dirty-geometry/vec2/hash/core';
 import type { NGonMesh } from './ngon-mesh';
 import { HalfEdge } from './half-edge';
 import { HalfEdgeFace } from './half-edge-face';
@@ -32,7 +31,8 @@ export function createFromNGon<
 
   const faces: HalfEdgeFace<TEdgeData, TFaceData>[] = [];
   const halfEdges: HalfEdge<TEdgeData, TFaceData>[] = [];
-  const twinBuckets = new Map<number, HalfEdge<TEdgeData, TFaceData>[]>();
+  // Undirected edge (low index → high index) → the half-edges along it.
+  const twinBuckets = new Map<number, Map<number, HalfEdge<TEdgeData, TFaceData>[]>>();
 
   for (let faceIndex = 0; faceIndex < mesh.faces.length; faceIndex++) {
     const loop = mesh.faces[faceIndex]!;
@@ -41,6 +41,9 @@ export function createFromNGon<
     }
 
     const vertexIndices = loop.map((index) => resolveVertexIndex(index, mesh.vertices.length));
+    if (new Set(vertexIndices).size !== vertexIndices.length) {
+      throw new Error(`Face ${faceIndex} repeats vertex indices (zero-length or pinched loop)`);
+    }
     const faceHalfEdges: HalfEdge<TEdgeData, TFaceData>[] = [];
 
     for (let i = 0; i < vertexIndices.length; i++) {
@@ -50,28 +53,28 @@ export function createFromNGon<
       faceHalfEdges.push(halfEdge);
       halfEdges.push(halfEdge);
 
-      const key = undirectedEdgeKey(from, to);
-      const bucket = twinBuckets.get(key) ?? [];
+      const [low, high] = from < to ? [from, to] : [to, from];
+      const byHigh = twinBuckets.get(low) ?? new Map<number, HalfEdge<TEdgeData, TFaceData>[]>();
+      twinBuckets.set(low, byHigh);
+      const bucket = byHigh.get(high) ?? [];
       bucket.push(halfEdge);
-      twinBuckets.set(key, bucket);
+      byHigh.set(high, bucket);
     }
 
     const face = new HalfEdgeFace(faceHalfEdges[0]!, faceDataFn({ faceIndex, vertexIndices }));
     faces.push(face);
 
     for (let i = 0; i < faceHalfEdges.length; i++) {
-      const halfEdge = faceHalfEdges[i]!;
-      halfEdge.next = faceHalfEdges[(i + 1) % faceHalfEdges.length]!;
-      halfEdge.prev = faceHalfEdges[(i - 1 + faceHalfEdges.length) % faceHalfEdges.length]!;
-      halfEdge.face = face;
+      HalfEdge.link(faceHalfEdges[i]!, {
+        next: faceHalfEdges[(i + 1) % faceHalfEdges.length]!,
+        prev: faceHalfEdges[(i - 1 + faceHalfEdges.length) % faceHalfEdges.length]!,
+        face,
+      });
     }
   }
 
-  for (const bucket of twinBuckets.values()) {
-    if (bucket.length === 1) {
-      bucket[0]!.twin = null;
-      continue;
-    }
+  for (const bucket of [...twinBuckets.values()].flatMap((byHigh) => [...byHigh.values()])) {
+    if (bucket.length === 1) continue;
 
     if (bucket.length !== 2) {
       throw new Error('Non-manifold edge encountered while building half-edge mesh');
@@ -82,8 +85,8 @@ export function createFromNGon<
       throw new Error('Misoriented or non-manifold edge encountered while building half-edge mesh');
     }
 
-    left!.twin = right!;
-    right!.twin = left!;
+    HalfEdge.link(left!, { twin: right! });
+    HalfEdge.link(right!, { twin: left! });
   }
 
   return new HalfEdgeGraph(
@@ -98,8 +101,4 @@ function resolveVertexIndex(index: number, vertexCount: number): number {
     throw new Error(`Invalid vertex index ${index}`);
   }
   return index;
-}
-
-function undirectedEdgeKey(a: number, b: number): number {
-  return a < b ? hash2(a, b) : hash2(b, a);
 }

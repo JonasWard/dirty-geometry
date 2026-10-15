@@ -68,7 +68,7 @@ export function fittedDisplayLineLike(
   }
 
   if (definitionGeometry) {
-    const segment = line.definitionLine();
+    const segment = Line2.definitionOf(line);
     return new Line2(fit(segment.from), fit(segment.to));
   }
 
@@ -114,7 +114,7 @@ export function halfPlaneFrameClippedPolygon(line: InfiniteLine2, fit: (point: V
 
 export function lineLikeFramePoints(line: Ray2 | InfiniteLine2, definitionGeometry: boolean): Vec2[] {
   if (definitionGeometry) {
-    const segment = line.definitionLine();
+    const segment = Line2.definitionOf(line);
     return [segment.from.clone(), segment.to.clone()];
   }
 

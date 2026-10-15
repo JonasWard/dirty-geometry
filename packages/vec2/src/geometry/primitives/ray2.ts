@@ -2,10 +2,7 @@ import type { Mat3 } from '../../core/mat3';
 import { Aabb2 } from '../../bounds/aabb2';
 import { Interval2 } from '../../bounds/interval2';
 import { Vec2, type Vec2Json } from '../../core/vec2';
-import { intersectionLines, type LineLike2IntersectionResult } from '../../operations/intersection/line2-like';
-import { type LineLike2 } from '../kinds';
 import { InfiniteLine2 } from './infinite-line2';
-import { Line2 } from './line2';
 
 /** Half-infinite ray starting at a point and extending in one direction. */
 export class Ray2 {
@@ -33,14 +30,10 @@ export class Ray2 {
     return point.distance(this.closestPointForPoint(point));
   }
 
-  /** Finite segment from `start` to `start + direction` used to bound the ray definition. */
-  definitionLine(): Line2 {
-    return new Line2(this.start.clone(), this.start.add(this.direction));
-  }
-
+  /** Bounds of the definition segment `start → start + direction` when `definitionGeometry`, else of the whole ray. */
   aabb2(definitionGeometry = false): Aabb2 {
     if (definitionGeometry) {
-      return this.definitionLine().aabb2();
+      return Aabb2.fromPoints(this.start, this.start.add(this.direction));
     }
     return Aabb2.fromParameterInterval(this.start, this.direction, Ray2.parameterInterval);
   }
@@ -55,10 +48,6 @@ export class Ray2 {
 
   transform(matrix: Mat3): Ray2 {
     return new Ray2(this.start.transform(matrix), this.direction.transform(matrix));
-  }
-
-  intersect(other: LineLike2): LineLike2IntersectionResult {
-    return intersectionLines(this, other);
   }
 
   toJson(): Ray2Json {

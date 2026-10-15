@@ -20,3 +20,6 @@ export type LineLike2 = Hesse2 | InfiniteLine2 | Ray2 | Line2;
 
 /** Contains2 guest geometry. Axis-aligned boxes are tested via `Contains2.aabbIn`. */
 export type Geometry2 = Vec2 | LineLike2 | Polyline2 | Polygon2 | Circle2 | TriMesh2 | Aabb2;
+
+/** Result of intersecting two line-likes: an overlapping line-like, a crossing point, or nothing. */
+export type LineLike2IntersectionResult = LineLike2 | Vec2 | null;

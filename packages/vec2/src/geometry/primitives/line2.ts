@@ -4,8 +4,6 @@ import { Aabb2 } from '../../bounds/aabb2';
 import { Interval2 } from '../../bounds/interval2';
 import { Epsilon } from '../../core/epsilon';
 import { Vec2, type Vec2Json } from '../../core/vec2';
-import { intersectionLines, type LineLike2IntersectionResult } from '../../operations/intersection/line2-like';
-import { type LineLike2 } from '../kinds';
 import { InfiniteLine2 } from './infinite-line2';
 
 /** Finite line segment between two points. */
@@ -56,16 +54,18 @@ export class Line2 {
     return Aabb2.fromPoints(this.from, this.to);
   }
 
-  intersect(other: LineLike2): LineLike2IntersectionResult {
-    return intersectionLines(this, other);
-  }
-
   transform(matrix: Mat3): Line2 {
     return new Line2(this.from.transform(matrix), this.to.transform(matrix));
   }
 
   infiniteLine(): InfiniteLine2 {
     return new InfiniteLine2(this.from, this.direction());
+  }
+
+  /** Definition segment of an unbounded line-like: `through → through + direction` (`start` for a ray). */
+  static definitionOf(line: { infiniteLine(): InfiniteLine2 }): Line2 {
+    const { through, direction } = line.infiniteLine();
+    return new Line2(through.clone(), through.add(direction));
   }
 
   interval(): Interval2 {

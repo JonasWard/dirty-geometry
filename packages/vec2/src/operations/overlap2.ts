@@ -179,7 +179,7 @@ function overlapsCircle(circle: Circle2, other: Geometry2, slack: Epsilon): bool
   }
 
   if (other instanceof Aabb2) {
-    return overlapsCircle(circle, other.polygon2(), slack);
+    return overlapsCircle(circle, Polygon2.fromAabb2(other), slack);
   }
 
   for (const point of verticesOf(other)) {
@@ -256,7 +256,7 @@ function overlapsAabbSegment(box: Aabb2, segment: Line2, slack: Epsilon): boolea
     return true;
   }
 
-  for (const edge of box.polygon2().segments()) {
+  for (const edge of Polygon2.fromAabb2(box).segments()) {
     if (overlapsSegments(segment, edge, slack)) {
       return true;
     }
@@ -375,7 +375,7 @@ function segmentsOf(curve: Line2 | Polyline2 | Ray2): Line2[] {
     return curve.segments();
   }
 
-  return [curve.definitionLine()];
+  return [Line2.definitionOf(curve)];
 }
 
 function verticesOf(geometry: Geometry2): Vec2[] {
@@ -427,7 +427,7 @@ function edgesOf(geometry: Geometry2): Line2[] {
   }
 
   if (geometry instanceof Ray2) {
-    return [geometry.definitionLine()];
+    return [Line2.definitionOf(geometry)];
   }
 
   return [];

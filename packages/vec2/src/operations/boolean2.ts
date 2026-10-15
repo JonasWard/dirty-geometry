@@ -145,7 +145,7 @@ type BooleanRun = {
 function runBoolean(run: BooleanRun): Boolean2Result {
   const slack = run.options.slack ?? Epsilon.preferIn;
   const mesh = triangulateSources(
-    [...run.sources, ...(run.bounds ? [run.bounds.polygon2()] : []), ...(run.clipLines ?? [])],
+    [...run.sources, ...(run.bounds ? [Polygon2.fromAabb2(run.bounds)] : []), ...(run.clipLines ?? [])],
     slack,
   );
   const filtered = filterTriangles(mesh, run.keep);

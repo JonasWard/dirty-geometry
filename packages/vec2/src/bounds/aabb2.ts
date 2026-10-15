@@ -1,7 +1,6 @@
 import { Epsilon } from '../core/epsilon';
 import { Interval2, type Interval2Json } from './interval2';
 import { Vec2 } from '../core/vec2';
-import { Polygon2 } from '../geometry/regions/polygon2';
 
 /** Axis-aligned bounding box stored as per-axis intervals. */
 export class Aabb2 {
@@ -99,16 +98,6 @@ export class Aabb2 {
     const min = this.min();
     const max = this.max();
     return [min, new Vec2(max.x, min.y), max, new Vec2(min.x, max.y)];
-  }
-
-  /** Closed quadrilateral with the same bounds as this box. Requires finite bounds on both axes. */
-  polygon2(): Polygon2 {
-    if (this.isInfinite()) {
-      throw new Error('Aabb2.toPolygon2 requires finite bounds');
-    }
-
-    const [a, b, c, d] = this.corners();
-    return new Polygon2([a, b, c, d]);
   }
 
   aabb2(): Aabb2 {

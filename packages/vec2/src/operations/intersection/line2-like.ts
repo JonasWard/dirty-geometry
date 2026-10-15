@@ -1,4 +1,4 @@
-import type { LineLike2 } from '../../geometry/kinds';
+import type { LineLike2, LineLike2IntersectionResult } from '../../geometry/kinds';
 import { Interval2 } from '../../bounds/interval2';
 import { Epsilon } from '../../core/epsilon';
 import { Vec2 } from '../../core/vec2';
@@ -6,7 +6,7 @@ import { InfiniteLine2 } from '../../geometry/primitives/infinite-line2';
 import { Line2 } from '../../geometry/primitives/line2';
 import { Ray2 } from '../../geometry/primitives/ray2';
 
-export type LineLike2IntersectionResult = LineLike2 | Vec2 | null;
+export type { LineLike2IntersectionResult } from '../../geometry/kinds';
 
 export function intersectionLines(first: LineLike2, second: LineLike2): LineLike2IntersectionResult {
   const dir0 = first.infiniteLine().direction;

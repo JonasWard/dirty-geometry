@@ -151,9 +151,9 @@ describe('Aabb2', () => {
     expectVec2Close(d, new Vec2(1, 6));
   });
 
-  test('toPolygon2 matches corners and bounds', () => {
+  test('Polygon2.fromAabb2 matches corners and bounds', () => {
     const aabb = box(new Vec2(1, 2), new Vec2(4, 6));
-    const polygon = aabb.polygon2();
+    const polygon = Polygon2.fromAabb2(aabb);
     expect(polygon.vertices).toHaveLength(4);
     expectAabb2Close(polygon.aabb2(), aabb);
     expectVec2Close(polygon.vertices[0]!, aabb.corners()[0]);
@@ -198,7 +198,7 @@ describe('geometry aabb2', () => {
     const horizontal = new Ray2(new Vec2(1, 2), new Vec2(3, 0));
     expectAabb2Close(horizontal.aabb2(), box(new Vec2(1, 2), new Vec2(Infinity, 2)));
 
-    expectAabb2Close(diagonal.aabb2(true), diagonal.definitionLine().aabb2());
+    expectAabb2Close(diagonal.aabb2(true), Line2.definitionOf(diagonal).aabb2());
   });
 
   test('InfiniteLine2 default constrains axis when parallel to x or y', () => {
@@ -213,7 +213,7 @@ describe('geometry aabb2', () => {
     expectAabb2Close(vertical.aabb2(), box(new Vec2(-3, -Infinity), new Vec2(-3, Infinity)));
     expectClose(vertical.aabb2().width(), 0);
 
-    expectAabb2Close(diagonal.aabb2(true), diagonal.definitionLine().aabb2());
+    expectAabb2Close(diagonal.aabb2(true), Line2.definitionOf(diagonal).aabb2());
     expectAabb2Close(diagonal.aabb2(true), box(new Vec2(-1, 0), new Vec2(1, 5)));
   });
 
@@ -224,12 +224,12 @@ describe('geometry aabb2', () => {
 
   test('definitionLine matches start/through to start/through + direction', () => {
     const ray = new Ray2(new Vec2(0, 0), new Vec2(2, 0));
-    expectVec2Close(ray.definitionLine().from, new Vec2(0, 0));
-    expectVec2Close(ray.definitionLine().to, new Vec2(2, 0));
-    expectClose(ray.definitionLine().length(), 2);
+    expectVec2Close(Line2.definitionOf(ray).from, new Vec2(0, 0));
+    expectVec2Close(Line2.definitionOf(ray).to, new Vec2(2, 0));
+    expectClose(Line2.definitionOf(ray).length(), 2);
 
     const infinite = new InfiniteLine2(new Vec2(1, 1), new Vec2(0, 3));
-    expectVec2Close(infinite.definitionLine().from, new Vec2(1, 1));
-    expectVec2Close(infinite.definitionLine().to, new Vec2(1, 4));
+    expectVec2Close(Line2.definitionOf(infinite).from, new Vec2(1, 1));
+    expectVec2Close(Line2.definitionOf(infinite).to, new Vec2(1, 4));
   });
 });

@@ -30,7 +30,7 @@ describe('Hesse2', () => {
 
   test('round-trips with InfiniteLine2 for angled lines', () => {
     const line = new InfiniteLine2(new Vec2(1, 1), new Vec2(2, 2));
-    const hesse = line.hesseNormal();
+    const hesse = Hesse2.fromInfiniteLine(line);
     const restored = hesse.infiniteLine();
     const point = new Vec2(0, 2);
 
@@ -65,8 +65,8 @@ describe('Hesse2', () => {
   test('transform follows InfiniteLine2.transform', () => {
     const line = new InfiniteLine2(new Vec2(0, 1), new Vec2(1, 0));
     const matrix = Mat3.translation(2, 3).multiply(Mat3.rotation(Math.PI / 2));
-    const transformed = line.hesseNormal().transform(matrix);
-    const expected = line.transform(matrix).hesseNormal();
+    const transformed = Hesse2.fromInfiniteLine(line).transform(matrix);
+    const expected = Hesse2.fromInfiniteLine(line.transform(matrix));
     const probe = new Vec2(4, -1);
 
     expectClose(transformed.signedDistance(probe), expected.signedDistance(probe));

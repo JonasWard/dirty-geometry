@@ -20,6 +20,7 @@ import { Vec2 } from '../core/vec2';
 import { Polyline2 } from '../geometry/curves/polyline2';
 import { InfiniteLine2 } from '../geometry/primitives/infinite-line2';
 import { Line2 } from '../geometry/primitives/line2';
+import { intersectionLines } from './intersection/line2-like';
 import { Circle2 } from '../geometry/regions/circle2';
 import { Polygon2 } from '../geometry/regions/polygon2';
 import { TriMesh2 } from '../geometry/regions/tri-mesh2';
@@ -176,7 +177,7 @@ function resolveInfiniteLineHits(
 ): void {
   for (let i = 0; i < segments.length; i++) {
     for (let j = 0; j < lines.length; j++) {
-      const hit = asPoint(segments[i]!.intersect(lines[j]!));
+      const hit = asPoint(intersectionLines(segments[i]!, lines[j]!));
       if (!hit) continue;
       lineGeomHits[j]!.push(link(finite[i]!, infinite[j]!, hit, registry));
     }
@@ -186,7 +187,7 @@ function resolveInfiniteLineHits(
     if (lineGeomHits[i]!.length === 0) continue;
     for (let j = i + 1; j < lines.length; j++) {
       if (lineGeomHits[j]!.length === 0) continue;
-      const hit = asPoint(lines[i]!.intersect(lines[j]!));
+      const hit = asPoint(intersectionLines(lines[i]!, lines[j]!));
       if (!hit) continue;
       if (!withinHitSpan(lines[i]!, hit, lineGeomHits[i]!, registry.points, slack)) continue;
       if (!withinHitSpan(lines[j]!, hit, lineGeomHits[j]!, registry.points, slack)) continue;
@@ -314,7 +315,7 @@ function splitAtCrossings(vertices: Vec2[], constraints: readonly ConstraintEdge
       const [c, d] = constraintEdgeEndpoints(constraints[j]!);
       if (a === c || a === d || b === c || b === d) continue;
       if (!crosses(vertices[a]!, vertices[b]!, vertices[c]!, vertices[d]!)) continue;
-      const hit = asPoint(new Line2(vertices[a]!, vertices[b]!).intersect(new Line2(vertices[c]!, vertices[d]!)));
+      const hit = asPoint(intersectionLines(new Line2(vertices[a]!, vertices[b]!), new Line2(vertices[c]!, vertices[d]!)));
       if (hit && !vertices.some((v) => v.distance(hit) < Epsilon.value)) vertices.push(hit.clone());
     }
   }

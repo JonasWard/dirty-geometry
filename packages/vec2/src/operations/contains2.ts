@@ -53,7 +53,7 @@ export class Contains2 {
       return false;
     }
 
-    return Contains2.contains(container, box.polygon2(), slack);
+    return Contains2.contains(container, Polygon2.fromAabb2(box), slack);
   }
 
   static pointIn(container: Container2, point: Vec2, slack: Epsilon = Epsilon.preferIn): boolean {

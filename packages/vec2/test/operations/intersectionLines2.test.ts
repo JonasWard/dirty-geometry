@@ -17,7 +17,7 @@ describe('intersectionLines', () => {
   test('infinite with infinite returns a point', () => {
     const a = new InfiniteLine2(new Vec2(0, 0), new Vec2(1, 0));
     const b = new InfiniteLine2(new Vec2(5, 0), new Vec2(0, 1));
-    const result = a.intersect(b);
+    const result = intersectionLines(a, b);
 
     expectPointResult(result, new Vec2(5, 0));
   });
@@ -26,13 +26,13 @@ describe('intersectionLines', () => {
     const a = new InfiniteLine2(new Vec2(0, 0), new Vec2(1, 0));
     const b = new InfiniteLine2(new Vec2(0, 1), new Vec2(2, 0));
 
-    expect(a.intersect(b)).toBeNull();
+    expect(intersectionLines(a, b)).toBeNull();
   });
 
   test('colinear infinite lines return an infinite line', () => {
     const a = new InfiniteLine2(new Vec2(0, 0), new Vec2(1, 0));
     const b = new InfiniteLine2(new Vec2(3, 0), new Vec2(-2, 0));
-    const result = a.intersect(b);
+    const result = intersectionLines(a, b);
 
     expect(result).toBeInstanceOf(InfiniteLine2);
   });
@@ -40,7 +40,7 @@ describe('intersectionLines', () => {
   test('ray with ray returns a point', () => {
     const a = new Ray2(new Vec2(0, 0), new Vec2(1, 0));
     const b = new Ray2(new Vec2(5, -5), new Vec2(0, 1));
-    const result = a.intersect(b);
+    const result = intersectionLines(a, b);
 
     expectPointResult(result, new Vec2(5, 0));
   });
@@ -49,13 +49,13 @@ describe('intersectionLines', () => {
     const a = new Ray2(new Vec2(10, 0), new Vec2(1, 0));
     const b = new Ray2(new Vec2(0, 5), new Vec2(0, -1));
 
-    expect(a.intersect(b)).toBeNull();
+    expect(intersectionLines(a, b)).toBeNull();
   });
 
   test('overlapping colinear rays return a ray', () => {
     const a = new Ray2(new Vec2(0, 0), new Vec2(1, 0));
     const b = new Ray2(new Vec2(2, 0), new Vec2(1, 0));
-    const result = a.intersect(b);
+    const result = intersectionLines(a, b);
 
     expect(result).toBeInstanceOf(Ray2);
     expectVec2Close((result as Ray2).start, new Vec2(2, 0));
@@ -64,7 +64,7 @@ describe('intersectionLines', () => {
   test('opposite colinear rays that touch return a point', () => {
     const a = new Ray2(new Vec2(0, 0), new Vec2(1, 0));
     const b = new Ray2(new Vec2(0, 0), new Vec2(-1, 0));
-    const result = a.intersect(b);
+    const result = intersectionLines(a, b);
 
     expectPointResult(result, new Vec2(0, 0));
   });
@@ -72,7 +72,7 @@ describe('intersectionLines', () => {
   test('line with line returns a point', () => {
     const a = new Line2(new Vec2(0, 0), new Vec2(10, 0));
     const b = new Line2(new Vec2(5, -5), new Vec2(5, 5));
-    const result = a.intersect(b);
+    const result = intersectionLines(a, b);
 
     expectPointResult(result, new Vec2(5, 0));
   });
@@ -81,13 +81,13 @@ describe('intersectionLines', () => {
     const a = new Line2(new Vec2(0, 0), new Vec2(10, 0));
     const b = new Line2(new Vec2(0, 1), new Vec2(10, 1));
 
-    expect(a.intersect(b)).toBeNull();
+    expect(intersectionLines(a, b)).toBeNull();
   });
 
   test('overlapping colinear lines return a line segment', () => {
     const a = new Line2(new Vec2(0, 0), new Vec2(10, 0));
     const b = new Line2(new Vec2(5, 0), new Vec2(15, 0));
-    const result = a.intersect(b);
+    const result = intersectionLines(a, b);
 
     expect(result).toBeInstanceOf(Line2);
     expectVec2Close((result as Line2).from, new Vec2(5, 0));
@@ -97,7 +97,7 @@ describe('intersectionLines', () => {
   test('colinear lines that touch at an endpoint return a point', () => {
     const a = new Line2(new Vec2(0, 0), new Vec2(5, 0));
     const b = new Line2(new Vec2(5, 0), new Vec2(10, 0));
-    const result = a.intersect(b);
+    const result = intersectionLines(a, b);
 
     expectPointResult(result, new Vec2(5, 0));
   });
@@ -106,13 +106,13 @@ describe('intersectionLines', () => {
     const a = new Line2(new Vec2(0, 0), new Vec2(5, 0));
     const b = new Line2(new Vec2(10, -5), new Vec2(10, 5));
 
-    expect(a.intersect(b)).toBeNull();
+    expect(intersectionLines(a, b)).toBeNull();
   });
 
   test('infinite with ray returns a point', () => {
     const a = new InfiniteLine2(new Vec2(0, 0), new Vec2(1, 0));
     const b = new Ray2(new Vec2(5, -5), new Vec2(0, 1));
-    const result = a.intersect(b);
+    const result = intersectionLines(a, b);
 
     expectPointResult(result, new Vec2(5, 0));
   });
@@ -120,7 +120,7 @@ describe('intersectionLines', () => {
   test('infinite with colinear ray returns a ray', () => {
     const a = new InfiniteLine2(new Vec2(0, 0), new Vec2(1, 0));
     const b = new Ray2(new Vec2(2, 0), new Vec2(1, 0));
-    const result = a.intersect(b);
+    const result = intersectionLines(a, b);
 
     expect(result).toBeInstanceOf(Ray2);
     expectVec2Close((result as Ray2).start, new Vec2(2, 0));
@@ -129,7 +129,7 @@ describe('intersectionLines', () => {
   test('infinite with line returns a point', () => {
     const a = new InfiniteLine2(new Vec2(0, 0), new Vec2(1, 0));
     const b = new Line2(new Vec2(5, -5), new Vec2(5, 5));
-    const result = a.intersect(b);
+    const result = intersectionLines(a, b);
 
     expectPointResult(result, new Vec2(5, 0));
   });
@@ -137,7 +137,7 @@ describe('intersectionLines', () => {
   test('infinite with colinear line returns the segment', () => {
     const a = new InfiniteLine2(new Vec2(0, 0), new Vec2(1, 0));
     const b = new Line2(new Vec2(1, 0), new Vec2(4, 0));
-    const result = a.intersect(b);
+    const result = intersectionLines(a, b);
 
     expect(result).toBeInstanceOf(Line2);
     expectVec2Close((result as Line2).from, new Vec2(1, 0));
@@ -147,7 +147,7 @@ describe('intersectionLines', () => {
   test('ray with line returns a point', () => {
     const a = new Ray2(new Vec2(0, 0), new Vec2(1, 0));
     const b = new Line2(new Vec2(5, -5), new Vec2(5, 5));
-    const result = a.intersect(b);
+    const result = intersectionLines(a, b);
 
     expectPointResult(result, new Vec2(5, 0));
   });
@@ -166,7 +166,7 @@ describe('intersectionLines', () => {
   test('works with non-unit directions', () => {
     const a = new InfiniteLine2(new Vec2(0, 0), new Vec2(2, 0));
     const b = new InfiniteLine2(new Vec2(0, 0), new Vec2(0, 3));
-    const result = a.intersect(b);
+    const result = intersectionLines(a, b);
 
     expectPointResult(result, new Vec2(0, 0));
   });
@@ -175,41 +175,41 @@ describe('intersectionLines', () => {
     const a = new InfiniteLine2(new Vec2(0, 0), new Vec2(1, 1));
     const b = new InfiniteLine2(new Vec2(0, 0), new Vec2(1, -1));
 
-    expectPointResult(a.intersect(b), new Vec2(0, 0));
+    expectPointResult(intersectionLines(a, b), new Vec2(0, 0));
   });
 
   test('angled infinite lines return null when parallel and separated', () => {
     const a = new InfiniteLine2(new Vec2(0, 0), new Vec2(1, 1));
     const b = new InfiniteLine2(new Vec2(0, 1), new Vec2(2, 2));
 
-    expect(a.intersect(b)).toBeNull();
+    expect(intersectionLines(a, b)).toBeNull();
   });
 
   test('angled colinear infinite lines return an infinite line', () => {
     const a = new InfiniteLine2(new Vec2(0, 0), new Vec2(1, 1));
     const b = new InfiniteLine2(new Vec2(1, 1), new Vec2(-1, -1));
 
-    expect(a.intersect(b)).toBeInstanceOf(InfiniteLine2);
+    expect(intersectionLines(a, b)).toBeInstanceOf(InfiniteLine2);
   });
 
   test('angled line segments cross at the origin', () => {
     const a = new Line2(new Vec2(-1.5, -1.5), new Vec2(1.5, 1.5));
     const b = new Line2(new Vec2(-1.5, 1.5), new Vec2(1.5, -1.5));
 
-    expectPointResult(a.intersect(b), new Vec2(0, 0));
+    expectPointResult(intersectionLines(a, b), new Vec2(0, 0));
   });
 
   test('angled parallel line segments return null when separated', () => {
     const a = new Line2(new Vec2(-1.5, -1), new Vec2(1.5, 2));
     const b = new Line2(new Vec2(-1.5, -0.4), new Vec2(1.5, 2.6));
 
-    expect(a.intersect(b)).toBeNull();
+    expect(intersectionLines(a, b)).toBeNull();
   });
 
   test('angled overlapping colinear segments return the overlap', () => {
     const a = new Line2(new Vec2(-1.5, -1.5), new Vec2(0.5, 0.5));
     const b = new Line2(new Vec2(-0.5, -0.5), new Vec2(1.5, 1.5));
-    const result = a.intersect(b);
+    const result = intersectionLines(a, b);
 
     expect(result).toBeInstanceOf(Line2);
     expectVec2Close((result as Line2).from, new Vec2(-0.5, -0.5));
@@ -220,34 +220,34 @@ describe('intersectionLines', () => {
     const a = new Line2(new Vec2(-1.5, -1.5), new Vec2(0, 0));
     const b = new Line2(new Vec2(0, 0), new Vec2(1.5, 1.5));
 
-    expectPointResult(a.intersect(b), new Vec2(0, 0));
+    expectPointResult(intersectionLines(a, b), new Vec2(0, 0));
   });
 
   test('angled segments return null when the crossing is outside both', () => {
     const a = new Line2(new Vec2(-1.5, -1.5), new Vec2(-0.25, -0.25));
     const b = new Line2(new Vec2(0.25, 1.5), new Vec2(1.5, 0.25));
 
-    expect(a.intersect(b)).toBeNull();
+    expect(intersectionLines(a, b)).toBeNull();
   });
 
   test('angled rays cross at a point', () => {
     const a = new Ray2(new Vec2(-1.5, -1), new Vec2(1, 1));
     const b = new Ray2(new Vec2(1.5, -1), new Vec2(-1, 1));
 
-    expectPointResult(a.intersect(b), new Vec2(0, 0.5));
+    expectPointResult(intersectionLines(a, b), new Vec2(0, 0.5));
   });
 
   test('angled rays return null when the crossing is behind both', () => {
     const a = new Ray2(new Vec2(0.5, 0.5), new Vec2(1, 1));
     const b = new Ray2(new Vec2(-0.5, 0.5), new Vec2(-1, 1));
 
-    expect(a.intersect(b)).toBeNull();
+    expect(intersectionLines(a, b)).toBeNull();
   });
 
   test('angled overlapping colinear rays return a ray', () => {
     const a = new Ray2(new Vec2(-1.5, -1.5), new Vec2(1, 1));
     const b = new Ray2(new Vec2(0, 0), new Vec2(1, 1));
-    const result = a.intersect(b);
+    const result = intersectionLines(a, b);
 
     expect(result).toBeInstanceOf(Ray2);
     expectVec2Close((result as Ray2).start, new Vec2(0, 0));
@@ -257,7 +257,7 @@ describe('intersectionLines', () => {
     const a = new Ray2(new Vec2(0, 0), new Vec2(1, 1));
     const b = new Ray2(new Vec2(0, 0), new Vec2(-1, -1));
 
-    expectPointResult(a.intersect(b), new Vec2(0, 0));
+    expectPointResult(intersectionLines(a, b), new Vec2(0, 0));
   });
 
   test('angled infinite with ray returns a point', () => {
@@ -265,7 +265,7 @@ describe('intersectionLines', () => {
     const b = new Ray2(new Vec2(0, 1.5), new Vec2(0.5, -1));
     // a: (t, 0.5 t), b: (0.5 s, 1.5 - s) → t = 0.5 s, 0.5 t = 1.5 - s
     // 0.25 s = 1.5 - s → 1.25 s = 1.5 → s = 1.2, t = 0.6 → (0.6, 0.3)
-    expectPointResult(a.intersect(b), new Vec2(0.6, 0.3));
+    expectPointResult(intersectionLines(a, b), new Vec2(0.6, 0.3));
   });
 
   test('angled infinite with line returns a point', () => {
@@ -275,7 +275,7 @@ describe('intersectionLines', () => {
     // -1 + 2.5 u = t, 1.5 - 2.5 u = -0.5 t
     // 1.5 - 2.5 u = -0.5 (-1 + 2.5 u) = 0.5 - 1.25 u
     // 1 = 1.25 u → u = 0.8, t = -1 + 2 = 1 → (1, -0.5)
-    expectPointResult(a.intersect(b), new Vec2(1, -0.5));
+    expectPointResult(intersectionLines(a, b), new Vec2(1, -0.5));
   });
 
   test('angled ray with line returns a point', () => {
@@ -289,13 +289,13 @@ describe('intersectionLines', () => {
     // -0.25 + 1.25 u = 1.5 - 2.5 u
     // 3.75 u = 1.75 → u = 7/15, t = 0.5 + 2.5*(7/15) = 0.5 + 7/6 = 5/3
     // point: (-1.5 + 5/3, -0.5 + 0.5*(5/3)) = (1/6, 1/3)
-    expectPointResult(a.intersect(b), new Vec2(1 / 6, 1 / 3));
+    expectPointResult(intersectionLines(a, b), new Vec2(1 / 6, 1 / 3));
   });
 
   test('angled infinite with colinear ray returns a ray', () => {
     const a = new InfiniteLine2(new Vec2(0, 0), new Vec2(1, 1));
     const b = new Ray2(new Vec2(-0.5, -0.5), new Vec2(1, 1));
-    const result = a.intersect(b);
+    const result = intersectionLines(a, b);
 
     expect(result).toBeInstanceOf(Ray2);
     expectVec2Close((result as Ray2).start, new Vec2(-0.5, -0.5));

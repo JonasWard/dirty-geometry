@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test';
+import { Hesse2 } from '../../../src/geometry/primitives/hesse2';
 import { InfiniteLine2 } from '../../../src/geometry/primitives/infinite-line2';
 import { Vec2 } from '../../../src/core/vec2';
 import { expectClose, expectVec2Close } from '../../testHelpers';
@@ -44,7 +45,7 @@ describe('InfiniteLine2', () => {
 
   test('hesseNormal matches signedDistance', () => {
     const line = new InfiniteLine2(new Vec2(2, -1), new Vec2(3, 4));
-    const hesse = line.hesseNormal();
+    const hesse = Hesse2.fromInfiniteLine(line);
     const point = new Vec2(-2, 5);
 
     expectClose(hesse.signedDistance(point), line.signedDistance(point));

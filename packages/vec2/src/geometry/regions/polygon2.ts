@@ -19,6 +19,14 @@ export class Polygon2 {
     this.vertices = vertices.map((v) => v.clone());
   }
 
+  /** Closed CCW quadrilateral with the same bounds as `box`. Requires finite bounds on both axes. */
+  static fromAabb2(box: Aabb2): Polygon2 {
+    if (box.isInfinite()) {
+      throw new Error('Polygon2.fromAabb2 requires finite bounds');
+    }
+    return new Polygon2(box.corners());
+  }
+
   /** Number of boundary segments (`vertices.length`). Parameter domain is `[0, n]`. */
   n(): number {
     return this.vertices.length;

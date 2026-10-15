@@ -9,7 +9,7 @@ export class UndirectedEdge2D<T extends object = Record<string, never>> {
     public readonly id: string,
     public readonly a: UndirectedNode2D,
     public readonly b: UndirectedNode2D,
-    public data: T,
+    public readonly data: T,
   ) {}
 
   /** The endpoint that is not `node`. */

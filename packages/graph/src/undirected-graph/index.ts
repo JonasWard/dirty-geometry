@@ -2,8 +2,14 @@ export { UndirectedNode2D } from './undirected-node-2d';
 export { UndirectedEdge2D } from './undirected-edge-2d';
 export {
   UndirectedGraph2D,
+  type UndirectedNode2DJson,
+  type UndirectedEdge2DJson,
+  type UndirectedGraph2DJson,
+} from './undirected-graph-2d';
+export {
   allowEdges,
   defaultEdgeCost,
+  DEFAULT_MAX_EXPANSIONS,
   isTraversable,
   searchLongestSimplePath,
   searchPath,
@@ -12,10 +18,7 @@ export {
   type PathSearchKind,
   type PathSearchOptions,
   type ViaWaypoint,
-  type UndirectedNode2DJson,
-  type UndirectedEdge2DJson,
-  type UndirectedGraph2DJson,
-} from './undirected-graph-2d';
+} from './path-search';
 export {
   isEdgeDataRecord,
   isEdgeDataValue,
@@ -36,4 +39,5 @@ export {
   leafNodesInEdgeSet,
   pathBetweenLeaves,
   peelSpurs,
+  twoCore,
 } from './edge-subgraph';

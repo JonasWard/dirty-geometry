@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import { Vec2 } from '@dirty-geometry/vec2/core/vec2';
 import { Line2 } from '@dirty-geometry/vec2/geometry/primitives/line2';
-import { UndirectedGraph2D } from '../src/undirected-graph';
+import { searchLongestSimplePath, UndirectedGraph2D } from '../src/undirected-graph';
 
 type WallData = { weight: number };
 
@@ -171,5 +171,93 @@ describe('UndirectedGraph2D', () => {
   });
   test('fromJson rejects invalid payloads', () => {
     expect(() => UndirectedGraph2D.fromJson({ type: 'nope', nodes: [], edges: [] })).toThrow();
+  });
+});
+
+describe('UndirectedGraph2D fixes', () => {
+  test('a forced via edge costs one hop under BFS (G7)', () => {
+    const graph = squareGraph();
+    const path = graph.path('a', 'c', { via: [graph.getEdge('ac')], search: 'bfs' });
+    expect(path!.edges.map((edge) => edge.id)).toEqual(['ac']);
+    expect(path!.cost).toBe(1);
+  });
+
+  test('a blocked via edge fails the path instead of routing around it (G7)', () => {
+    const graph = squareGraph();
+    const path = graph.path('a', 'c', {
+      via: [graph.getEdge('da')],
+      interpret: (edge) => (edge.id === 'da' ? Number.POSITIVE_INFINITY : 1),
+    });
+    expect(path).toBeNull();
+  });
+
+  test('A* stays optimal with non-Euclidean costs (G6)', () => {
+    const graph = new UndirectedGraph2D();
+    for (const [id, x, y] of [
+      ['s', 0, 0],
+      ['g', 10, 0],
+      ['x', 0, 10],
+      ['p1', 2.5, 0],
+      ['p2', 5, 0],
+      ['p3', 7.5, 0],
+    ] as const) {
+      graph.addNode(id, new Vec2(x, y));
+    }
+    graph.addEdge('sx', 's', 'x');
+    graph.addEdge('xg', 'x', 'g');
+    graph.addEdge('s1', 's', 'p1');
+    graph.addEdge('12', 'p1', 'p2');
+    graph.addEdge('23', 'p2', 'p3');
+    graph.addEdge('3g', 'p3', 'g');
+
+    expect(graph.aStar('s', 'g', () => 1)!.cost).toBe(2);
+    expect(graph.path('s', 'g', { search: 'astar', interpret: () => 1, heuristic: () => 0 })!.cost).toBe(2);
+  });
+
+  test('longest simple path never revisits a node (G5)', () => {
+    const graph = new UndirectedGraph2D();
+    for (const [id, x] of [
+      ['s', 0],
+      ['a', 1],
+      ['b', 2],
+      ['c', 3],
+      ['g', 4],
+    ] as const) {
+      graph.addNode(id, new Vec2(x, x % 2));
+    }
+    graph.addEdge('sa', 's', 'a');
+    graph.addEdge('ab', 'a', 'b');
+    graph.addEdge('bc', 'b', 'c');
+    graph.addEdge('ca', 'c', 'a');
+    graph.addEdge('ag', 'a', 'g');
+
+    const path = searchLongestSimplePath(graph.getNode('s'), graph.getNode('g'));
+    expect(path!.edges.map((edge) => edge.id)).toEqual(['sa', 'ag']);
+    expect(new Set(path!.nodes.map((node) => node.id)).size).toBe(path!.nodes.length);
+  });
+
+  test('rejects endpoints that belong to another graph (G8)', () => {
+    const graph = squareGraph();
+    const foreign = new UndirectedGraph2D<WallData>().addNode('a', new Vec2(5, 5));
+    expect(() => graph.addEdge('xa', foreign, 'b', { weight: 1 })).toThrow('belong to this graph');
+  });
+
+  test('edge data is required when the payload has fields (G9, type-level)', () => {
+    const typeOnly = (graph: UndirectedGraph2D<WallData>) => {
+      // @ts-expect-error `data` is required for a non-empty payload type
+      graph.addEdge('e', 'a', 'b');
+      // @ts-expect-error edge data is read-only after insertion
+      graph.getEdge('ab').data = { weight: 2 };
+    };
+    expect(typeOnly).toBeFunction();
+  });
+
+  test('node and edge lists are cached until the graph changes', () => {
+    const graph = squareGraph();
+    expect(graph.edges).toBe(graph.edges);
+    const before = graph.edges;
+    graph.removeEdge('ac');
+    expect(graph.edges).not.toBe(before);
+    expect(graph.edges).toHaveLength(4);
   });
 });

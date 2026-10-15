@@ -14,6 +14,12 @@ export type PathSearchOptions<T extends object> = {
   /** Defaults to Euclidean edge length for Dijkstra / A*; BFS still uses hop count. */
   interpret?: EdgeInterpretFn<T>;
   search?: PathSearchKind;
+  /**
+   * A* estimate of the remaining cost from a node to the goal. Must not overestimate the
+   * interpreted cost. Defaults to Euclidean distance with the default `interpret`, and to 0 (plain
+   * Dijkstra) when a custom `interpret` is given, since straight-line distance can overestimate it.
+   */
+  heuristic?: (node: UndirectedNode2D, goal: UndirectedNode2D) => number;
 };
 
 export type GraphPath<T extends object> = {
@@ -53,17 +59,22 @@ export function allowEdges<T extends object>(
   };
 }
 
+/** Default cap on depth-first expansions in {@link searchLongestSimplePath}. */
+export const DEFAULT_MAX_EXPANSIONS = 200_000;
+
 /**
- * Longest simple path from `start` to `goal` (by hop count, then interpreted cost).
+ * Longest simple path (no repeated node) from `start` to `goal`, by hop count, then interpreted cost.
  * Uses `interpret` as a filter / length weight — same contract as {@link searchPath}.
+ * The search is exponential, so it stops after `maxExpansions` steps and returns the best path so far.
  */
 export function searchLongestSimplePath<T extends object>(
   start: UndirectedNode2D,
   goal: UndirectedNode2D,
-  options: PathSearchOptions<T> & { maxLength?: number } = {},
+  options: PathSearchOptions<T> & { maxLength?: number; maxExpansions?: number } = {},
 ): GraphPath<T> | null {
   const interpret = options.interpret ?? defaultEdgeCost;
   const maxLength = options.maxLength ?? Number.POSITIVE_INFINITY;
+  let budget = options.maxExpansions ?? DEFAULT_MAX_EXPANSIONS;
 
   let best: GraphPath<T> | null = null;
 
@@ -78,9 +89,10 @@ export function searchLongestSimplePath<T extends object>(
     node: UndirectedNode2D,
     nodes: UndirectedNode2D[],
     edges: UndirectedEdge2D<T>[],
-    used: Set<string>,
+    visited: Set<string>,
     cost: number,
   ) {
+    if (budget-- <= 0) return;
     if (node.id === goal.id) {
       consider(nodes, edges, cost);
       return;
@@ -88,22 +100,22 @@ export function searchLongestSimplePath<T extends object>(
     if (edges.length >= maxLength) return;
 
     for (const edge of node.edgesOf<T>()) {
-      if (used.has(edge.id)) continue;
       const next = edge.other(node);
+      if (visited.has(next.id)) continue;
       const step = interpret(edge, node, next);
       if (!isTraversable(step)) continue;
 
-      used.add(edge.id);
+      visited.add(next.id);
       nodes.push(next);
       edges.push(edge);
-      dfs(next, nodes, edges, used, cost + step);
+      dfs(next, nodes, edges, visited, cost + step);
       edges.pop();
       nodes.pop();
-      used.delete(edge.id);
+      visited.delete(next.id);
     }
   }
 
-  dfs(start, [start], [], new Set(), 0);
+  dfs(start, [start], [], new Set([start.id]), 0);
   return best;
 }
 
@@ -126,9 +138,11 @@ function reconstructPath<T extends object>(goal: UndirectedNode2D, cameFrom: Cam
   return { nodes, edges, cost };
 }
 
-function heuristic(a: UndirectedNode2D, b: UndirectedNode2D): number {
+function euclideanHeuristic(a: UndirectedNode2D, b: UndirectedNode2D): number {
   return a.position.distance(b.position);
 }
+
+const zeroHeuristic = () => 0;
 
 /** Binary min-heap over `{ id, priority }`. */
 class MinHeap {
@@ -181,7 +195,7 @@ class MinHeap {
  * Shortest path from `start` to `goal`.
  * - `bfs`: fewest hops (interpret only filters blocked edges)
  * - `dijkstra`: min interpreted cost
- * - `astar`: Dijkstra + Euclidean heuristic to `goal`
+ * - `astar`: Dijkstra guided by `options.heuristic` (see {@link PathSearchOptions.heuristic})
  */
 export function searchPath<T extends object>(
   start: UndirectedNode2D,
@@ -194,7 +208,9 @@ export function searchPath<T extends object>(
   const interpret = options.interpret ?? defaultEdgeCost;
 
   if (search === 'bfs') return bfs(start, goal, interpret);
-  return weightedSearch(start, goal, interpret, search === 'astar');
+  const heuristic =
+    search === 'astar' ? (options.heuristic ?? (options.interpret ? zeroHeuristic : euclideanHeuristic)) : zeroHeuristic;
+  return weightedSearch(start, goal, interpret, heuristic);
 }
 
 function bfs<T extends object>(
@@ -206,8 +222,8 @@ function bfs<T extends object>(
   const depth = new Map<string, number>([[start.id, 0]]);
   const queue: UndirectedNode2D[] = [start];
 
-  while (queue.length > 0) {
-    const current = queue.shift()!;
+  for (let head = 0; head < queue.length; head++) {
+    const current = queue[head]!;
     const currentDepth = depth.get(current.id)!;
     for (const edge of current.edgesOf<T>()) {
       const next = edge.other(current);
@@ -228,12 +244,12 @@ function weightedSearch<T extends object>(
   start: UndirectedNode2D,
   goal: UndirectedNode2D,
   interpret: EdgeInterpretFn<T>,
-  useHeuristic: boolean,
+  heuristic: (node: UndirectedNode2D, goal: UndirectedNode2D) => number,
 ): GraphPath<T> | null {
   const cameFrom: CameFrom<T> = new Map();
   const gScore = new Map<string, number>([[start.id, 0]]);
   const open = new MinHeap();
-  open.push(start.id, useHeuristic ? heuristic(start, goal) : 0);
+  open.push(start.id, heuristic(start, goal));
   const nodesById = new Map<string, UndirectedNode2D>([[start.id, start]]);
 
   while (open.size > 0) {
@@ -241,7 +257,7 @@ function weightedSearch<T extends object>(
     const current = nodesById.get(currentEntry.id);
     if (!current) continue;
     const currentG = gScore.get(current.id) ?? Number.POSITIVE_INFINITY;
-    const expectedF = currentG + (useHeuristic ? heuristic(current, goal) : 0);
+    const expectedF = currentG + heuristic(current, goal);
     if (currentEntry.priority > expectedF + 1e-12) continue;
     if (current.id === goal.id) return reconstructPath(goal, cameFrom, currentG);
 
@@ -254,7 +270,7 @@ function weightedSearch<T extends object>(
       cameFrom.set(next.id, { prev: current, edge });
       gScore.set(next.id, tentative);
       nodesById.set(next.id, next);
-      open.push(next.id, tentative + (useHeuristic ? heuristic(next, goal) : 0));
+      open.push(next.id, tentative + heuristic(next, goal));
     }
   }
 
@@ -281,9 +297,16 @@ export function joinPaths<T extends object>(segments: readonly GraphPath<T>[]): 
   return { nodes, edges, cost };
 }
 
+/** One leg of a via route: search from `from` to `to`, or traverse `forced` directly. */
+export type WaypointLeg<T extends object> = {
+  from: UndirectedNode2D;
+  to: UndirectedNode2D;
+  forced?: UndirectedEdge2D<T>;
+};
+
 /**
- * Expand a via list into an ordered node sequence between `from` and `to`.
- * An edge waypoint means: arrive at one endpoint, traverse the edge, leave from the other.
+ * Expand a via list into legs between `from` and `to`.
+ * An edge waypoint means: arrive at one endpoint, traverse the edge (a forced leg), leave from the other.
  * The endpoint closer (in search cost) to the previous waypoint is chosen as entry.
  */
 export function expandWaypoints<T extends object>(
@@ -291,27 +314,29 @@ export function expandWaypoints<T extends object>(
   to: UndirectedNode2D,
   via: readonly ViaWaypoint<T>[],
   options: PathSearchOptions<T>,
-): UndirectedNode2D[] | null {
-  const sequence: UndirectedNode2D[] = [from];
+): WaypointLeg<T>[] | null {
+  const legs: WaypointLeg<T>[] = [];
+  let current = from;
+  const goTo = (next: UndirectedNode2D, forced?: UndirectedEdge2D<T>) => {
+    if (next.id !== current.id || forced) legs.push({ from: current, to: next, ...(forced ? { forced } : {}) });
+    current = next;
+  };
 
   for (const waypoint of via) {
     if (!(waypoint instanceof UndirectedEdge2D)) {
-      sequence.push(waypoint);
+      goTo(waypoint);
       continue;
     }
 
-    const prev = sequence[sequence.length - 1]!;
-    const pathA = searchPath(prev, waypoint.a, options);
-    const pathB = searchPath(prev, waypoint.b, options);
+    const pathA = searchPath(current, waypoint.a, options);
+    const pathB = searchPath(current, waypoint.b, options);
     if (!pathA && !pathB) return null;
 
     const enterA = !pathB || (pathA !== null && pathA.cost <= pathB.cost);
-    const entry = enterA ? waypoint.a : waypoint.b;
-    const exit = enterA ? waypoint.b : waypoint.a;
-    if (sequence[sequence.length - 1]!.id !== entry.id) sequence.push(entry);
-    sequence.push(exit);
+    goTo(enterA ? waypoint.a : waypoint.b);
+    goTo(enterA ? waypoint.b : waypoint.a, waypoint);
   }
 
-  sequence.push(to);
-  return sequence;
+  goTo(to);
+  return legs;
 }

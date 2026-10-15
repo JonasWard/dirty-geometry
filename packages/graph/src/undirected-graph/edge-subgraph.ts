@@ -17,13 +17,15 @@ export function degreesInEdgeSet<T extends object>(
   return degree;
 }
 
-/** True when every node in the edge subset has degree 2 and there are ≥ 3 edges. */
+/** True when the edge subset is one simple cycle: ≥ 3 known edges, every node of degree 2, connected. */
 export function isSimpleCycleEdgeSet<T extends object>(
   graph: UndirectedGraph2D<T>,
   edgeIds: ReadonlySet<string>,
 ): boolean {
   if (edgeIds.size < 3) return false;
-  return [...degreesInEdgeSet(graph, edgeIds).values()].every((count) => count === 2);
+  if (![...edgeIds].every((id) => graph.hasEdge(id))) return false;
+  if (![...degreesInEdgeSet(graph, edgeIds).values()].every((count) => count === 2)) return false;
+  return connectedEdgeComponents(graph, [...edgeIds]).length === 1;
 }
 
 /** Nodes with degree 1 inside an edge subset. */
@@ -36,29 +38,62 @@ export function leafNodesInEdgeSet<T extends object>(
     .map(([id]) => graph.getNode(id));
 }
 
-/** Iteratively drop degree-1 edges while the subset still has a node of degree > 2. */
+/**
+ * Remove dangling chains (a leaf up to the junction it hangs from) while the subset still has a node
+ * of degree > 2, shortest chain first (ties by edge id). A Y keeps the path through its two longest
+ * arms; a cycle keeps the cycle. Ids missing from the graph are dropped.
+ * @see twoCore to drop every tree part instead.
+ */
 export function peelSpurs<T extends object>(graph: UndirectedGraph2D<T>, edgeIds: readonly string[]): Set<string> {
-  const active = new Set(edgeIds);
-  if (![...degreesInEdgeSet(graph, active).values()].some((count) => count > 2)) return active;
+  const active = new Set(edgeIds.filter((id) => graph.hasEdge(id)));
 
-  let changed = true;
-  while (changed) {
-    changed = false;
+  for (;;) {
     const degree = degreesInEdgeSet(graph, active);
-    for (const edgeId of [...active]) {
-      const edge = graph.tryGetEdge(edgeId);
-      if (!edge) {
-        active.delete(edgeId);
-        changed = true;
-        continue;
-      }
-      if ((degree.get(edge.a.id) ?? 0) === 1 || (degree.get(edge.b.id) ?? 0) === 1) {
-        active.delete(edgeId);
-        changed = true;
+    if (![...degree.values()].some((count) => count > 2)) return active;
+
+    let shortest: string[] | null = null;
+    for (const leaf of leafNodesInEdgeSet(graph, active)) {
+      const chain = danglingChain(leaf, active, degree);
+      if (!chain) continue;
+      if (!shortest || chain.length < shortest.length || (chain.length === shortest.length && chain[0]! < shortest[0]!)) {
+        shortest = chain;
       }
     }
+    if (!shortest) return active;
+    for (const id of shortest) active.delete(id);
   }
+}
 
+/** Edge ids from `leaf` to the first node of degree > 2, or `null` when the chain ends at another leaf. */
+function danglingChain(
+  leaf: UndirectedNode2D,
+  active: ReadonlySet<string>,
+  degree: ReadonlyMap<string, number>,
+): string[] | null {
+  const chain: string[] = [];
+  let node = leaf;
+  let previous: string | null = null;
+
+  for (;;) {
+    const edge = node.edgesOf().find((candidate) => active.has(candidate.id) && candidate.id !== previous);
+    if (!edge) return null;
+    chain.push(edge.id);
+    previous = edge.id;
+    node = edge.other(node);
+    const nodeDegree = degree.get(node.id) ?? 0;
+    if (nodeDegree > 2) return chain;
+    if (nodeDegree !== 2) return null;
+  }
+}
+
+/** The 2-core of an edge subset: repeatedly drop edges at degree-1 nodes until none remain. */
+export function twoCore<T extends object>(graph: UndirectedGraph2D<T>, edgeIds: readonly string[]): Set<string> {
+  const active = new Set(edgeIds.filter((id) => graph.hasEdge(id)));
+  for (let leaves = leafNodesInEdgeSet(graph, active); leaves.length > 0; leaves = leafNodesInEdgeSet(graph, active)) {
+    for (const leaf of leaves) {
+      for (const edge of leaf.edgesOf()) active.delete(edge.id);
+    }
+  }
   return active;
 }
 

@@ -9,22 +9,16 @@ import {
   type EdgeDataRecord,
 } from './edge-data';
 import {
-  allowEdges,
   defaultEdgeCost,
   expandWaypoints,
   isTraversable,
   joinPaths,
-  searchLongestSimplePath,
   searchPath,
   type EdgeInterpretFn,
   type GraphPath,
-  type PathSearchKind,
   type PathSearchOptions,
   type ViaWaypoint,
 } from './path-search';
-
-export type { EdgeInterpretFn, GraphPath, PathSearchKind, PathSearchOptions, ViaWaypoint };
-export { allowEdges, defaultEdgeCost, isTraversable, searchLongestSimplePath, searchPath };
 
 export type UndirectedNode2DJson = {
   id: string;
@@ -58,13 +52,17 @@ export class UndirectedGraph2D<T extends object = Record<string, never>> {
 
   private readonly nodesById = new Map<string, UndirectedNode2D>();
   private readonly edgesById = new Map<string, UndirectedEdge2D<T>>();
+  private nodeList: readonly UndirectedNode2D[] | null = null;
+  private edgeList: readonly UndirectedEdge2D<T>[] | null = null;
 
+  /** All nodes; the same frozen array is returned until the graph changes. */
   get nodes(): readonly UndirectedNode2D[] {
-    return [...this.nodesById.values()];
+    return (this.nodeList ??= Object.freeze([...this.nodesById.values()]));
   }
 
+  /** All edges; the same frozen array is returned until the graph changes. */
   get edges(): readonly UndirectedEdge2D<T>[] {
-    return [...this.edgesById.values()];
+    return (this.edgeList ??= Object.freeze([...this.edgesById.values()]));
   }
 
   hasNode(id: string): boolean {
@@ -99,24 +97,31 @@ export class UndirectedGraph2D<T extends object = Record<string, never>> {
     if (this.nodesById.has(id)) throw new Error(`Node ${id} already exists`);
     const node = new UndirectedNode2D(id, position.clone());
     this.nodesById.set(id, node);
+    this.nodeList = null;
     return node;
   }
 
-  /** Add an undirected edge. When `T` is empty, `data` may be omitted. */
-  addEdge(id: string, a: string | UndirectedNode2D, b: string | UndirectedNode2D, data?: T): UndirectedEdge2D<T> {
+  /** Add an undirected edge. `data` may be omitted only when `T` has no required fields. */
+  addEdge(
+    id: string,
+    a: string | UndirectedNode2D,
+    b: string | UndirectedNode2D,
+    ...data: Record<string, never> extends T ? [data?: T] : [data: T]
+  ): UndirectedEdge2D<T> {
     if (this.edgesById.has(id)) throw new Error(`Edge ${id} already exists`);
     const nodeA = typeof a === 'string' ? this.getNode(a) : a;
     const nodeB = typeof b === 'string' ? this.getNode(b) : b;
-    if (!this.nodesById.has(nodeA.id) || !this.nodesById.has(nodeB.id)) {
+    if (this.nodesById.get(nodeA.id) !== nodeA || this.nodesById.get(nodeB.id) !== nodeB) {
       throw new Error('Edge endpoints must belong to this graph');
     }
     if (nodeA.id === nodeB.id) throw new Error('Self-loop edges are not supported');
 
-    const payload = (data ?? {}) as T;
+    const payload = (data[0] ?? {}) as T;
     if (!isEdgeDataRecord(payload)) throw new Error(`Edge ${id} data must be a record of JSON / Geometry2 values`);
 
     const edge = new UndirectedEdge2D(id, nodeA, nodeB, payload);
     this.edgesById.set(id, edge);
+    this.edgeList = null;
     nodeA.addEdge(edge);
     nodeB.addEdge(edge);
     return edge;
@@ -128,6 +133,7 @@ export class UndirectedGraph2D<T extends object = Record<string, never>> {
     edge.a.removeEdge(edge);
     edge.b.removeEdge(edge);
     this.edgesById.delete(id);
+    this.edgeList = null;
     return true;
   }
 
@@ -136,6 +142,7 @@ export class UndirectedGraph2D<T extends object = Record<string, never>> {
     if (!node) return false;
     for (const edge of [...node.edgesOf<T>()]) this.removeEdge(edge.id);
     this.nodesById.delete(id);
+    this.nodeList = null;
     return true;
   }
 
@@ -167,7 +174,7 @@ export class UndirectedGraph2D<T extends object = Record<string, never>> {
       graph.addNode(node.id, new Vec2(node.position.x, node.position.y));
     }
     for (const edge of data.edges) {
-      graph.addEdge(edge.id, edge.a, edge.b, deserialiseEdgeData(edge.data) as T);
+      graph.addEdge(edge.id, edge.a, edge.b, ...([deserialiseEdgeData(edge.data) as T] as [T]));
     }
     return graph;
   }
@@ -194,7 +201,7 @@ export class UndirectedGraph2D<T extends object = Record<string, never>> {
     return this.path(from, to, { search: 'dijkstra', interpret });
   }
 
-  /** Dijkstra with Euclidean distance-to-goal heuristic. */
+  /** A* search; Euclidean heuristic with the default cost, plain Dijkstra with a custom `interpret`. */
   aStar(
     from: string | UndirectedNode2D,
     to: string | UndirectedNode2D,
@@ -205,7 +212,8 @@ export class UndirectedGraph2D<T extends object = Record<string, never>> {
 
   /**
    * Path from `from` to `to`, optionally visiting `via` nodes / edges in order.
-   * Edge waypoints force traversal of that edge (entry endpoint chosen by cost).
+   * Edge waypoints force traversal of that edge (entry endpoint chosen by cost); when `interpret`
+   * blocks a forced edge there is no path. With `search: 'bfs'` a forced edge counts as one hop.
    */
   path(
     from: string | UndirectedNode2D,
@@ -218,18 +226,17 @@ export class UndirectedGraph2D<T extends object = Record<string, never>> {
 
     if (via.length === 0) return searchPath(start, goal, searchOptions);
 
-    const sequence = expandWaypoints(start, goal, via, searchOptions);
-    if (!sequence) return null;
+    const legs = expandWaypoints(start, goal, via, searchOptions);
+    if (!legs) return null;
+    if (legs.length === 0) return { nodes: [start], edges: [], cost: 0 };
 
+    const weight = searchOptions.interpret ?? defaultEdgeCost;
     const segments: GraphPath<T>[] = [];
-    for (let i = 0; i < sequence.length - 1; i++) {
-      const a = sequence[i]!;
-      const b = sequence[i + 1]!;
-      if (a.id === b.id) continue;
-
-      const direct = this.directEdgeBetween(a, b, via, searchOptions.interpret);
-      if (direct) {
-        segments.push(direct);
+    for (const { from: a, to: b, forced } of legs) {
+      if (forced) {
+        const cost = weight(forced, a, b);
+        if (!isTraversable(cost)) return null;
+        segments.push({ nodes: [a, b], edges: [forced], cost: searchOptions.search === 'bfs' ? 1 : cost });
         continue;
       }
 
@@ -287,23 +294,6 @@ export class UndirectedGraph2D<T extends object = Record<string, never>> {
       edges: [...detour.edges, edge],
       cost: detour.cost + closeCost,
     };
-  }
-
-  private directEdgeBetween(
-    a: UndirectedNode2D,
-    b: UndirectedNode2D,
-    via: readonly ViaWaypoint<T>[],
-    interpret?: EdgeInterpretFn<T>,
-  ): GraphPath<T> | null {
-    const weight = interpret ?? defaultEdgeCost;
-    for (const waypoint of via) {
-      if (!(waypoint instanceof UndirectedEdge2D)) continue;
-      if (!waypoint.hasEndpoint(a) || !waypoint.hasEndpoint(b)) continue;
-      const cost = weight(waypoint, a, b);
-      if (!isTraversable(cost)) return null;
-      return { nodes: [a, b], edges: [waypoint], cost };
-    }
-    return null;
   }
 
   private resolveNode(node: string | UndirectedNode2D): UndirectedNode2D {

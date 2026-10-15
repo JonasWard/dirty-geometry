@@ -154,11 +154,10 @@ export class Grid2 {
     return this.constraint() !== 'unconstrained';
   }
 
+  /** Cells inside the axis domains (an unconstrained axis spans the index limits); `null` when unconstrained. */
   constraintRegion(): GridRectangle2 | null {
-    if (this.constraint() === 'unconstrained') {
-      return GridRectangle2.fromAxisDomains(this.u.domain()!, this.v.domain()!);
-    }
-    return null;
+    if (!this.isConstrained()) return null;
+    return GridRectangle2.fromAxisDomains(this.u.indexDomain(), this.v.indexDomain());
   }
 
   transform(matrix: Mat3): Grid2 {

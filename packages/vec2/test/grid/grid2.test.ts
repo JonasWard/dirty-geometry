@@ -223,3 +223,57 @@ describe('GridCell2.neighbors at the index limits', () => {
     expect(new GridCell2(Grid2.maxIndex, Grid2.maxIndex).neighbors(1, 'moore')).toHaveLength(3);
   });
 });
+
+describe('Grid2.constraintRegion (M12)', () => {
+  test('is null for an unconstrained grid', () => {
+    expect(new Grid2().constraintRegion()).toBeNull();
+  });
+
+  test('spans the axis domains, falling back to the index limits on an unconstrained axis', () => {
+    const both = new Grid2({ u: Axis.unit(new Interval2(0, 3)), v: Axis.unit(new Interval2(0, 3)) }).constraintRegion()!;
+    expect([both.bottomLeft.i, both.bottomLeft.j, both.topRight.i, both.topRight.j]).toEqual([0, 0, 3, 3]);
+
+    const onlyU = new Grid2({ u: Axis.unit(new Interval2(1, 2)) }).constraintRegion()!;
+    expect([onlyU.bottomLeft.i, onlyU.topRight.i]).toEqual([1, 2]);
+    expect([onlyU.bottomLeft.j, onlyU.topRight.j]).toEqual([Grid2.minIndex, Grid2.maxIndex]);
+  });
+});
+
+describe('Axis domains that exclude 0 (M13)', () => {
+  test('a positive domain keeps index 0 anchored at local 0', () => {
+    const axis = Axis.unit(new Interval2(5, 10));
+    expect(axis.edge(5)).toBe(5);
+    expect(axis.edge(11)).toBe(11);
+    expect(() => axis.edge(4)).toThrow();
+    expect(axis.indexAt(5.5)).toBe(5);
+    expect(axis.indexAt(10.5)).toBe(10);
+    expect(axis.indexAt(0.5)).toBeNull();
+    expect(axis.indexAt(11.5)).toBeNull();
+  });
+
+  test('a negative domain works below the origin', () => {
+    const axis = Axis.uniform(2, new Interval2(-10, -5));
+    expect(axis.edge(-10)).toBe(-20);
+    expect(axis.edge(-4)).toBe(-8);
+    expect(axis.indexAt(-9)).toBe(-5);
+    expect(axis.indexAt(-11)).toBe(-6);
+    expect(axis.indexAt(-7)).toBeNull();
+    expect(axis.indexAt(1)).toBeNull();
+  });
+
+  test('custom sizes are summed from the origin on both sides', () => {
+    const axis = Axis.custom(1, { 2: 3, [-1]: 2 });
+    expect(axis.edge(4)).toBe(6);
+    expect(axis.edge(-2)).toBe(-3);
+    expect(axis.indexAt(4.5)).toBe(2);
+    expect(axis.indexAt(-1.5)).toBe(-1);
+    expect(axis.indexAt(-2.5)).toBe(-2);
+  });
+
+  test('cells of a grid constrained away from 0 have positions', () => {
+    const grid = new Grid2({ u: Axis.unit(new Interval2(5, 10)), v: Axis.unit(new Interval2(5, 10)) });
+    const center = grid.cellLocalCenter(new GridCell2(5, 6));
+    expect([center.x, center.y]).toEqual([5.5, 6.5]);
+    expect(grid.localToCell(new Vec2(7.5, 9.5))?.equals(new GridCell2(7, 9))).toBe(true);
+  });
+});

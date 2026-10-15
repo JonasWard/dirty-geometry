@@ -121,51 +121,58 @@ export class Axis {
     if (!this.containsIndex(index)) {
       throw new Error('Axis index out of domain');
     }
+    return this.rawSize(index);
+  }
 
-    switch (this.kind()) {
-      case 'unit':
-        return 1;
-      case 'uniform':
-        return this._defaultSize;
-      case 'custom':
-        return this._customSizes![index] ?? this._defaultSize;
-    }
+  /** Length every index without an override has (exactly 1 for a unit axis). */
+  private baseSize(): number {
+    return this.kind() === 'unit' ? 1 : this._defaultSize;
+  }
+
+  /** Length at `index` regardless of the domain; the layout is defined for every index. */
+  private rawSize(index: number): number {
+    return this._customSizes?.[index] ?? this.baseSize();
   }
 
   /**
    * Local coordinate of the low edge of interval `index`.
-   * Index 0 starts at 0; negative indexes extend below the origin.
-   * `domain.max + 1` is allowed as the exclusive high lattice edge when constrained.
+   * Index 0 starts at 0 and negative indexes extend below the origin, also when the domain excludes 0.
+   * Valid for `domain.min … domain.max + 1` (the last is the exclusive high lattice edge).
    */
   edge(index: number): number {
-    if (index >= 0) {
-      let offset = 0;
-      for (let k = 0; k < index; k++) {
-        offset += this.size(k);
-      }
-      return offset;
+    const domain = this.indexDomain();
+    if (index < domain.min || index > domain.max + 1) {
+      throw new Error('Axis index out of domain');
     }
 
-    let offset = 0;
-    for (let k = index; k < 0; k++) {
-      offset -= this.size(k);
+    const base = this.baseSize();
+    let offset = index * base;
+    for (const [key, size] of Object.entries(this._customSizes ?? {})) {
+      const k = Number(key);
+      if (index >= 0 && k >= 0 && k < index) offset += size - base;
+      if (index < 0 && k >= index && k < 0) offset -= size - base;
     }
     return offset;
   }
 
-  /** Map a local coordinate to its interval index, or `null` if invalid. */
+  /** Map a local coordinate to its interval index, or `null` when it falls outside the domain. */
   indexAt(coord: number): number | null {
     const domain = this.indexDomain();
+
+    if (this.kind() !== 'custom') {
+      const index = Math.floor(coord / this.baseSize());
+      return index >= domain.min && index <= domain.max ? index : null;
+    }
 
     if (coord >= 0) {
       const search = domain.intersect(Interval2.ray);
       if (!search) return null;
 
-      // Domain starting above 0 is anchored at its first cell; otherwise use global origin.
-      let low = search.min > 0 && domain.min === search.min ? 0 : this.edge(search.min);
+      let low = this.edge(search.min);
       for (const index of search.countUp()) {
-        const high = low + this.size(index);
+        const high = low + this.rawSize(index);
         if (coord >= low && coord < high) return index;
+        if (coord < low) return null;
         low = high;
       }
       return null;
@@ -174,10 +181,11 @@ export class Axis {
     const search = domain.intersect(Interval2.negativeRay);
     if (!search) return null;
 
-    let high = 0;
+    let high = this.edge(search.max + 1);
     for (const index of search.countDown()) {
-      const low = high - this.size(index);
+      const low = high - this.rawSize(index);
       if (coord >= low && coord < high) return index;
+      if (coord >= high) return null;
       high = low;
     }
     return null;

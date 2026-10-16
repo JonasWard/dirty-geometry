@@ -51,6 +51,15 @@ export class Epsilon {
     }
   }
 
+  /**
+   * The length tolerance expressed in the parameter space of a line whose direction has length
+   * `directionLength` (`point = through + t * direction`). Use it for `t` comparisons, so the
+   * tolerance stays a distance whatever the direction's length.
+   */
+  static parameter(directionLength: number, length = Epsilon.value): number {
+    return directionLength > 0 ? length / directionLength : Infinity;
+  }
+
   areEqual(a: number, b: number): boolean {
     return Math.abs(a - b) <= this.value;
   }

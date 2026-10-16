@@ -233,3 +233,17 @@ describe('geometry aabb2', () => {
     expectVec2Close(Line2.definitionOf(infinite).to, new Vec2(1, 4));
   });
 });
+
+describe('Aabb2.fromParameterInterval (M20)', () => {
+  test('a nearly horizontal ray is still unbounded in y', () => {
+    const box = Aabb2.fromParameterInterval(new Vec2(0, 0), new Vec2(1, 1e-7), Interval2.ray);
+    expect(box.y.min).toBe(0);
+    expect(box.y.max).toBe(Infinity);
+  });
+
+  test('an exactly horizontal ray is flat in y', () => {
+    const box = Aabb2.fromParameterInterval(new Vec2(0, 2), new Vec2(1, 0), Interval2.ray);
+    expect([box.y.min, box.y.max]).toEqual([2, 2]);
+  });
+});
+

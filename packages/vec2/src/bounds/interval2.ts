@@ -207,9 +207,9 @@ export class Interval2 {
     return new Interval2(Math.min(this.min, min), Math.max(this.max, max));
   }
 
-  /** Image of `origin + t * delta` for `t` in this interval. */
+  /** Image of `origin + t * delta` for `t` in this interval (a single point when `delta` is 0). */
   mapLinear(origin: number, delta: number): Interval2 {
-    if (Math.abs(delta) < Epsilon.value) {
+    if (delta === 0) {
       return new Interval2(origin, origin);
     }
 

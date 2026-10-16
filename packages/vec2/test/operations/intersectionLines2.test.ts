@@ -505,3 +505,28 @@ describe('intersectionLines random', () => {
     }
   });
 });
+
+describe('intersection tolerances are lengths, not parameters (M20)', () => {
+  test('a long segment on a collinear infinite line overlaps along its whole length', () => {
+    const result = intersectionLines(new Line2(new Vec2(0, 0), new Vec2(1e7, 0)), new InfiniteLine2(new Vec2(0, 0), new Vec2(1, 0)));
+    expect(result?.type).toBe('Line2');
+    expect((result as Line2).length()).toBeCloseTo(1e7, 3);
+  });
+
+  test('a long segment does not reach a crossing 5 units past its end', () => {
+    const hit = intersectionLines(
+      new Line2(new Vec2(0, 0), new Vec2(1e7, 0)),
+      new Line2(new Vec2(1e7 + 5, -1), new Vec2(1e7 + 5, 1)),
+    );
+    expect(hit).toBeNull();
+  });
+
+  test('a millimetre segment still hits a crossing within the tolerance of its end', () => {
+    const hit = intersectionLines(
+      new Line2(new Vec2(0, 0), new Vec2(1e-3, 0)),
+      new Line2(new Vec2(1.0005e-3, -1), new Vec2(1.0005e-3, 1)),
+    );
+    expect(hit?.type).toBe('Vec2');
+  });
+});
+

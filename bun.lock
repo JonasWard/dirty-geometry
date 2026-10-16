@@ -43,6 +43,14 @@
         "robust-predicates": "3.0.2",
       },
     },
+    "packages/vec2-dense": {
+      "name": "@dirty-geometry/vec2-dense",
+      "version": "0.1.0",
+      "dependencies": {
+        "@dirty-geometry/vec2": "workspace:*",
+        "densing": "0.4.4",
+      },
+    },
     "packages/visualisation": {
       "name": "@dirty-geometry/visualisation",
       "version": "0.1.0",
@@ -100,6 +108,8 @@
     "@dirty-geometry/graph": ["@dirty-geometry/graph@workspace:packages/graph"],
 
     "@dirty-geometry/vec2": ["@dirty-geometry/vec2@workspace:packages/vec2"],
+
+    "@dirty-geometry/vec2-dense": ["@dirty-geometry/vec2-dense@workspace:packages/vec2-dense"],
 
     "@dirty-geometry/visualisation": ["@dirty-geometry/visualisation@workspace:packages/visualisation"],
 
@@ -390,6 +400,8 @@
     "define-data-property": ["define-data-property@1.1.4", "", { "dependencies": { "es-define-property": "^1.0.0", "es-errors": "^1.3.0", "gopd": "^1.0.1" } }, "sha512-rBMvIzlpA8v6E+SJZoo++HAYqsLrkg7MSfIinMPFhmkorw7X+dOXVJQs+QT69zGkzMyfDnIMN2Wid1+NbL3T+A=="],
 
     "define-properties": ["define-properties@1.2.1", "", { "dependencies": { "define-data-property": "^1.0.1", "has-property-descriptors": "^1.0.0", "object-keys": "^1.1.1" } }, "sha512-8QmQKqEASLd5nx0U1B1okLElbUuuttJ/AnYmRXbbbGDWh6uS208EjD4Xqq/I9wK7u0v6O08XhTWnt5XtEbR6Dg=="],
+
+    "densing": ["densing@0.4.4", "", {}, "sha512-LUheWMOS2cwtUo8vSIT9TlTMvtHitKWhTcBR3resDMhVqVP0YF73z7JT9Ly5de9HcjZd0jjjwyKUPpyB9JBfMQ=="],
 
     "detect-gpu": ["detect-gpu@5.0.70", "", { "dependencies": { "webgl-constants": "^1.1.1" } }, "sha512-bqerEP1Ese6nt3rFkwPnGbsUF9a4q+gMmpTVVOEzoCyeCc+y7/RvJnQZJx1JwhgQI5Ntg0Kgat8Uu7XpBqnz1w=="],
 

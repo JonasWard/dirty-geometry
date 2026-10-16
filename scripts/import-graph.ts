@@ -16,6 +16,7 @@ const packageSources: Record<string, string> = {
   '@dirty-geometry/vec2/examples/': path.join(repoRoot, 'packages/vec2/examples/'),
   '@dirty-geometry/vec2/': path.join(repoRoot, 'packages/vec2/src/'),
   '@dirty-geometry/graph/': path.join(repoRoot, 'packages/graph/src/'),
+  '@dirty-geometry/vec2-dense/': path.join(repoRoot, 'packages/vec2-dense/src/'),
   '@dirty-geometry/visualisation/': path.join(repoRoot, 'packages/visualisation/src/'),
 };
 
@@ -47,6 +48,7 @@ function resolveSpecifier(from: string, specifier: string): string | null {
   }
   const bare = specifier.replace(/\/$/, '');
   if (bare === '@dirty-geometry/graph') return resolveFile(path.join(repoRoot, 'packages/graph/src/index'));
+  if (bare === '@dirty-geometry/vec2-dense') return resolveFile(path.join(repoRoot, 'packages/vec2-dense/src/index'));
   if (bare === '@dirty-geometry/visualisation') {
     return resolveFile(path.join(repoRoot, 'packages/visualisation/src/index'));
   }

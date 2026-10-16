@@ -3,16 +3,8 @@
 import { Html, Line } from '@react-three/drei';
 import { useMemo } from 'react';
 import { Vec2 } from '@dirty-geometry/vec2/core/vec2';
-import {
-  aabb2FiniteScenarios,
-  aabb2UnionScenarios,
-  aabb2UnboundedScenarios,
-  evaluateAabbScenario,
-  formatAabb,
-  geometryKind,
-  scenarioAnchorPoints,
-  type Aabb2Scenario,
-} from './scenarios';
+import { aabb2FiniteScenarios, aabb2UnionScenarios, aabb2UnboundedScenarios, evaluateAabbScenario, formatAabb, geometryKind, type Aabb2Scenario } from '@dirty-geometry/vec2/examples/aabb2/scenarios';
+import { scenarioAnchorPoints } from './frame';
 import { GeometryRender } from '../../geometry/components/GeometryRender';
 import { aabbDisplayOutlinePoints } from '../../geometry';
 import { fitPointsToFrame, frameCorners, labelPosition } from '../../core/frame';

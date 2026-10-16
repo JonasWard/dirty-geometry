@@ -1,6 +1,6 @@
-import { Polygon2 } from '@dirty-geometry/vec2/geometry/regions/polygon2';
-import { Polyline2 } from '@dirty-geometry/vec2/geometry/curves/polyline2';
-import { Vec2 } from '@dirty-geometry/vec2/core/vec2';
+import { Polygon2 } from '../../src/geometry/regions/polygon2';
+import { Polyline2 } from '../../src/geometry/curves/polyline2';
+import { Vec2 } from '../../src/core/vec2';
 
 export type CurveKind = 'polyline' | 'polygon';
 

@@ -47,4 +47,16 @@ describe('vec2 import architecture', () => {
     }
     expect(outside).toEqual([]);
   });
+
+  test('examples only import vec2 itself', () => {
+    const outside: string[] = [];
+    for (const [file, targets] of buildImportGraph([EXAMPLES])) {
+      for (const target of targets) {
+        const fromPackage = relativeModule('packages/vec2', target);
+        if (fromPackage.startsWith('..')) outside.push(`${relativeModule(EXAMPLES, file)} -> ${fromPackage}`);
+      }
+    }
+    expect(outside).toEqual([]);
+  });
 });
+

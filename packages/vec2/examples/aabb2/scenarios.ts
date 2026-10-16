@@ -1,14 +1,12 @@
-import { Aabb2 } from '@dirty-geometry/vec2/bounds/aabb2';
-import { Circle2 } from '@dirty-geometry/vec2/geometry/regions/circle2';
-import { InfiniteLine2 } from '@dirty-geometry/vec2/geometry/primitives/infinite-line2';
-import { Line2 } from '@dirty-geometry/vec2/geometry/primitives/line2';
-import { Polygon2 } from '@dirty-geometry/vec2/geometry/regions/polygon2';
-import { Polyline2 } from '@dirty-geometry/vec2/geometry/curves/polyline2';
-import { Ray2 } from '@dirty-geometry/vec2/geometry/primitives/ray2';
-import { TriMesh2 } from '@dirty-geometry/vec2/geometry/regions/tri-mesh2';
-import { Vec2 } from '@dirty-geometry/vec2/core/vec2';
-import type { Geometry2 } from '@dirty-geometry/vec2/geometry/kinds';
-import { frameAnchorPoints } from '../../geometry';
+import { Aabb2 } from '../../src/bounds/aabb2';
+import { Circle2 } from '../../src/geometry/regions/circle2';
+import { InfiniteLine2 } from '../../src/geometry/primitives/infinite-line2';
+import { Line2 } from '../../src/geometry/primitives/line2';
+import { Polygon2 } from '../../src/geometry/regions/polygon2';
+import { Polyline2 } from '../../src/geometry/curves/polyline2';
+import { Ray2 } from '../../src/geometry/primitives/ray2';
+import { TriMesh2 } from '../../src/geometry/regions/tri-mesh2';
+import { Vec2 } from '../../src/core/vec2';
 
 export type Aabb2Geometry = Line2 | Circle2 | Polyline2 | Polygon2 | TriMesh2 | Ray2 | InfiniteLine2;
 
@@ -135,22 +133,6 @@ export function evaluateAabbScenario(scenario: Aabb2Scenario): Aabb2 {
   }
 
   return aabbOfGeometry(scenario.geometry!, scenario.definitionGeometry ?? false);
-}
-
-export function scenarioAnchorPoints(scenario: Aabb2Scenario): Vec2[] {
-  const definitionGeometry = scenario.definitionGeometry ?? false;
-  const geometries: Geometry2[] = [];
-
-  if (scenario.unionItems) {
-    for (const item of scenario.unionItems) {
-      geometries.push(item);
-    }
-  } else if (scenario.geometry) {
-    geometries.push(scenario.geometry);
-  }
-
-  const points = frameAnchorPoints(geometries, { definitionGeometry });
-  return points;
 }
 
 export function geometryKind(geometry: Aabb2Geometry): string {

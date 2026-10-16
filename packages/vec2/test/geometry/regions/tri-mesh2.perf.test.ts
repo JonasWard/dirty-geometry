@@ -1,8 +1,8 @@
 import { describe, expect, test } from 'bun:test';
-import { Epsilon } from '@dirty-geometry/vec2/core/epsilon';
-import { Vec2 } from '@dirty-geometry/vec2/core/vec2';
-import { buildingYardMesh, hPlateMesh, lWingMesh, perfPlateMesh, swissCheeseMesh } from '@dirty-geometry/vec2/examples/tri-mesh2/meshes';
-import { sampleGridPoints } from '../src/demos/tri-mesh2/scenarios';
+import { Epsilon } from '../../../src/core/epsilon';
+import { Vec2 } from '../../../src/core/vec2';
+import { buildingYardMesh, hPlateMesh, lWingMesh, perfPlateMesh, swissCheeseMesh } from '../../../examples/tri-mesh2/meshes';
+import { sampleGridPoints } from '../../../examples/tri-mesh2/scenarios';
 
 function medianMs(run: () => void, iterations = 5): number {
   for (let i = 0; i < 3; i++) run();

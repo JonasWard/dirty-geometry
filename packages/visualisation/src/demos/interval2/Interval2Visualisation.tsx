@@ -7,15 +7,7 @@ import { Vec2 } from '@dirty-geometry/vec2/core/vec2';
 import { fitPointsToFrame, frameCorners, labelPosition, vec2ToTuple } from '../../core/frame';
 import { ScenarioGridVisualisation } from '../../core/ScenarioGridVisualisation';
 import { type VisualisationMeta } from '../../core/VisualisationShell';
-import {
-  evaluateInterval2Scenario,
-  formatCall,
-  formatResult,
-  interval2ComplementScenarios,
-  interval2LongestScenarios,
-  interval2MergeScenarios,
-  type Interval2Scenario,
-} from './scenarios';
+import { evaluateInterval2Scenario, formatCall, formatResult, interval2ComplementScenarios, interval2LongestScenarios, interval2MergeScenarios, type Interval2Scenario } from '@dirty-geometry/vec2/examples/interval2/scenarios';
 
 const INPUT_COLOR = '#8a93a5';
 const MERGED_COLOR = '#7dff7d';

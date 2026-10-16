@@ -1,16 +1,15 @@
-import { Vec2 } from '@dirty-geometry/vec2/core/vec2';
-import { Frame2 } from '@dirty-geometry/vec2/core/frame2';
-import { Axis } from '@dirty-geometry/vec2/grid/core/grid-axis';
-import { GridCell2 } from '@dirty-geometry/vec2/grid/core/grid-cell2';
-import { Grid2 } from '@dirty-geometry/vec2/grid/core/grid2';
-import { GridLine2 } from '@dirty-geometry/vec2/grid/regions/grid-line2';
-import { GridPolyline2 } from '@dirty-geometry/vec2/grid/regions/grid-polyline2';
-import { GridPolygon2 } from '@dirty-geometry/vec2/grid/regions/grid-polygon2';
-import { GridRectangle2 } from '@dirty-geometry/vec2/grid/regions/grid-rectangle2';
-import type { GridGeometry2 } from '@dirty-geometry/vec2/grid/regions/kinds';
-import { GridCell2Collection } from '@dirty-geometry/vec2/grid/regions/grid-cell2-collection';
-import { gridLineExamples, gridPolygonExamples } from '@dirty-geometry/vec2/examples/grid/geometry-examples';
-import { gridWorldLines } from '../../geometry/display/grid/shared';
+import { Vec2 } from '../../src/core/vec2';
+import { Frame2 } from '../../src/core/frame2';
+import { Axis } from '../../src/grid/core/grid-axis';
+import { GridCell2 } from '../../src/grid/core/grid-cell2';
+import { Grid2 } from '../../src/grid/core/grid2';
+import { GridLine2 } from '../../src/grid/regions/grid-line2';
+import { GridPolyline2 } from '../../src/grid/regions/grid-polyline2';
+import { GridPolygon2 } from '../../src/grid/regions/grid-polygon2';
+import { GridRectangle2 } from '../../src/grid/regions/grid-rectangle2';
+import type { GridGeometry2 } from '../../src/grid/regions/kinds';
+import { GridCell2Collection } from '../../src/grid/regions/grid-cell2-collection';
+import { gridLineExamples, gridPolygonExamples } from '../grid/geometry-examples';
 
 export type Grid2SetOp = 'intersection' | 'difference' | 'xor';
 
@@ -113,59 +112,6 @@ export function evaluateUnionIterateScenario(scenario: Grid2UnionIterateScenario
   return unionGridGeometries(scenario.geometries);
 }
 
-function pushCellWorldExtents(points: Vec2[], grid: Grid2, cells: Iterable<GridCell2>): void {
-  for (const cell of cells) {
-    const world = grid.cellWorldRect(cell);
-    points.push(world.min(), world.max());
-  }
-}
-
-function pushGridWorldLattice(points: Vec2[], grid: Grid2, columnCount: number, rowCount: number): void {
-  for (const { from, to } of gridWorldLines(grid, columnCount, rowCount)) {
-    points.push(from, to);
-  }
-}
-
-export function scenarioAnchorPoints(scenario: Grid2Scenario): Vec2[] {
-  const points: Vec2[] = [];
-  pushCellWorldExtents(points, scenario.grid, evaluateGridScenario(scenario).toArray());
-  pushGridWorldLattice(points, scenario.grid, scenario.columnCount, scenario.rowCount);
-  return points;
-}
-
-export function setOpScenarioAnchorPoints(scenario: Grid2SetOpScenario): Vec2[] {
-  const points: Vec2[] = [];
-
-  for (const geometry of [scenario.left, scenario.right]) {
-    pushCellWorldExtents(points, scenario.grid, geometry.toCellCollection().toArray());
-  }
-  pushCellWorldExtents(points, scenario.grid, evaluateSetOpScenario(scenario).toArray());
-  pushGridWorldLattice(points, scenario.grid, scenario.columnCount, scenario.rowCount);
-  return points;
-}
-
-export function chainScenarioAnchorPoints(scenario: Grid2ChainScenario): Vec2[] {
-  const points: Vec2[] = [];
-
-  for (const geometry of scenario.operands) {
-    pushCellWorldExtents(points, scenario.grid, geometry.toCellCollection().toArray());
-  }
-  pushCellWorldExtents(points, scenario.grid, evaluateChainScenario(scenario).toArray());
-  pushGridWorldLattice(points, scenario.grid, scenario.columnCount, scenario.rowCount);
-  return points;
-}
-
-export function unionIterateScenarioAnchorPoints(scenario: Grid2UnionIterateScenario): Vec2[] {
-  const points: Vec2[] = [];
-
-  for (const geometry of scenario.geometries) {
-    pushCellWorldExtents(points, scenario.grid, geometry.toCellCollection().toArray());
-  }
-  pushCellWorldExtents(points, scenario.grid, evaluateUnionIterateScenario(scenario).toArray());
-  pushGridWorldLattice(points, scenario.grid, scenario.columnCount, scenario.rowCount);
-  return points;
-}
-
 const uniformGrid = new Grid2({ frame: Frame2.worldXY() });
 
 export const grid2LineScenarios: Grid2Scenario[] = [
@@ -240,6 +186,7 @@ export const grid2BresenhamLineScenarios: Grid2Scenario[] = [
 const variableGrid = new Grid2().setCustomWidth(1, 2).setCustomWidth(3, 0.5).setCustomHeight(2, 2);
 
 const variableGridColumns = 4;
+
 const variableGridRows = 4;
 
 const stripedGrid = new Grid2({
@@ -260,6 +207,7 @@ const stripedGrid = new Grid2({
 });
 
 const stripedGridColumns = 5;
+
 const stripedGridRows = 5;
 
 export const grid2VariableScenarios: Grid2Scenario[] = [
@@ -432,7 +380,9 @@ export const grid2ScenarioRows = [
 
 const setOpGrid = new Grid2();
 setOpGrid.frame = Frame2.worldXY();
+
 const setOpColumns = 7;
+
 const setOpRows = 6;
 
 const hPlate = new GridPolygon2([
@@ -580,8 +530,11 @@ export const grid2VariableSetOpScenarios: Grid2SetOpScenario[] = [
 export const grid2VariableSetOpScenarioRows = [grid2VariableSetOpScenarios] as const;
 
 const spine = new GridRectangle2(new GridCell2(2, 0), new GridCell2(2, 5));
+
 const centerCross = new GridRectangle2(new GridCell2(1, 1), new GridCell2(3, 3));
+
 const horizontalBar = new GridRectangle2(new GridCell2(0, 2), new GridCell2(5, 2));
+
 const outerBlock = new GridRectangle2(new GridCell2(0, 0), new GridCell2(5, 4));
 
 export const grid2ChainScenarios: Grid2ChainScenario[] = [

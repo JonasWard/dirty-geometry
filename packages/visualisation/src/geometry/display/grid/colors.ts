@@ -1,4 +1,4 @@
-import type { Grid2ChainOp, Grid2SetOp } from './scenarios';
+import type { Grid2ChainOp, Grid2SetOp } from '@dirty-geometry/vec2/examples/grid2/scenarios';
 
 /** Earth-tone palette for non-subtractive operands. */
 export const GRID2_EARTH_TONES = [

@@ -1,11 +1,11 @@
-import type { LineLike2IntersectionResult } from '@dirty-geometry/vec2/operations/intersection/line2-like';
-import type { LineLike2 } from '@dirty-geometry/vec2/geometry/kinds';
-import { intersectionLines } from '@dirty-geometry/vec2/operations/intersection/line2-like';
-import { InfiniteLine2 } from '@dirty-geometry/vec2/geometry/primitives/infinite-line2';
-import { Line2 } from '@dirty-geometry/vec2/geometry/primitives/line2';
-import { Ray2 } from '@dirty-geometry/vec2/geometry/primitives/ray2';
-import { Vec2 } from '@dirty-geometry/vec2/core/vec2';
-import { createRandomIntersectionScenarios } from '@dirty-geometry/vec2/examples/intersection-lines/randomLineLike2';
+import type { LineLike2IntersectionResult } from '../../src/operations/intersection/line2-like';
+import type { LineLike2 } from '../../src/geometry/kinds';
+import { intersectionLines } from '../../src/operations/intersection/line2-like';
+import { InfiniteLine2 } from '../../src/geometry/primitives/infinite-line2';
+import { Line2 } from '../../src/geometry/primitives/line2';
+import { Ray2 } from '../../src/geometry/primitives/ray2';
+import { Vec2 } from '../../src/core/vec2';
+import { createRandomIntersectionScenarios } from './randomLineLike2';
 
 export type IntersectionScenario = {
   name: string;

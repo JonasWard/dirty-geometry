@@ -4,7 +4,7 @@ import { buildImportGraph, findCycles, relativeModule } from '../../../scripts/i
 const SRC = 'packages/visualisation/src';
 
 /** Known `geometry/` → `demos/` imports; shrink-only. */
-const ALLOWED_GEOMETRY_TO_DEMOS = ['geometry/components/GridGeometryRender -> demos/grid2/colors'];
+const ALLOWED_GEOMETRY_TO_DEMOS: string[] = [];
 
 const graph = buildImportGraph([SRC]);
 const local = (file: string) => relativeModule(SRC, file);

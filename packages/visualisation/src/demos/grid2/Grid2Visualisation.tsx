@@ -3,31 +3,9 @@
 import { Html, Line } from '@react-three/drei';
 import { useMemo } from 'react';
 import { Vec2 } from '@dirty-geometry/vec2/core/vec2';
-import {
-  evaluateGridScenario,
-  evaluateChainScenario,
-  evaluateSetOpScenario,
-  evaluateUnionIterateScenario,
-  grid2ChainScenarioRows,
-  grid2LineScenarios,
-  grid2BresenhamLineScenarios,
-  grid2ConcavePolygonScenarios,
-  grid2PolylineScenarios,
-  grid2RotatedFrameScenarios,
-  grid2SetOpScenarioRows,
-  grid2UnionIterateScenarioRows,
-  grid2VariableSetOpScenarioRows,
-  grid2VariableScenarios,
-  scenarioAnchorPoints,
-  chainScenarioAnchorPoints,
-  setOpScenarioAnchorPoints,
-  unionIterateScenarioAnchorPoints,
-  type Grid2Scenario,
-  type Grid2ChainScenario,
-  type Grid2SetOpScenario,
-  type Grid2UnionIterateScenario,
-} from './scenarios';
-import { GRID2_COLORS, chainOperandColor, earthToneAt, setOpOperandColor } from './colors';
+import { evaluateGridScenario, evaluateChainScenario, evaluateSetOpScenario, evaluateUnionIterateScenario, grid2ChainScenarioRows, grid2LineScenarios, grid2BresenhamLineScenarios, grid2ConcavePolygonScenarios, grid2PolylineScenarios, grid2RotatedFrameScenarios, grid2SetOpScenarioRows, grid2UnionIterateScenarioRows, grid2VariableSetOpScenarioRows, grid2VariableScenarios, type Grid2Scenario, type Grid2ChainScenario, type Grid2SetOpScenario, type Grid2UnionIterateScenario } from '@dirty-geometry/vec2/examples/grid2/scenarios';
+import { scenarioAnchorPoints, chainScenarioAnchorPoints, setOpScenarioAnchorPoints, unionIterateScenarioAnchorPoints } from './frame';
+import { GRID2_COLORS, chainOperandColor, earthToneAt, setOpOperandColor } from '../../geometry/display/grid/colors';
 import { fitPointsToFrame, frameCorners, labelPosition } from '../../core/frame';
 import { GridGeometryRender } from '../../geometry/components/GridGeometryRender';
 import { ScenarioGridVisualisation } from '../../core/ScenarioGridVisualisation';

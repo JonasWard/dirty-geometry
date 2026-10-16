@@ -9,18 +9,7 @@ import { fitGeometriesToFrame } from '../../geometry';
 import { frameCorners, labelPosition } from '../../core/frame';
 import { ScenarioGridVisualisation } from '../../core/ScenarioGridVisualisation';
 import { type VisualisationMeta } from '../../core/VisualisationShell';
-import {
-  boolean2IntersectPolygonScenarios,
-  boolean2IntersectScenarios,
-  boolean2ManyIntersectScenarios,
-  boolean2ManySubtractScenarios,
-  boolean2SubtractPolygonScenarios,
-  boolean2SubtractScenarios,
-  boolean2UnionScenarios,
-  evaluateBooleanScenario,
-  scenarioClips,
-  type Boolean2Scenario,
-} from './scenarios';
+import { boolean2IntersectPolygonScenarios, boolean2IntersectScenarios, boolean2ManyIntersectScenarios, boolean2ManySubtractScenarios, boolean2SubtractPolygonScenarios, boolean2SubtractScenarios, boolean2UnionScenarios, evaluateBooleanScenario, scenarioClips, type Boolean2Scenario } from '@dirty-geometry/vec2/examples/boolean2/scenarios';
 
 export const boolean2VisualisationMeta: VisualisationMeta = {
   id: 'boolean2',

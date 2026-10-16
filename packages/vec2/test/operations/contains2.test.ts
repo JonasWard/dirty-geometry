@@ -1,23 +1,23 @@
 import { describe, expect, test } from 'bun:test';
-import { Aabb2 } from '@dirty-geometry/vec2/bounds/aabb2';
-import { Interval2 } from '@dirty-geometry/vec2/bounds/interval2';
-import { Circle2 } from '@dirty-geometry/vec2/geometry/regions/circle2';
-import { Epsilon } from '@dirty-geometry/vec2/core/epsilon';
-import { Contains2 } from '@dirty-geometry/vec2/operations/contains2';
-import { InfiniteLine2 } from '@dirty-geometry/vec2/geometry/primitives/infinite-line2';
-import { Line2 } from '@dirty-geometry/vec2/geometry/primitives/line2';
-import { Polygon2 } from '@dirty-geometry/vec2/geometry/regions/polygon2';
-import { Polyline2 } from '@dirty-geometry/vec2/geometry/curves/polyline2';
-import { Ray2 } from '@dirty-geometry/vec2/geometry/primitives/ray2';
-import { TriMesh2 } from '@dirty-geometry/vec2/geometry/regions/tri-mesh2';
-import { Vec2 } from '@dirty-geometry/vec2/core/vec2';
-import { annulusMesh, buildingYardMesh, hPlateMesh, lWingMesh, swissCheeseMesh } from '@dirty-geometry/vec2/examples/tri-mesh2/meshes';
+import { Aabb2 } from '../../src/bounds/aabb2';
+import { Interval2 } from '../../src/bounds/interval2';
+import { Circle2 } from '../../src/geometry/regions/circle2';
+import { Epsilon } from '../../src/core/epsilon';
+import { Contains2 } from '../../src/operations/contains2';
+import { InfiniteLine2 } from '../../src/geometry/primitives/infinite-line2';
+import { Line2 } from '../../src/geometry/primitives/line2';
+import { Polygon2 } from '../../src/geometry/regions/polygon2';
+import { Polyline2 } from '../../src/geometry/curves/polyline2';
+import { Ray2 } from '../../src/geometry/primitives/ray2';
+import { TriMesh2 } from '../../src/geometry/regions/tri-mesh2';
+import { Vec2 } from '../../src/core/vec2';
+import { annulusMesh, buildingYardMesh, hPlateMesh, lWingMesh, swissCheeseMesh } from '../../examples/tri-mesh2/meshes';
 import {
   contains2ComplexMeshScenarios,
   contains2ComplexMeshGuestScenarios,
   contains2MeshScenarios,
   evaluateContainsScenario,
-} from '../src/demos/contains2/scenarios';
+} from '../../examples/contains2/scenarios';
 
 describe('Contains2', () => {
   const square = new Polygon2([new Vec2(0, 0), new Vec2(10, 0), new Vec2(10, 10), new Vec2(0, 10)]);

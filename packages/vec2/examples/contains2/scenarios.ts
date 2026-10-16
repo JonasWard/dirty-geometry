@@ -1,19 +1,14 @@
-import { Circle2 } from '@dirty-geometry/vec2/geometry/regions/circle2';
-import {
-  Contains2,
-  type Container2 as ContainingGeometry2,
-  type Geometry2 as ContainedGeometry2,
-} from '@dirty-geometry/vec2/operations/contains2';
-import { Epsilon } from '@dirty-geometry/vec2/core/epsilon';
-import { InfiniteLine2 } from '@dirty-geometry/vec2/geometry/primitives/infinite-line2';
-import { Line2 } from '@dirty-geometry/vec2/geometry/primitives/line2';
-import { Polygon2 } from '@dirty-geometry/vec2/geometry/regions/polygon2';
-import { Polyline2 } from '@dirty-geometry/vec2/geometry/curves/polyline2';
-import { Ray2 } from '@dirty-geometry/vec2/geometry/primitives/ray2';
-import { TriMesh2 } from '@dirty-geometry/vec2/geometry/regions/tri-mesh2';
-import { Vec2 } from '@dirty-geometry/vec2/core/vec2';
-import { frameAnchorPoints } from '../../geometry';
-import { annulusMesh, buildingYardMesh, hPlateMesh, lWingMesh, swissCheeseMesh } from '@dirty-geometry/vec2/examples/tri-mesh2/meshes';
+import { Circle2 } from '../../src/geometry/regions/circle2';
+import { Contains2, type Container2 as ContainingGeometry2, type Geometry2 as ContainedGeometry2 } from '../../src/operations/contains2';
+import { Epsilon } from '../../src/core/epsilon';
+import { InfiniteLine2 } from '../../src/geometry/primitives/infinite-line2';
+import { Line2 } from '../../src/geometry/primitives/line2';
+import { Polygon2 } from '../../src/geometry/regions/polygon2';
+import { Polyline2 } from '../../src/geometry/curves/polyline2';
+import { Ray2 } from '../../src/geometry/primitives/ray2';
+import { TriMesh2 } from '../../src/geometry/regions/tri-mesh2';
+import { Vec2 } from '../../src/core/vec2';
+import { annulusMesh, buildingYardMesh, hPlateMesh, lWingMesh, swissCheeseMesh } from '../tri-mesh2/meshes';
 
 export type Contains2ScenarioSection =
   'point' | 'segment' | 'circle' | 'curve' | 'unbounded' | 'mesh' | 'mesh-complex' | 'mesh-guest';
@@ -40,9 +35,13 @@ const lShape = new Polygon2([
 ]);
 
 const unitCircle = new Circle2(new Vec2(0, 0), 1);
+
 const outerCircle = new Circle2(new Vec2(0, 0), 5);
+
 const swissCircle = new Circle2(new Vec2(5, 4), 7);
+
 const lWingCircle = new Circle2(new Vec2(4.5, 5.5), 8);
+
 const xAxis = new InfiniteLine2(new Vec2(0, 0), new Vec2(1, 0));
 
 const unitSquareMesh = new TriMesh2(
@@ -54,9 +53,13 @@ const unitSquareMesh = new TriMesh2(
 );
 
 const annulus = annulusMesh();
+
 const swissCheese = swissCheeseMesh();
+
 const lWing = lWingMesh();
+
 const buildingYard = buildingYardMesh();
+
 const hPlate = hPlateMesh();
 
 const yardTriangle = new TriMesh2([new Vec2(3, 5), new Vec2(4.5, 5), new Vec2(3.75, 6)], [[0, 1, 2]]);
@@ -71,7 +74,9 @@ function shiftMesh(mesh: TriMesh2, dx: number, dy: number): TriMesh2 {
 }
 
 const annulusInHalfPlane = shiftMesh(annulus, 1, -4);
+
 const swissInHalfPlane = shiftMesh(swissCheese, 1, -9);
+
 const annulusEscapingCircle = shiftMesh(annulus, 3, 3);
 
 export const contains2PointScenarios: Contains2Scenario[] = [
@@ -415,11 +420,6 @@ export const contains2Scenarios: Contains2Scenario[] = [
 
 export function evaluateContainsScenario(scenario: Contains2Scenario): boolean {
   return Contains2.contains(scenario.container, scenario.guest, scenario.slack ?? Epsilon.preferIn);
-}
-
-/** Collect world-space points used to fit each scenario into its frame cell. */
-export function scenarioAnchorPoints(scenario: Contains2Scenario): Vec2[] {
-  return frameAnchorPoints([scenario.container, scenario.guest]);
 }
 
 export function containerKind(container: ContainingGeometry2): string {

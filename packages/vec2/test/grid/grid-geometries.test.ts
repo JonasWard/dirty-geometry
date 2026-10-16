@@ -1,11 +1,11 @@
 import { describe, expect, test } from 'bun:test';
-import { GridCell2 } from '@dirty-geometry/vec2/grid/core/grid-cell2';
-import { GridCell2Collection } from '@dirty-geometry/vec2/grid/regions/grid-cell2-collection';
-import { GridLine2 } from '@dirty-geometry/vec2/grid/regions/grid-line2';
-import { GridPolyline2 } from '@dirty-geometry/vec2/grid/regions/grid-polyline2';
-import { GridRectangle2 } from '@dirty-geometry/vec2/grid/regions/grid-rectangle2';
-import type { GridGeometry2 } from '@dirty-geometry/vec2/grid/regions/kinds';
-import { gridLineExamples, gridPolygonExamples } from '@dirty-geometry/vec2/examples/grid/geometry-examples';
+import { GridCell2 } from '../../src/grid/core/grid-cell2';
+import { GridCell2Collection } from '../../src/grid/regions/grid-cell2-collection';
+import { GridLine2 } from '../../src/grid/regions/grid-line2';
+import { GridPolyline2 } from '../../src/grid/regions/grid-polyline2';
+import { GridRectangle2 } from '../../src/grid/regions/grid-rectangle2';
+import type { GridGeometry2 } from '../../src/grid/regions/kinds';
+import { gridLineExamples, gridPolygonExamples } from '../../examples/grid/geometry-examples';
 import {
   evaluateChainScenario,
   evaluateGridScenario,
@@ -20,7 +20,7 @@ import {
   grid2VariableSetOpScenarios,
   grid2XorScenarios,
   unionGridGeometries,
-} from '../src/demos/grid2/scenarios';
+} from '../../examples/grid2/scenarios';
 
 function cellKeys(cells: Iterable<{ i: number; j: number }>): string[] {
   return [...cells].map((cell) => `${cell.i},${cell.j}`);

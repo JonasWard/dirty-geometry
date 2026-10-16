@@ -4,20 +4,7 @@ import { Html, Line } from '@react-three/drei';
 import { useMemo } from 'react';
 import { Vec2 } from '@dirty-geometry/vec2/core/vec2';
 import { Epsilon } from '@dirty-geometry/vec2/core/epsilon';
-import {
-  contains2CircleScenarios,
-  contains2ComplexMeshScenarios,
-  contains2ComplexMeshGuestScenarios,
-  contains2CurveScenarios,
-  contains2MeshScenarios,
-  contains2PointScenarios,
-  contains2SegmentScenarios,
-  contains2UnboundedScenarios,
-  containerKind,
-  evaluateContainsScenario,
-  guestKind,
-  type Contains2Scenario,
-} from './scenarios';
+import { contains2CircleScenarios, contains2ComplexMeshScenarios, contains2ComplexMeshGuestScenarios, contains2CurveScenarios, contains2MeshScenarios, contains2PointScenarios, contains2SegmentScenarios, contains2UnboundedScenarios, containerKind, evaluateContainsScenario, guestKind, type Contains2Scenario } from '@dirty-geometry/vec2/examples/contains2/scenarios';
 import { ContainerInteriorMesh } from '../../geometry/components/ContainerInteriorMesh';
 import { GeometryRender } from '../../geometry/components/GeometryRender';
 import { frameCorners, labelPosition, vec2ToTuple } from '../../core/frame';

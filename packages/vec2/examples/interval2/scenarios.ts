@@ -1,5 +1,5 @@
-import { Interval2 } from '@dirty-geometry/vec2/bounds/interval2';
-import { Epsilon } from '@dirty-geometry/vec2/core/epsilon';
+import { Interval2 } from '../../src/bounds/interval2';
+import { Epsilon } from '../../src/core/epsilon';
 
 export type Interval2ScenarioSection = 'merge' | 'complement' | 'longest';
 

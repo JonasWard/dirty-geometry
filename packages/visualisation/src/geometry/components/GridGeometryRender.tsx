@@ -18,7 +18,7 @@ import {
   createGridPolygon2Display,
   createGridRectangle2Display,
 } from '../display/grid';
-import { GRID2_COLORS } from '../../demos/grid2/colors';
+import { GRID2_COLORS } from '../display/grid/colors';
 
 type GridGeometryRenderProps = {
   grid: Grid2;

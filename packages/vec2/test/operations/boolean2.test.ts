@@ -1,9 +1,9 @@
 import { describe, expect, test } from 'bun:test';
-import { Boolean2 } from '@dirty-geometry/vec2/operations/boolean2';
-import { Epsilon } from '@dirty-geometry/vec2/core/epsilon';
-import { InfiniteLine2 } from '@dirty-geometry/vec2/geometry/primitives/infinite-line2';
-import { Polygon2 } from '@dirty-geometry/vec2/geometry/regions/polygon2';
-import { Vec2 } from '@dirty-geometry/vec2/core/vec2';
+import { Boolean2 } from '../../src/operations/boolean2';
+import { Epsilon } from '../../src/core/epsilon';
+import { InfiniteLine2 } from '../../src/geometry/primitives/infinite-line2';
+import { Polygon2 } from '../../src/geometry/regions/polygon2';
+import { Vec2 } from '../../src/core/vec2';
 import {
   boolean2IntersectPolygonScenarios,
   boolean2IntersectScenarios,
@@ -16,7 +16,7 @@ import {
   evaluateBooleanScenario,
   pointInsideScenario,
   removedHalfSamplePoint,
-} from '../src/demos/boolean2/scenarios';
+} from '../../examples/boolean2/scenarios';
 
 const xAxisHalfPlane = new InfiniteLine2(new Vec2(0, 0), new Vec2(1, 0));
 

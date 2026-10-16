@@ -1,17 +1,16 @@
-import { Aabb2 } from '@dirty-geometry/vec2/bounds/aabb2';
-import { Interval2 } from '@dirty-geometry/vec2/bounds/interval2';
-import { Circle2 } from '@dirty-geometry/vec2/geometry/regions/circle2';
-import { Epsilon } from '@dirty-geometry/vec2/core/epsilon';
-import type { Geometry2 } from '@dirty-geometry/vec2/operations/overlap2';
-import { Overlap2 } from '@dirty-geometry/vec2/operations/overlap2';
-import { InfiniteLine2 } from '@dirty-geometry/vec2/geometry/primitives/infinite-line2';
-import { Line2 } from '@dirty-geometry/vec2/geometry/primitives/line2';
-import { Polygon2 } from '@dirty-geometry/vec2/geometry/regions/polygon2';
-import { Polyline2 } from '@dirty-geometry/vec2/geometry/curves/polyline2';
-import { Ray2 } from '@dirty-geometry/vec2/geometry/primitives/ray2';
-import { TriMesh2 } from '@dirty-geometry/vec2/geometry/regions/tri-mesh2';
-import { Vec2 } from '@dirty-geometry/vec2/core/vec2';
-import { frameAnchorPoints } from '../../geometry';
+import { Aabb2 } from '../../src/bounds/aabb2';
+import { Interval2 } from '../../src/bounds/interval2';
+import { Circle2 } from '../../src/geometry/regions/circle2';
+import { Epsilon } from '../../src/core/epsilon';
+import type { Geometry2 } from '../../src/operations/overlap2';
+import { Overlap2 } from '../../src/operations/overlap2';
+import { InfiniteLine2 } from '../../src/geometry/primitives/infinite-line2';
+import { Line2 } from '../../src/geometry/primitives/line2';
+import { Polygon2 } from '../../src/geometry/regions/polygon2';
+import { Polyline2 } from '../../src/geometry/curves/polyline2';
+import { Ray2 } from '../../src/geometry/primitives/ray2';
+import { TriMesh2 } from '../../src/geometry/regions/tri-mesh2';
+import { Vec2 } from '../../src/core/vec2';
 
 export type Overlap2ScenarioSection = 'curve' | 'region' | 'circle' | 'halfPlane' | 'box' | 'polyline' | 'touching';
 
@@ -24,7 +23,9 @@ export type Overlap2Scenario = {
 };
 
 const square = new Polygon2([new Vec2(0, 0), new Vec2(10, 0), new Vec2(10, 10), new Vec2(0, 10)]);
+
 const unitCircle = new Circle2(new Vec2(0, 0), 1);
+
 const xAxis = new InfiniteLine2(new Vec2(0, 0), new Vec2(1, 0));
 
 export const overlap2CurveScenarios: Overlap2Scenario[] = [
@@ -172,8 +173,11 @@ export const overlap2PolylineScenarios: Overlap2Scenario[] = [
 ];
 
 const touchingCircle = new Circle2(new Vec2(2, 0), 1);
+
 const cornerSquare = new Polygon2([new Vec2(10, 10), new Vec2(20, 10), new Vec2(20, 20), new Vec2(10, 20)]);
+
 const tangentCircle = new Circle2(new Vec2(11, 5), 1);
+
 const meshOnEdge = new TriMesh2([new Vec2(10, 5), new Vec2(12, 5), new Vec2(11, 8)], [[0, 1, 2]]);
 
 /** Zero-measure contact: overlap with preferIn, disjoint with preferOut. */
@@ -346,11 +350,6 @@ export const overlap2Scenarios: Overlap2Scenario[] = [
 
 export function evaluateOverlapScenario(scenario: Overlap2Scenario): boolean {
   return Overlap2.overlaps(scenario.a, scenario.b, scenario.slack ?? Epsilon.preferIn);
-}
-
-/** Collect world-space points used to fit each scenario into its frame cell. */
-export function scenarioAnchorPoints(scenario: Overlap2Scenario): Vec2[] {
-  return frameAnchorPoints([scenario.a, scenario.b]);
 }
 
 export function geometryKind(geometry: Geometry2): string {

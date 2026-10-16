@@ -11,7 +11,7 @@ import {
 import type { RectilinearGridDetection } from '@dirty-geometry/vec2/operations/polygon-analysis/rectilinear-detection';
 import { rectangleDetectionExamples } from '@dirty-geometry/vec2/examples/grid/rectangle-detection-examples';
 import type { Polygon2 } from '@dirty-geometry/vec2/geometry/regions/polygon2';
-import { GRID2_COLORS, earthToneAt } from './colors';
+import { GRID2_COLORS, earthToneAt } from '../../geometry/display/grid/colors';
 import { fitPointsToFrame, frameCorners, labelPosition, vec2ToTuple } from '../../core/frame';
 import { GridGeometryRender } from '../../geometry/components/GridGeometryRender';
 import { ScenarioGridVisualisation } from '../../core/ScenarioGridVisualisation';

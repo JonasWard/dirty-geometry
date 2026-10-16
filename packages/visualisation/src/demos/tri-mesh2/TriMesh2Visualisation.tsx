@@ -4,17 +4,8 @@ import { Html, Line } from '@react-three/drei';
 import { useMemo } from 'react';
 import { Vec2 } from '@dirty-geometry/vec2/core/vec2';
 import { Polygon2 } from '@dirty-geometry/vec2/geometry/regions/polygon2';
-import {
-  sampleGridPoints,
-  scenarioAnchorPoints,
-  triMesh2AnnulusEpsilonScenarios,
-  triMesh2BuildingYardEpsilonScenarios,
-  triMesh2HPlateEpsilonScenarios,
-  triMesh2LWingEpsilonScenarios,
-  triMesh2SquareEpsilonScenarios,
-  triMesh2SwissCheeseEpsilonScenarios,
-  type TriMesh2ContainmentScenario,
-} from './scenarios';
+import { sampleGridPoints, triMesh2AnnulusEpsilonScenarios, triMesh2BuildingYardEpsilonScenarios, triMesh2HPlateEpsilonScenarios, triMesh2LWingEpsilonScenarios, triMesh2SquareEpsilonScenarios, triMesh2SwissCheeseEpsilonScenarios, type TriMesh2ContainmentScenario } from '@dirty-geometry/vec2/examples/tri-mesh2/scenarios';
+import { scenarioAnchorPoints } from './frame';
 import { ContainerInteriorMesh } from '../../geometry/components/ContainerInteriorMesh';
 import { GeometryRender } from '../../geometry/components/GeometryRender';
 import { fitPointsToFrame, frameCorners, labelPosition, vec2ToTuple } from '../../core/frame';

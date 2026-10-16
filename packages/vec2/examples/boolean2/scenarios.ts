@@ -1,12 +1,10 @@
-import { Boolean2, asBoolean2ClipList, type Boolean2ClipInput, type Boolean2Options } from '@dirty-geometry/vec2/operations/boolean2';
-import { Aabb2 } from '@dirty-geometry/vec2/bounds/aabb2';
-import { Epsilon } from '@dirty-geometry/vec2/core/epsilon';
-import { InfiniteLine2 } from '@dirty-geometry/vec2/geometry/primitives/infinite-line2';
-import type { Geometry2 } from '@dirty-geometry/vec2/geometry/kinds';
-import { Polygon2 } from '@dirty-geometry/vec2/geometry/regions/polygon2';
-import { Vec2 } from '@dirty-geometry/vec2/core/vec2';
-import { frameAnchorPoints } from '../../geometry';
-import { Deserialise } from '@dirty-geometry/vec2/io/deserialise';
+import { Boolean2, asBoolean2ClipList, type Boolean2ClipInput, type Boolean2Options } from '../../src/operations/boolean2';
+import { Aabb2 } from '../../src/bounds/aabb2';
+import { Epsilon } from '../../src/core/epsilon';
+import { InfiniteLine2 } from '../../src/geometry/primitives/infinite-line2';
+import { Polygon2 } from '../../src/geometry/regions/polygon2';
+import { Vec2 } from '../../src/core/vec2';
+import { Deserialise } from '../../src/io/deserialise';
 
 export type Boolean2ScenarioSection = 'union' | 'intersect' | 'subtract';
 
@@ -351,19 +349,6 @@ export function evaluateBooleanScenario(scenario: Boolean2Scenario) {
 
 export function scenarioClips(scenario: Boolean2Scenario) {
   return scenario.clips ? asBoolean2ClipList(scenario.clips) : [];
-}
-
-export function scenarioAnchorPoints(scenario: Boolean2Scenario): Vec2[] {
-  const result = evaluateBooleanScenario(scenario);
-  const geometries: Geometry2[] = [...scenario.inputs, ...scenarioClips(scenario)];
-
-  if (result.triMesh) {
-    geometries.push(result.triMesh);
-  } else {
-    geometries.push(...result.polygons);
-  }
-
-  return frameAnchorPoints(geometries);
 }
 
 export function removedHalfSamplePoint(scenario: Boolean2Scenario): Vec2 | null {

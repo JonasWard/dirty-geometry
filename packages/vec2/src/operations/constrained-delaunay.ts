@@ -6,28 +6,33 @@
  *    (`collectConstraintSources`): endpoints, segment×segment crossings, and
  *    infinite-line hits become vertices; carriers are split into non-crossing
  *    constraint segments along each chain.
- * 2. Triangulate with Bowyer-Watson, then enforce constraints by edge flips and
- *    restore the Delaunay property on every unlocked edge (`constrainedDelaunay`).
+ * 2. Triangulate (`constrainedDelaunay`, implemented in `./cdt`): Bowyer–Watson with walking point
+ *    location, then hull edges and constraints forced in by flips and every other edge made locally
+ *    Delaunay. All predicates are exact, so results do not depend on scale or offset.
  *
  * Prefer `triangulateSources` when starting from polygons / polylines / lines.
  * Use `constrainedDelaunay` when points and constraint indices are already known
  * (e.g. Boolean2 after packing).
  */
-import { Aabb2 } from '../bounds/aabb2';
 import { assertNever } from '../core/assert';
 import { Epsilon } from '../core/epsilon';
-import { dehash2, hash2 } from '../hash/core';
+import { dehash2, hash2, hash2scale } from '../hash/core';
+import { mooreNeighborCellHashes } from '../hash/neighbors';
+import { orient } from '../core/predicates';
 import { Vec2 } from '../core/vec2';
 import type { Polyline2 } from '../geometry/curves/polyline2';
 import type { InfiniteLine2 } from '../geometry/primitives/infinite-line2';
 import { Line2 } from '../geometry/primitives/line2';
 import { intersectionLines } from './intersection/line2-like';
 import type { LineLike2IntersectionResult } from '../geometry/kinds';
-import { Circle2 } from '../geometry/regions/circle2';
 import { Polygon2 } from '../geometry/regions/polygon2';
 import { TriMesh2 } from '../geometry/regions/tri-mesh2';
 import { findSegmentCrossings } from './intersection/segment-sweep';
 import { dedupVertices } from '../spatial/dedup-vertices';
+import { emptyCdtStats, type CdtStats } from './cdt/mesh';
+import { triangulateConstrained } from './cdt/triangulate';
+
+export type { CdtStats } from './cdt/mesh';
 
 /** Undirected edge key — same `hash2` convention as TriMesh2. */
 export type ConstraintEdge = number;
@@ -136,15 +141,25 @@ function partitionGeometries(geometries: TriangulateGeometries): {
   return { segments, lines, steiner };
 }
 
-/** Deduping vertex store: points within `slack` reuse the same index. */
+/** Deduping vertex store: points within `slack` reuse the same index (hashed, so adding is O(1)). */
 function createPointRegistry(slack: Epsilon): PointRegistry {
   const points: Vec2[] = [];
+  const radius = Math.abs(slack.value);
+  const cells = new Map<number, number[]>();
+  const cellOf = (point: Vec2) => hash2scale(point.x, point.y, radius);
   return {
     points,
     add(point: Vec2): number {
-      const existing = points.findIndex((candidate) => candidate.distance(point) <= slack.value);
-      if (existing >= 0) return existing;
+      const cell = cellOf(point);
+      for (const hash of [cell, ...mooreNeighborCellHashes(cell)]) {
+        for (const index of cells.get(hash) ?? []) {
+          if (points[index]!.distance(point) <= radius) return index;
+        }
+      }
       points.push(point.clone());
+      const bucket = cells.get(cell) ?? [];
+      bucket.push(points.length - 1);
+      cells.set(cell, bucket);
       return points.length - 1;
     },
   };
@@ -262,12 +277,20 @@ function withinHitSpan(
   return t >= Math.min(...ts) - pad && t <= Math.max(...ts) + pad;
 }
 
+/** {@link constrainedDelaunay} plus what it could not do and how much work it took. */
+export type ConstrainedDelaunayReport = {
+  mesh: TriMesh2;
+  /** Constraint edges (in mesh vertex indices) that could not be inserted. */
+  unresolved: [number, number][];
+  stats: CdtStats;
+};
+
 /**
  * Constrained Delaunay triangulation of `points`.
  * Constraint indices refer to the input `points` array (before dedup).
  *
- * Steps: dedup → split crossing constraints → Bowyer-Watson → enforce
- * constraints by flips → legalize unlocked edges.
+ * Steps: dedup → split crossing constraints → triangulate with the constraints forced in.
+ * Constraints that cannot be inserted are dropped; use {@link constrainedDelaunayReport} to see them.
  */
 export function constrainedDelaunay(
   points: readonly Vec2[],
@@ -275,28 +298,30 @@ export function constrainedDelaunay(
   slack: Epsilon = Epsilon.preferIn,
   gridSize?: number,
 ): TriMesh2 {
-  if (points.length === 0) return TriMesh2.withoutCleanup([], []);
+  return constrainedDelaunayReport(points, constraints, slack, gridSize).mesh;
+}
+
+export function constrainedDelaunayReport(
+  points: readonly Vec2[],
+  constraints: readonly ConstraintEdgeInput[] = [],
+  slack: Epsilon = Epsilon.preferIn,
+  gridSize?: number,
+): ConstrainedDelaunayReport {
+  const stats = emptyCdtStats();
+  if (points.length === 0) return { mesh: TriMesh2.withoutCleanup([], []), unresolved: [], stats };
 
   const { vertices, remap } = dedupVertices([...points], slack, gridSize);
   const forced = splitAtCrossings(vertices, remapConstraints(constraints, remap, vertices.length));
-  if (vertices.length < 3) {
-    return TriMesh2.withoutCleanup(
+  const { triangles, unresolved } = triangulateConstrained(vertices, forced.map(constraintEdgeEndpoints), stats);
+
+  return {
+    mesh: TriMesh2.withoutCleanup(
       vertices.map((v) => v.clone()),
-      [],
-    );
-  }
-
-  const triangles = bowyerWatson(vertices);
-  for (const edge of forced) {
-    const [a, b] = constraintEdgeEndpoints(edge);
-    enforce(vertices, triangles, a, b);
-  }
-  legalize(vertices, triangles, new Set(forced));
-
-  return TriMesh2.withoutCleanup(
-    vertices.map((v) => v.clone()),
-    triangles.map((t) => [...t] as [number, number, number]),
-  );
+      triangles,
+    ),
+    unresolved,
+    stats,
+  };
 }
 
 /** Map constraint endpoints through the dedup remap; drop collapsed / duplicate edges. */
@@ -309,7 +334,6 @@ function remapConstraints(constraints: readonly ConstraintEdgeInput[], remap: nu
     const a = remap[ia]!;
     const b = remap[ib]!;
     if (a === b) continue;
-    if (a >= n || b >= n) throw new Error('Constraint index out of range');
     const key = constraintEdge(a, b);
     if (seen.has(key)) continue;
     seen.add(key);
@@ -350,193 +374,12 @@ function splitAtCrossings(vertices: Vec2[], constraints: readonly ConstraintEdge
   return out;
 }
 
-/**
- * Incremental Bowyer-Watson Delaunay: insert points into a super-triangle that
- * is discarded at the end. Resulting triangles use CCW winding.
- */
-function bowyerWatson(vertices: readonly Vec2[]): [number, number, number][] {
-  const box = Aabb2.fromPoints(...vertices);
-  const d = Math.max(box.width(), box.height(), 1);
-  const c = Vec2.center(box.min(), box.max());
-  const s = vertices.length;
-  const pts = [
-    ...vertices,
-    new Vec2(c.x - 20 * d, c.y - d),
-    new Vec2(c.x, c.y + 20 * d),
-    new Vec2(c.x + 20 * d, c.y - d),
-  ];
-  const tris: [number, number, number][] = [[s, s + 1, s + 2]];
-  for (let i = 0; i < vertices.length; i++) insert(pts, tris, i);
-  return tris.filter(([a, b, c]) => a < s && b < s && c < s);
-}
-
-/**
- * Insert vertex `p`: remove triangles whose circumcircle contains `p`, then
- * retriangulate the polygonal cavity from its boundary edges.
- */
-function insert(vertices: readonly Vec2[], tris: [number, number, number][], p: number): void {
-  const bad: number[] = [];
-  for (let i = 0; i < tris.length; i++) {
-    const [a, b, c] = tris[i]!;
-    if (Circle2.inCircle(vertices[a]!, vertices[b]!, vertices[c]!, vertices[p]!)) bad.push(i);
-  }
-  const edges = edgeCounts(bad.map((i) => tris[i]!));
-  for (let i = bad.length - 1; i >= 0; i--) tris.splice(bad[i]!, 1);
-  for (const { a, b, count } of edges.values()) {
-    if (count !== 1) continue;
-    const t = orient(vertices, a, b, p);
-    if (t) tris.push(t);
-  }
-}
-
-/**
- * Ensure edge `a-b` appears in the mesh by repeatedly flipping mesh edges that
- * properly cross the constraint segment.
- */
-function enforce(vertices: readonly Vec2[], tris: [number, number, number][], a: number, b: number): void {
-  if (a === b) return;
-  for (let g = 0; g < Math.max(64, tris.length * 8) && !hasEdge(tris, a, b); g++) {
-    if (!crossing(vertices, tris, a, b).some(([u, v]) => flip(vertices, tris, u, v))) break;
-  }
-}
-
-/**
- * Restore the empty-circumcircle property on unlocked edges after constraints
- * were forced. Locked (constraint) edges are never flipped.
- */
-function legalize(vertices: readonly Vec2[], tris: [number, number, number][], locked: ReadonlySet<number>): void {
-  for (let g = 0; g < Math.max(64, tris.length * 16); g++) {
-    let moved = false;
-    for (const [u, v] of [...edgeCounts(tris).values()].filter((e) => e.count === 2).map((e) => [e.a, e.b] as const)) {
-      if (locked.has(constraintEdge(u, v))) continue;
-      const pair = tris.filter((t) => hasTriEdge(t, u, v));
-      if (pair.length !== 2) continue;
-      const p = opposite(pair[0]!, u, v);
-      const q = opposite(pair[1]!, u, v);
-      if (p < 0 || q < 0) continue;
-      const illegal =
-        Circle2.inCircle(vertices[pair[0]![0]!]!, vertices[pair[0]![1]!]!, vertices[pair[0]![2]!]!, vertices[q]!) ||
-        Circle2.inCircle(vertices[pair[1]![0]!]!, vertices[pair[1]![1]!]!, vertices[pair[1]![2]!]!, vertices[p]!);
-      if (illegal && flip(vertices, tris, u, v)) {
-        moved = true;
-        break;
-      }
-    }
-    if (!moved) break;
-  }
-}
-
-/**
- * Flip shared edge `u-v` of two adjacent triangles into the alternate diagonal
- * of their quad, when the quad is strictly convex.
- */
-function flip(vertices: readonly Vec2[], tris: [number, number, number][], u: number, v: number): boolean {
-  const idx: number[] = [];
-  for (let i = 0; i < tris.length; i++) if (hasTriEdge(tris[i]!, u, v)) idx.push(i);
-  if (idx.length !== 2) return false;
-  const p = opposite(tris[idx[0]!]!, u, v);
-  const q = opposite(tris[idx[1]!]!, u, v);
-  if (p < 0 || q < 0 || !convex(vertices[u]!, vertices[p]!, vertices[v]!, vertices[q]!)) return false;
-  const n0 = orient(vertices, u, p, q);
-  const n1 = orient(vertices, v, q, p);
-  if (!n0 || !n1) return false;
-  tris[idx[0]!] = n0;
-  tris[idx[1]!] = n1;
-  return true;
-}
-
-/** Mesh edges that properly intersect the open segment `a-b`. */
-function crossing(
-  vertices: readonly Vec2[],
-  tris: readonly [number, number, number][],
-  a: number,
-  b: number,
-): [number, number][] {
-  const seen = new Set<number>();
-  const out: [number, number][] = [];
-  for (const [i, j, k] of tris) {
-    for (const [u, v] of [
-      [i, j],
-      [j, k],
-      [k, i],
-    ] as [number, number][]) {
-      if (u === a || u === b || v === a || v === b) continue;
-      const key = constraintEdge(u, v);
-      if (seen.has(key) || !crosses(vertices[a]!, vertices[b]!, vertices[u]!, vertices[v]!)) continue;
-      seen.add(key);
-      out.push([u, v]);
-    }
-  }
-  return out;
-}
-
-/** Count how many triangles use each undirected edge (1 = boundary of a cavity). */
-function edgeCounts(tris: readonly [number, number, number][]): Map<number, { a: number; b: number; count: number }> {
-  const map = new Map<number, { a: number; b: number; count: number }>();
-  for (const [a, b, c] of tris) {
-    for (const [u, v] of [
-      [a, b],
-      [b, c],
-      [c, a],
-    ] as [number, number][]) {
-      const key = constraintEdge(u, v);
-      const cur = map.get(key);
-      if (cur) cur.count++;
-      else map.set(key, { a: u, b: v, count: 1 });
-    }
-  }
-  return map;
-}
-
-function hasEdge(tris: readonly [number, number, number][], a: number, b: number): boolean {
-  return tris.some((t) => hasTriEdge(t, a, b));
-}
-
-function hasTriEdge([i, j, k]: [number, number, number], a: number, b: number): boolean {
-  return (
-    (i === a && j === b) ||
-    (j === a && k === b) ||
-    (k === a && i === b) ||
-    (i === b && j === a) ||
-    (j === b && k === a) ||
-    (k === b && i === a)
-  );
-}
-
-function opposite(t: [number, number, number], a: number, b: number): number {
-  return t.find((i) => i !== a && i !== b) ?? -1;
-}
-
-/** CCW triangle, or null if `a,b,c` are nearly collinear. */
-function orient(vertices: readonly Vec2[], a: number, b: number, c: number): [number, number, number] | null {
-  const o = Vec2.orient(vertices[a]!, vertices[b]!, vertices[c]!);
-  if (Math.abs(o) < Epsilon.sq) return null;
-  return o > 0 ? [a, b, c] : [a, c, b];
-}
-
-/** Strict convexity of quad `a-b-c-d` (all turns same sign). */
-function convex(a: Vec2, b: Vec2, c: Vec2, d: Vec2): boolean {
-  const s = [Vec2.orient(a, b, c), Vec2.orient(b, c, d), Vec2.orient(c, d, a), Vec2.orient(d, a, b)];
-  return s.every((v) => v > 0) || s.every((v) => v < 0);
-}
-
-/** Proper (non-endpoint, non-collinear) segment intersection. */
+/** Proper (non-endpoint, non-collinear) segment intersection, decided exactly. */
 function crosses(a: Vec2, b: Vec2, c: Vec2, d: Vec2): boolean {
-  const o1 = Vec2.orient(a, b, c);
-  const o2 = Vec2.orient(a, b, d);
-  const o3 = Vec2.orient(c, d, a);
-  const o4 = Vec2.orient(c, d, b);
-  return (
-    Math.sign(o1) !== Math.sign(o2) &&
-    Math.sign(o3) !== Math.sign(o4) &&
-    Math.abs(o1) > Epsilon.sq &&
-    Math.abs(o2) > Epsilon.sq &&
-    Math.abs(o3) > Epsilon.sq &&
-    Math.abs(o4) > Epsilon.sq
-  );
+  return orient(a, b, c) * orient(a, b, d) < 0 && orient(c, d, a) * orient(c, d, b) < 0;
 }
 
-/** Vertex indices lying on segment `a-b`, ordered from `a` to `b`. */
+/** Vertex indices lying on segment `a-b` (within `Epsilon.value` of it), ordered from `a` to `b`. */
 function onSegment(vertices: readonly Vec2[], a: number, b: number): number[] {
   const pa = vertices[a]!;
   const pb = vertices[b]!;
@@ -547,12 +390,14 @@ function onSegment(vertices: readonly Vec2[], a: number, b: number): number[] {
     { i: a, t: 0 },
     { i: b, t: 1 },
   ];
+  // Parameter tolerance is a length along the segment, so it holds at any segment length.
+  const tTolerance = Epsilon.parameter(Math.sqrt(lenSq));
   for (let i = 0; i < vertices.length; i++) {
     if (i === a || i === b) continue;
     const ap = vertices[i]!.subtract(pa);
     if (Math.abs(ap.crossProduct(ab)) > Epsilon.value * Math.sqrt(lenSq)) continue;
     const t = ap.dot(ab) / lenSq;
-    if (t > Epsilon.value && t < 1 - Epsilon.value) along.push({ i, t });
+    if (t > tTolerance && t < 1 - tTolerance) along.push({ i, t });
   }
   along.sort((x, y) => x.t - y.t);
   return along.map((e) => e.i);

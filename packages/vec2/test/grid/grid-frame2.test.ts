@@ -45,3 +45,14 @@ describe('Frame2', () => {
     expect(turned.xAxis.y).toBeCloseTo(1);
   });
 });
+
+describe('Frame2.toLocal degeneracy', () => {
+  test('small but valid axes still invert', () => {
+    const frame = new Frame2(new Vec2(0, 0), new Vec2(1e-7, 0), new Vec2(0, 1e-7));
+    expect(frame.toLocal(new Vec2(1e-7, 2e-7)).y).toBeCloseTo(2);
+  });
+
+  test('parallel axes are rejected at any scale', () => {
+    expect(() => new Frame2(new Vec2(0, 0), new Vec2(1e6, 0), new Vec2(2e6, 0)).toLocal(new Vec2(1, 1))).toThrow();
+  });
+});

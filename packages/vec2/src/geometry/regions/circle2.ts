@@ -1,6 +1,7 @@
 import { Aabb2 } from '../../bounds/aabb2';
 import { Interval2 } from '../../bounds/interval2';
 import { Epsilon } from '../../core/epsilon';
+import { inCircle, orient } from '../../core/predicates';
 import { Vec2, type Vec2Json } from '../../core/vec2';
 
 /** Circle in the plane: center + non-negative radius. */
@@ -108,19 +109,13 @@ export class Circle2 {
   }
 
   /**
-   * True if `d` lies inside the circumcircle of triangle `a,b,c`.
-   * Uses the orientation-aware determinant predicate (no explicit circle construction).
-   * Nearly cocircular points are treated as outside.
+   * True when `d` lies strictly inside the circle through `a, b, c` (either winding).
+   * Exact, so the answer does not depend on scale; cocircular points are outside.
    */
   static inCircle(a: Vec2, b: Vec2, c: Vec2, d: Vec2): boolean {
-    const ad = a.subtract(d);
-    const bd = b.subtract(d);
-    const cd = c.subtract(d);
-
-    const det = ad.dot(ad) * bd.crossProduct(cd) - bd.dot(bd) * ad.crossProduct(cd) + cd.dot(cd) * ad.crossProduct(bd);
-
-    const orient = Vec2.orient(a, b, c);
-    return orient > 0 ? det > Epsilon.sq : det < -Epsilon.sq;
+    const winding = orient(a, b, c);
+    if (winding === 0) return false;
+    return Math.sign(inCircle(a, b, c, d)) === Math.sign(winding);
   }
 }
 

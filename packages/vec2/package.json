@@ -11,5 +11,8 @@
   "scripts": {
     "test": "bun test",
     "typecheck": "tsc --noEmit -p ."
+  },
+  "dependencies": {
+    "robust-predicates": "3.0.2"
   }
 }

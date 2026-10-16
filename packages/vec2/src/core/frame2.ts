@@ -40,7 +40,8 @@ export class Frame2 {
     const relative = world.subtract(this.origin);
     const det = this.xAxis.x * this.yAxis.y - this.xAxis.y * this.yAxis.x;
 
-    if (Math.abs(det) < 1e-12) {
+    // Relative check: |det| = |x||y| sin(angle between the axes), so this asks for a non-zero angle at any scale.
+    if (!(Math.abs(det) > 1e-12 * this.xAxis.length() * this.yAxis.length())) {
       throw new Error('Frame2 axes are degenerate');
     }
 

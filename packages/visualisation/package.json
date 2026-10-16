@@ -6,11 +6,13 @@
   "description": "react-three-fiber display layer and interactive demos for @dirty-geometry/vec2 and @dirty-geometry/graph.",
   "exports": {
     ".": "./src/index.ts",
-    "./meta": "./src/meta.ts"
+    "./meta": "./src/meta.ts",
+    "./playground": "./src/playground/index.ts"
   },
   "dependencies": {
     "@dirty-geometry/graph": "workspace:*",
-    "@dirty-geometry/vec2": "workspace:*"
+    "@dirty-geometry/vec2": "workspace:*",
+    "@dirty-geometry/vec2-dense": "workspace:*"
   },
   "peerDependencies": {
     "@react-three/drei": "^10.7.8",

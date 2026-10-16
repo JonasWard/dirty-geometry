@@ -58,6 +58,7 @@
       "dependencies": {
         "@dirty-geometry/graph": "workspace:*",
         "@dirty-geometry/vec2": "workspace:*",
+        "@dirty-geometry/vec2-dense": "workspace:*",
       },
       "peerDependencies": {
         "@react-three/drei": "^10.7.8",

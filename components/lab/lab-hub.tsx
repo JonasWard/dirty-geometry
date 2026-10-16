@@ -1,6 +1,7 @@
 import Breadcrumbs from "@/components/breadcrumbs";
 import DemoCard from "@/components/lab/demo-card";
 import LegacyHashRedirect from "@/components/lab/legacy-hash-redirect";
+import { PlaygroundCallout } from "@/components/lab/library-index";
 import { getDemoPath, getLocale, getPath, getTranslations } from "@/utilities/l10n";
 import { demoLibraries, demoLibraryInfo, demosFor } from "@dirty-geometry/visualisation/meta";
 import Link from "next/link";
@@ -40,6 +41,7 @@ export default function LabHub({ locale }: { locale?: string }) {
                 {demos.length} {t.lab.demos} →
               </Link>
             </div>
+            {library === "vec2" && <PlaygroundCallout locale={activeLocale} />}
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {demos.map((demo) => (
                 <DemoCard key={demo.id} demo={demo} href={getDemoPath(activeLocale, library, demo.id)} />

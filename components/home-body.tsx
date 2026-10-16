@@ -1,7 +1,7 @@
 import Logo from "@/components/logo";
 import Nav from "@/components/nav";
 import { Page, basePath } from '@/config';
-import { getDemoPath, getLocale, getPath, getTranslations } from '@/utilities/l10n';
+import { getDemoPath, getLocale, getPath, getPlaygroundPath, getTranslations } from '@/utilities/l10n';
 import { demoLibraries, demoLibraryInfo, demosFor } from '@dirty-geometry/visualisation/meta';
 import Link from 'next/link';
 
@@ -164,6 +164,14 @@ export default function HomeBody({ locale, page = 'home' }: { locale?: string; p
                     </h3>
                     <p className="text-sm text-dg-muted leading-relaxed mb-6">{t.lab.libraries[library]}</p>
                   </Link>
+                  {library === 'vec2' && (
+                    <Link
+                      href={getPlaygroundPath(activeLocale)}
+                      className="mb-4 inline-flex w-fit items-center gap-2 border-2 border-dg-navy-900 px-4 py-2 text-xs font-bold tracking-[0.2em] uppercase hover:bg-dg-navy-900 hover:text-dg-sky-200 transition-all duration-300"
+                    >
+                      {t.lab.openPlayground} <span aria-hidden="true">→</span>
+                    </Link>
+                  )}
                   <ul className="flex flex-wrap gap-2 mb-8">
                     {demos.map((demo) => (
                       <li key={demo.id}>

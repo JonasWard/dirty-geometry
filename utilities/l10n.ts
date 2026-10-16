@@ -30,6 +30,9 @@ export const getPath = (locale: Locale, page?: Page) =>
 export const getDemoPath = (locale: Locale, library: string, id: string) =>
   `${getPath(locale, "lab")}${library}/${id}/`;
 
+/** Path of the vec2 playground. */
+export const getPlaygroundPath = (locale: Locale) => `${getPath(locale, "vec2")}playground/`;
+
 /** Absolute URL of a site path (paths end in `/`, matching the trailing-slash export). */
 export const getAbsoluteUrl = (path: string) => `${baseUrl}${path}`;
 

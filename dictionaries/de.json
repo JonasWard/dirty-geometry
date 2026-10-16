@@ -73,6 +73,9 @@
     "libraries": {
       "vec2": "2D-Mathematik: Kurven, Schnitte, Triangulierung, Enthaltensein, Boolesche Operationen, Begrenzungen und Raster.",
       "graph": "Graphen: Wegsuche, Kantenmengen und Halbkanten-Netze."
-    }
+    },
+    "playground": "Spielwiese",
+    "playgroundIntro": "Baue eine vec2-Definition mit Auswahllisten, als JSON oder als TypeScript. Jede Zwischengeometrie wird gezeichnet, und die ganze Definition steckt als densing-Zeichenkette im Link.",
+    "openPlayground": "Spielwiese öffnen"
   }
 }

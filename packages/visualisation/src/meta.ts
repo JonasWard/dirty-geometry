@@ -7,6 +7,7 @@ import { boolean2VisualisationMeta } from './demos/vec2/boolean2/meta';
 import { cdtVisualisationMeta } from './demos/vec2/constrained-delaunay/meta';
 import { contains2VisualisationMeta } from './demos/vec2/contains2/meta';
 import { curveVisualisationMeta } from './demos/vec2/curves/meta';
+import { definitionsVisualisationMeta } from './demos/vec2/definitions/meta';
 import { grid2RectangleDetectionMeta, grid2VisualisationMeta } from './demos/vec2/grid2/meta';
 import { intersectionLines2VisualisationMeta } from './demos/vec2/intersection-lines/meta';
 import { interval2VisualisationMeta } from './demos/vec2/interval2/meta';
@@ -66,6 +67,7 @@ export const visualisationMetas: readonly DemoMeta[] = [
     interval2VisualisationMeta,
     grid2VisualisationMeta,
     grid2RectangleDetectionMeta,
+    definitionsVisualisationMeta,
   ]),
   ...inLibrary('graph', [pathSearchVisualisationMeta, edgeSubgraphVisualisationMeta, halfEdgeVisualisationMeta]),
 ];

@@ -45,6 +45,9 @@ const components: Record<string, LazyExoticComponent<ComponentType>> = {
       (m) => m.Grid2RectangleDetectionVisualisation,
     ),
   ),
+  'vec2/definitions': lazy(() =>
+    load(import('../demos/vec2/definitions/DefinitionsVisualisation'), (m) => m.DefinitionsVisualisation),
+  ),
   'graph/path-search': lazy(() =>
     load(import('../demos/graph/path-search/PathSearchVisualisation'), (m) => m.PathSearchVisualisation),
   ),

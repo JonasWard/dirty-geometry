@@ -10,7 +10,8 @@
   },
   "dependencies": {
     "@dirty-geometry/vec2": "workspace:*",
-    "densing": "0.4.4"
+    "densing": "0.4.4",
+    "sucrase": "3.35.0"
   },
   "scripts": {
     "test": "bun test",

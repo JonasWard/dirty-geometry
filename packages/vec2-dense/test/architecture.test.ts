@@ -1,7 +1,8 @@
 import { expect, test } from 'bun:test';
 import { buildImportGraph, relativeModule } from '../../../scripts/import-graph';
 
-test('vec2-dense imports only itself and vec2 (densing is its only other dependency)', () => {
+// Bare packages (densing, and sucrase, loaded lazily by run.ts) are not followed by the import graph.
+test('vec2-dense imports only itself and vec2', () => {
   const outside: string[] = [];
   for (const [file, targets] of buildImportGraph(['packages/vec2-dense/src'])) {
     if (!relativeModule('packages/vec2-dense', file).startsWith('src/')) continue;

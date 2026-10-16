@@ -13,3 +13,5 @@ export {
 } from './convert';
 export { choosePresets, presetBits, presetsByCost } from './presets';
 export { decodePlaygroundHash, encodePlaygroundHash, type PlaygroundState } from './url';
+export { definitionToTypeScript } from './codegen';
+export { runTypeScript, stripTypes, TypeScriptRunError } from './run';

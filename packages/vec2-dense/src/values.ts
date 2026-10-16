@@ -5,6 +5,7 @@
  */
 import type { DenseField, NumericDefinition, ReferenceField } from 'densing';
 import { isDegreePreset, quantise, resolvePreset, type ActivePresets, type NumericRole } from './numerics';
+import type { OperandRole } from './roles';
 
 export const MAX_VERTICES = 4096;
 export const MAX_CELLS = 65536;
@@ -13,14 +14,18 @@ export const MAX_CELLS = 65536;
 export class TemplateTable {
   readonly templates: DenseField[] = [];
   private readonly byKey = new Map<string, number>();
+  private readonly names = new Set<string>();
 
   ref(name: string, key: string, build: () => DenseField): ReferenceField {
     let index = this.byKey.get(key);
     if (index === undefined) {
       index = this.templates.length;
       this.byKey.set(key, index);
-      this.templates.push({ type: 'bool', name: 'placeholder', defaultValue: false });
-      this.templates[index] = build();
+      this.templates.push({ type: 'bool', name: `placeholder${index}`, defaultValue: false });
+      const field = build();
+      // densing needs unique template names; shared shapes (operands) get their index appended.
+      this.templates[index] = this.names.has(field.name) ? { ...field, name: `${field.name}${index}` } : field;
+      this.names.add(this.templates[index]!.name);
     }
     return { type: 'reference', name, ref: index };
   }
@@ -38,6 +43,15 @@ export class NumericContext {
     const preset = resolvePreset(this.definitions, role, this.active);
     const degrees = role === 'angle' && isDegreePreset(preset.name);
     return quantise(degrees ? (value * 180) / Math.PI : value, preset, label);
+  }
+
+  /** A number operand as stored: through its numeric definition, or as an epsilon. */
+  encodeNumber(role: OperandRole, value: number, label: string): unknown {
+    return role === 'epsilon' ? encodeEpsilon(value, label) : this.q(role, value, label);
+  }
+
+  decodeNumber(role: OperandRole, stored: unknown): number {
+    return role === 'epsilon' ? decodeEpsilon(stored as Data) : this.d(role, stored as number);
   }
 
   /** A stored number back in vec2 units (radians for angles). */
@@ -160,7 +174,7 @@ const ANGLE_PRECISIONS = ['1', '0.1', '0.01', '0.001'] as const;
 
 const EPSILON_DEFAULT = 1e-6;
 
-function encodeEpsilon(value: number, label: string): Data {
+export function encodeEpsilon(value: number, label: string): Data {
   if (value === EPSILON_DEFAULT) return { kind: 'preferIn' };
   if (value === -EPSILON_DEFAULT) return { kind: 'preferOut' };
   const magnitude = Math.abs(value);
@@ -176,7 +190,7 @@ function encodeEpsilon(value: number, label: string): Data {
   return { kind: 'custom', side: value > 0 ? 'in' : 'out', mantissa, exponent };
 }
 
-function decodeEpsilon(data: Data): number {
+export function decodeEpsilon(data: Data): number {
   if (data.kind === 'preferIn') return EPSILON_DEFAULT;
   if (data.kind === 'preferOut') return -EPSILON_DEFAULT;
   const magnitude = Number(`${data.mantissa}e${data.exponent}`);
@@ -209,6 +223,14 @@ function axisVariants(t: TemplateTable): Record<string, DenseField[]> {
     ],
   };
 }
+
+/** The fields of an epsilon number (`preferIn`, `preferOut` or ±m·10^e). */
+export const epsilonNumberField = (name: string): DenseField =>
+  uni(name, 'kind', {
+    preferIn: [],
+    preferOut: [],
+    custom: [enumField('side', ['in', 'out']), intField('mantissa', 1, 999), intField('exponent', -18, 0)],
+  });
 
 const SPECS: Record<ValueType, ValueSpec> = {
   Vec2: {
@@ -263,12 +285,7 @@ const SPECS: Record<ValueType, ValueSpec> = {
     }),
   },
   Epsilon: {
-    field: () =>
-      uni('Epsilon', 'kind', {
-        preferIn: [],
-        preferOut: [],
-        custom: [enumField('side', ['in', 'out']), intField('mantissa', 1, 999), intField('exponent', -18, 0)],
-      }),
+    field: () => epsilonNumberField('Epsilon'),
     encode: (json, _ctx, label) => encodeEpsilon(json.value, label),
     decode: (data, ctx) => ({ type: 'Epsilon', value: decodeEpsilon(data) }),
   },

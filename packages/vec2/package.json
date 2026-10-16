@@ -6,6 +6,8 @@
   "description": "2D vector, geometry, bounds, grid and polygon operations.",
   "exports": {
     "./examples/*": "./examples/*.ts",
+    "./schema/*.json": "./schema/*.json",
+    "./schema/*": "./schema/*.ts",
     "./*": "./src/*.ts"
   },
   "scripts": {

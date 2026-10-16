@@ -121,3 +121,23 @@ describe('replay', () => {
     expect(evaluateDefinition(renamed, { aliases: { 'Line2#len': 'Line2#length' } }).outputs.length).toBe(5);
   });
 });
+
+test('partial replay returns the values computed before the first failure', () => {
+  const rec = createRecorder();
+  const { Vec2: V, Line2 } = rec.lib;
+  const a = new V(0, 0);
+  rec.output('a', a);
+  rec.output('line', new Line2(a, new V(1, 0)));
+  const definition = rec.definition();
+  const broken: Definition = {
+    ...definition,
+    nodes: definition.nodes.map((node) =>
+      node.op === 'Line2.new' && 'args' in node ? { ...node, args: [{ ref: 'n0' }, { ref: 'n9' }] } : node,
+    ),
+  };
+  expect(() => evaluateDefinition(broken)).toThrow(DefinitionError);
+  const partial = evaluateDefinition(broken, { partial: true });
+  expect(partial.error?.node).toBe('n2');
+  expect(Object.keys(partial.outputs)).toEqual(['a']);
+  expect(partial.values.size).toBe(2);
+});

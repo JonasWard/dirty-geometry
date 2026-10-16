@@ -13,12 +13,19 @@ export type EvaluateOptions = {
   registry?: CodecRegistry;
   /** Renamed operations, old id → current id; defaults to `policy.aliases` in schema/policy.ts. */
   aliases?: Readonly<Record<string, string>>;
+  /**
+   * Stop at the first node that fails instead of throwing, and return the values computed so far with the
+   * failure in `error` (outputs that were not reached are left out). For editors that show partial results.
+   */
+  partial?: boolean;
 };
 
 export type EvaluateResult = {
   outputs: Record<string, unknown>;
   /** The value of every node by id. */
   values: Map<string, unknown>;
+  /** With `partial`: the first node that failed. */
+  error?: { node: string; message: string };
 };
 
 export class DefinitionError extends RecordingError {
@@ -85,7 +92,7 @@ export function evaluateDefinition(definition: Definition, options: EvaluateOpti
     return Object.fromEntries(Object.entries(arg.object).map(([key, field]) => [key, decode(field)]));
   };
 
-  for (const node of definition.nodes) {
+  const run = (node: Definition['nodes'][number]) => {
     if (node.op === 'param' && 'name' in node && !('of' in node)) {
       const name = paramByNode.get(node.id) ?? node.name;
       const param = definition.params[name];
@@ -100,8 +107,26 @@ export function evaluateDefinition(definition: Definition, options: EvaluateOpti
       const self = node.self === undefined ? undefined : valueOf(node.self);
       values.set(node.id, callOperation(found.id, found.op, self, node.args.map(decode)));
     }
+  };
+
+  let error: EvaluateResult['error'];
+  for (const node of definition.nodes) {
+    if (!options.partial) {
+      run(node);
+      continue;
+    }
+    try {
+      run(node);
+    } catch (failure) {
+      error = { node: node.id, message: failure instanceof Error ? failure.message : String(failure) };
+      break;
+    }
   }
 
-  const outputs = Object.fromEntries(Object.entries(definition.outputs).map(([name, id]) => [name, valueOf(id)]));
-  return { outputs, values };
+  const outputs = Object.fromEntries(
+    Object.entries(definition.outputs)
+      .filter(([, id]) => !options.partial || values.has(id))
+      .map(([name, id]) => [name, valueOf(id)]),
+  );
+  return error ? { outputs, values, error } : { outputs, values };
 }

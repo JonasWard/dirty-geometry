@@ -39,8 +39,10 @@ export class Boolean2 {
   }
 
   /**
-   * Intersection of subject polygons with one or more clip geometries.
-   * Clip may be half-planes (`signedDistance <= 0`) and/or filled polygons.
+   * Intersection of subject polygons with one or more clip geometries: material inside every clip.
+   * Clip may be half-planes (`signedDistance <= 0`) and/or filled polygons. As in {@link union}, a
+   * clockwise clip polygon is a hole in the smallest counter-clockwise clip polygon that contains it;
+   * a clockwise polygon outside every counter-clockwise one is a solid region of its own.
    */
   static intersect(
     subject: readonly Polygon2[],
@@ -51,8 +53,8 @@ export class Boolean2 {
   }
 
   /**
-   * Subtraction of clip geometry interiors from subject polygons.
-   * Clip may be half-planes and/or filled polygons; any matching clip removes material.
+   * Subtraction of clip geometry interiors from subject polygons: any clip removes material.
+   * Clip polygons group into regions with holes exactly as for {@link intersect}.
    */
   static subtract(
     subject: readonly Polygon2[],
@@ -79,6 +81,7 @@ function clipBoolean(
   if (clipList.length === 0) return Boolean2.union(subject, options);
 
   const { halfPlanes, polygons: clipPolygons } = partitionClips(clipList);
+  const clipRegions = groupClipRegions(clipPolygons);
   const slack = options.slack ?? Epsilon.preferIn;
   const sources = [...subject, ...clipPolygons];
 
@@ -90,8 +93,8 @@ function clipBoolean(
     keep: (point) => {
       if (!hasNonZeroWinding(subject, point)) return false;
       return mode === 'intersect'
-        ? insideAllClips(point, halfPlanes, clipPolygons, slack)
-        : outsideAllClips(point, halfPlanes, clipPolygons, slack);
+        ? insideAllClips(point, halfPlanes, clipRegions, slack)
+        : outsideAllClips(point, halfPlanes, clipRegions, slack);
     },
     options,
   });
@@ -110,27 +113,55 @@ function partitionClips(clips: readonly Boolean2Clip[]): {
   return { halfPlanes, polygons };
 }
 
+/** A clip polygon with the clockwise clip polygons that are its holes. */
+type ClipRegion = { outer: Polygon2; holes: Polygon2[] };
+
+/**
+ * Attach each clockwise clip polygon to the smallest counter-clockwise clip polygon containing it.
+ * Clockwise polygons inside no counter-clockwise one stay solid regions on their own.
+ */
+function groupClipRegions(polygons: readonly Polygon2[]): ClipRegion[] {
+  const regions: ClipRegion[] = polygons
+    .filter((polygon) => polygon.signedArea() >= 0)
+    .map((outer) => ({ outer, holes: [] }));
+  const byArea = [...regions].sort((a, b) => a.outer.area() - b.outer.area());
+
+  for (const polygon of polygons) {
+    if (polygon.signedArea() >= 0) continue;
+    const owner = byArea.find((region) => region.outer.containsPoint(polygon.vertices[0]!));
+    if (owner) owner.holes.push(polygon);
+    else regions.push({ outer: polygon, holes: [] });
+  }
+  return regions;
+}
+
+function regionContains(region: ClipRegion, point: Vec2): boolean {
+  let winding = region.outer.windingNumber(point);
+  for (const hole of region.holes) winding += hole.windingNumber(point);
+  return winding !== 0;
+}
+
 function insideAllClips(
   point: Vec2,
   halfPlanes: readonly InfiniteLine2[],
-  polygons: readonly Polygon2[],
+  regions: readonly ClipRegion[],
   slack: Epsilon,
 ): boolean {
   return (
     halfPlanes.every((plane) => plane.signedDistance(point) <= slack.value) &&
-    polygons.every((polygon) => polygon.containsPoint(point))
+    regions.every((region) => regionContains(region, point))
   );
 }
 
 function outsideAllClips(
   point: Vec2,
   halfPlanes: readonly InfiniteLine2[],
-  polygons: readonly Polygon2[],
+  regions: readonly ClipRegion[],
   slack: Epsilon,
 ): boolean {
   return (
     !halfPlanes.some((plane) => plane.signedDistance(point) <= slack.value) &&
-    !polygons.some((polygon) => polygon.containsPoint(point))
+    !regions.some((region) => regionContains(region, point))
   );
 }
 

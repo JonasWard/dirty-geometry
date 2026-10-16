@@ -61,3 +61,24 @@ describe('Polygon2.douglasPeucker', () => {
     expect(simplified.vertices.length).toBeGreaterThanOrEqual(3);
   });
 });
+
+describe('douglasPeuckerVertices on closed loops (M19)', () => {
+  test('a collinear start vertex is removed like any other', () => {
+    const simplified = douglasPeuckerVertices(
+      [new Vec2(5, 0), new Vec2(10, 0), new Vec2(10, 10), new Vec2(0, 10), new Vec2(0, 0)],
+      DOUGLAS_PEUCKER_DEFAULTS,
+      true,
+    );
+    expect(simplified).toHaveLength(4);
+    expect(simplified.map((v) => `${v.x},${v.y}`).sort()).toEqual(['0,0', '0,10', '10,0', '10,10']);
+  });
+
+  test('handles long loops without deep recursion', () => {
+    const circle = Array.from({ length: 50_000 }, (_, i) => {
+      const t = (i / 50_000) * Math.PI * 2;
+      return new Vec2(Math.cos(t) * 1000, Math.sin(t) * 1000);
+    });
+    expect(douglasPeuckerVertices(circle, DOUGLAS_PEUCKER_DEFAULTS, true).length).toBeGreaterThan(3);
+  });
+});
+

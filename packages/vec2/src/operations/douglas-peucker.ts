@@ -71,23 +71,27 @@ export function douglasPeuckerVertices(
   return simplified.map((vertex) => vertex.clone());
 }
 
+/**
+ * A closed loop has no natural endpoints, so split it at two vertices that every simplification must
+ * keep: the vertex farthest from vertex 0 and the vertex farthest from that one (both are corners of
+ * the convex hull). Each half is simplified on its own, so the closing edge is treated like any other.
+ */
 function simplifyClosedPolygon(vertices: readonly Vec2[], tolerances: DouglasPeuckerTolerances): Vec2[] {
-  let best = simplifyOpenPolyline(vertices, tolerances);
-
-  if (best.length >= 3) {
-    return best;
+  const n = vertices.length;
+  const a = farthestIndex(vertices, vertices[0]!);
+  const rotated = [...vertices.slice(a), ...vertices.slice(0, a)];
+  const b = farthestIndex(rotated, rotated[0]!);
+  if (b === 0) {
+    return vertices.map((vertex) => vertex.clone());
   }
 
-  // Rotate start point so simplification preserves at least three corners when possible.
-  for (let offset = 1; offset < vertices.length; offset++) {
-    const rotated = [...vertices.slice(offset), ...vertices.slice(0, offset)];
-    const candidate = simplifyOpenPolyline(rotated, tolerances);
-    if (candidate.length > best.length) {
-      best = candidate;
-    }
-  }
+  const loop = [...rotated, rotated[0]!];
+  const keep = douglasPeuckerKeep(loop, 0, b, tolerances);
+  for (const index of douglasPeuckerKeep(loop, b, n, tolerances)) keep.add(index);
+  keep.delete(n);
 
-  return best.length >= 3 ? best : vertices.map((vertex) => vertex.clone());
+  const simplified = dedupeConsecutiveVertices([...keep].sort((x, y) => x - y).map((index) => loop[index]!));
+  return simplified.length >= 3 ? simplified : vertices.map((vertex) => vertex.clone());
 }
 
 function simplifyOpenPolyline(vertices: readonly Vec2[], tolerances: DouglasPeuckerTolerances): Vec2[] {
@@ -95,40 +99,51 @@ function simplifyOpenPolyline(vertices: readonly Vec2[], tolerances: DouglasPeuc
     return vertices.map((vertex) => vertex.clone());
   }
 
-  const simplified = douglasPeuckerRange(vertices, 0, vertices.length - 1, tolerances);
-  return dedupeConsecutiveVertices(simplified);
+  const keep = douglasPeuckerKeep(vertices, 0, vertices.length - 1, tolerances);
+  return dedupeConsecutiveVertices([...keep].sort((x, y) => x - y).map((index) => vertices[index]!));
 }
 
-function douglasPeuckerRange(
+function farthestIndex(vertices: readonly Vec2[], from: Vec2): number {
+  let best = 0;
+  for (let i = 1; i < vertices.length; i++) {
+    if (vertices[i]!.distance(from) > vertices[best]!.distance(from)) best = i;
+  }
+  return best;
+}
+
+/** Indices of `first..last` kept by Douglas–Peucker. Iterative, so long inputs cannot overflow the stack. */
+function douglasPeuckerKeep(
   vertices: readonly Vec2[],
   first: number,
   last: number,
   tolerances: DouglasPeuckerTolerances,
-): Vec2[] {
-  if (last <= first + 1) {
-    return [vertices[first]!.clone(), ...(last > first ? [vertices[last]!.clone()] : [])];
-  }
+): Set<number> {
+  const keep = new Set<number>([first, last]);
+  const ranges: [number, number][] = [[first, last]];
 
-  let maxDistance = 0;
-  let index = first + 1;
+  while (ranges.length > 0) {
+    const [start, end] = ranges.pop()!;
+    if (end <= start + 1) continue;
 
-  for (let i = first + 1; i < last; i++) {
-    const distance = perpendicularDistance(vertices[i]!, vertices[first]!, vertices[last]!);
-    if (distance > maxDistance) {
-      maxDistance = distance;
-      index = i;
+    let maxDistance = 0;
+    let index = start + 1;
+    for (let i = start + 1; i < end; i++) {
+      const distance = perpendicularDistance(vertices[i]!, vertices[start]!, vertices[end]!);
+      if (distance > maxDistance) {
+        maxDistance = distance;
+        index = i;
+      }
     }
+
+    const flat =
+      maxDistance <= tolerances.distance.value && segmentIsAngleFlat(vertices, start, end, tolerances.angle);
+    if (flat) continue;
+
+    keep.add(index);
+    ranges.push([start, index], [index, end]);
   }
 
-  const flat = maxDistance <= tolerances.distance.value && segmentIsAngleFlat(vertices, first, last, tolerances.angle);
-
-  if (flat) {
-    return [vertices[first]!.clone(), vertices[last]!.clone()];
-  }
-
-  const left = douglasPeuckerRange(vertices, first, index, tolerances);
-  const right = douglasPeuckerRange(vertices, index, last, tolerances);
-  return [...left.slice(0, -1), ...right];
+  return keep;
 }
 
 function segmentIsAngleFlat(vertices: readonly Vec2[], first: number, last: number, angleTolerance: Angle): boolean {

@@ -20,11 +20,130 @@ Paths are relative to `packages/<name>/`. The move left line numbers in vec2 and
 
 ## Scores
 
-| Package | Structure | One-line verdict |
-| --- | --- | --- |
-| vec2 | **6 / 10** | Sensible layering and naming, but import cycles, mutable shared statics, absolute tolerances, and about 20 logic bugs, some of them in the core transform and vertex-dedup paths. |
-| graph | **7 / 10** | Small and generic with a clean API. The half-edge rotation is wrong, and a few subgraph helpers don't do what their docs say. |
-| visualisation | **6.5 / 10** | The scenario and canvas pattern is consistent. Layering is inverted, `instanceof` dispatch is repeated, nothing is memoised, and GPU geometry leaks. |
+The first column is the score at review time; the second is after the fix pass described in [Status after the fix pass](#status-after-the-fix-pass).
+
+| Package | At review | After fixes | One-line verdict after fixes |
+| --- | --- | --- | --- |
+| vec2 | 6 / 10 | **8 / 10** | Layer order is enforced by a test and only one 3-file cycle is left. Values are immutable, dispatch uses type tags, JSON goes through a codec registry, and CDT uses exact predicates. Still open: mixed fill rules, the cost of rectangle decomposition, clustering drift, and grid defaults sized for buildings. |
+| graph | 7 / 10 | **8.5 / 10** | Rotations and the subgraph helpers are correct, and payloads use an injectable codec, so the core imports only `Vec2`. Winding is still assumed rather than checked. |
+| visualisation | 6.5 / 10 | **8 / 10** | Scenario data now lives in vec2, dispatch is table-driven and checked at compile time, the registry is lazy, and GPU buffers are disposed. Demos still repeat the frame border and label block, and the V8 workaround stays. |
+
+The original scores and findings below are kept as they were written; line numbers refer to the code at review time.
+
+---
+
+## Status after the fix pass
+
+All fixes are on branch `claude/exciting-rubin-79zitx`, one commit per step. Every bug fix comes with a regression test that fails without it.
+
+- `bun run test`: 666 pass, 16 skipped perf tests, 0 fail.
+- `bun run test:perf`: 682 pass. `TriMesh2.containsPoint` now meets its 100 ms budget (it was 204 ms).
+- Typecheck and the static `next build` are clean.
+- In a browser pass over all 11 `/lab` tabs, every tab renders with no console errors.
+
+### Guardrails
+
+| What | Commit |
+| --- | --- |
+| `scripts/import-graph.ts` plus architecture tests: no new import cycles, vec2 layer order (`epsilon/hash/analysis → core/interval2 → aabb2/spatial → geometry → grid → operations → io`), `src` never imports `examples`. The allowlists can only shrink. | f1eec0b |
+| Visualisation: `geometry/` never imports `demos/`, and `meta.ts` never reaches React or three.js. Graph: the core imports only `Vec2` from vec2. | 6ba1adf, cfee970, a144f9c |
+
+### vec2
+
+| Finding | Fixed in |
+| --- | --- |
+| M1 right angle, M9 angle equality (precision is now degrees everywhere), M10 `wrapToTau`, M11 angle hash wrap | 0b5e5b6 |
+| M2 `Frame2.transform`, M3 direction transforms (`Vec2.transformDirection`) | 18d4bbd |
+| M5 neighbour hashes wrap; dedup searches `ceil(slack / grid)` rings | a12b82b |
+| M6 empty-interval semantics | a867846 |
+| M7 `evaluateAtLength` past a zero-length segment | d6f0b83 |
+| M8 `isAngleJson`, M21 lossless JSON (±Infinity as strings, `Grid2` frame and epsilon) | 8d66990 |
+| M12 `constraintRegion`, M13 axes whose domain excludes 0 | c4b3368 |
+| M14 rays, M15 Hesse2 and half-planes in Overlap2 | e385f1b |
+| M16 rays in half-planes, M17 tri-mesh guests in Contains2 | 64392f6 |
+| M18 pinch vertices ranked by angle | 077f544 |
+| M19 closed Douglas–Peucker | 1af683a |
+| M20 length-based intersection tolerances (`Epsilon.parameter`) | 1a0a17b |
+| M22 `console.warn` removed | 99c3be5 |
+| Boolean2 clip winding: a CW clip loop is a hole of the smallest CCW clip that contains it | 761e08f |
+| **New:** an `Aabb2` lying entirely inside a `Polygon2` reported no overlap | e385f1b |
+| **New:** Contains2 always returned `false` for a `Hesse2` guest (surfaced by the exhaustive switch) | 9ab98ec |
+| Suspected CDT robustness: exact `orient`/`inCircle` (`robust-predicates`); `Circle2.inCircle` and `Frame2.toLocal` drop absolute thresholds | 39c4f44 |
+| Suspected CDT cost and silent failures: a new adjacency-mesh core (`operations/cdt/`), walking point location, Sloan constraint flips, hashed point registry, `constrainedDelaunayReport` with `unresolved` and operation counts. 2000 random points: 647 → 50 ms. | 47c005d |
+| Suspected `TriMesh2.containsPoint` cost: allocation-free `Polygon2.distanceToPoint`, cached segments | c1066cb |
+| Suspected stack overflow from spreading arrays: confirmed (CDT on 600k points threw). `Aabb2.fromPointList`; `Interval2.union` and `Aabb2.union` loop. | 32e7658, 99c3be5 |
+
+Architecture:
+
+| Problem | Fixed in |
+| --- | --- |
+| Import cycles: epsilon → analysis, angle ↔ vec2, the 8-file primitives / aabb2 / polygon2 / line2-like cycle, tri-mesh2 → operations, the 7-file grid cycle. Left: `grid/regions/{grid-line2, grid-polygon2, grid-rectangle2}`, which convert into each other. | a3059c6, 2d8b3a6, 46020e7, 79256f5, b25d6c1 |
+| 1. `instanceof` dispatch → `switch (g.type)` with `assertNever`, plus guards in `geometry/kinds.ts` | 9ab98ec |
+| 2. Shared mutable statics → readonly fields, frozen constants, `Interval2.including()` | 99c3be5 |
+| 3. Absolute tolerances → exact predicates in CDT, `Epsilon.parameter(length)` for parameter tolerances | 39c4f44, 1a0a17b, 47c005d |
+| 4. Closed `Deserialise` → `CodecRegistry` (`io/codec.ts`, `io/codecs/*`, `io/default-registry.ts`) | 8d66990 |
+| 6. `NGonMesh` moved to graph | fce25f0 |
+
+Untested at review, now covered: `hash/neighbors`, every `transform()` (M2/M3), `isRightAngle`, `constraintRegion`, axes whose domain excludes 0, JSON round-trips of every registered type. Also new: CDT tests for a 50×50 collinear lattice, the exact Delaunay property, invariance under power-of-two scale and a 2²⁰ offset, hull coverage, and operation-count budgets that run in the default suite.
+
+Dead code: `Angle.getDomainInDegrees` was removed. The two unreachable branches went with the rewrites of Overlap2 (e385f1b) and CDT (47c005d).
+
+### graph
+
+| Finding | Fixed in |
+| --- | --- |
+| G1, G2 rotations (now `HalfEdge \| null`; `rotateAroundOriginCw` added), `iterateVertex`, G10 degenerate loops and `hash2` keys | c9faa8d |
+| G3, G4 (plus `twoCore()`), G5 (`maxExpansions`), G6 (`heuristic` option), G7, G8, G9, G11; duplicate re-exports; cached frozen `nodes`/`edges` | 5ac8230 |
+| Architecture 1: payload validation → `EdgeDataCodec`. The default `jsonEdgeData()`; geometry payloads are opt-in through `undirected-graph/geometry-edge-data`. | a144f9c |
+| Architecture 2: half-edge links are private (`HalfEdge.link`); `halfEdgesFrom` is indexed | c9faa8d |
+
+### visualisation
+
+| Finding | Fixed in |
+| --- | --- |
+| V-A1 inverted layering: scenario data and `evaluate*` live in `vec2/examples/<demo>/scenarios.ts`, frame fitting in `demos/<demo>/frame.ts`. The 4 tests are back in vec2. | 6ba1adf |
+| Repeated `instanceof` chains → `display/dispatch.ts` tables checked with `satisfies`; V5 is fixed with them | 603bc9f |
+| Eager registry → `demos/*/meta.ts`, the `@dirty-geometry/visualisation/meta` export, and `React.lazy` components | cfee970 |
+| V1 dispose, V2 memoise, V3 keys, V4 zoom, V6 clipping, V7 seeded RNG | 98245bc |
+
+### API changes
+
+wall-graph keeps its own copy of the old code, so these only affect code that uses the packages here.
+
+| Old | New |
+| --- | --- |
+| `Epsilon.clusterSortedValues(values)` | `clusterSortedValues(values, epsilon)` from `analysis/clustering/center` |
+| `Aabb2.polygon2()` | `Polygon2.fromAabb2(box)`, or `box.corners()` |
+| `Line2/Ray2/InfiniteLine2.intersect(o)` | `intersectionLines(a, o)` |
+| `InfiniteLine2/Ray2.definitionLine()` | `Line2.definitionOf(line)` |
+| `InfiniteLine2.hesseNormal()` | `Hesse2.fromInfiniteLine(line)` |
+| `Interval2.include(v)` (mutating) | `interval.including(v)` (returns a new interval) |
+| Writable `Vec2.x/y`, `Interval2.min/max`, `Frame2`, `TriMesh2.vertices/triangles` | `readonly`; `TriMesh2.withoutCleanup` keeps a frozen copy |
+| `Angle.equals` precision in radians | degrees, compared around the circle |
+| `Interval2.clampedInteger(domain, range, epsilon)` | `Interval2.clampedInteger(domain, range)` |
+| `Deserialise.Hesse2` | `Deserialise.hesse2` |
+| Interval JSON wrote ±Infinity as `null` | `"Infinity"` / `"-Infinity"` (`null` is still read) |
+| `Circle2.inCircle`: cocircular points counted as inside within 1e-12 | exact; cocircular counts as outside |
+| Boolean2 clips: every polygon is solid | CW clip loops are holes of the CCW clip that contains them |
+| `HalfEdge.rotateAround*` returned the edge itself at a boundary | `null`; links are read-only |
+| `peelSpurs` peeled trees to nothing | keeps the longest path; `twoCore()` has the old effect |
+| `UndirectedGraph2D` validated geometry payloads by default | `{ codec }` option, default plain JSON; `geometryEdgeData()` opt-in |
+| `addEdge(a, b)` with `data` omitted for any `T` | `data` is required unless `{}` is assignable to `T` |
+| `NGonMesh` from vec2 `geometry/regions/ngon-mesh` | from `@dirty-geometry/graph` |
+| `VisualisationShell`, `GEOMETRY_KIND` | removed; kinds are vec2 type tags |
+
+### Still open
+
+- **V8:** the drei `<Html>` / React canary issue. It is worked around in the lab viewer, not fixed upstream.
+- **Mixed fill rules:** `Polygon2.containsPoint` uses non-zero winding, while `isPointInside` and `signedDistanceFromLoops` use even-odd.
+- **`polygon-analysis/rectangle-decomposition.ts`** is still exponential in the worst case.
+- **`analysis/clustering`:** running-mean drift and the stale k-means centroid.
+- **Architecture 5:** the grid and polygon-analysis defaults are sized for buildings. `Axis.limits` stays ±2²⁵ and is documented.
+- **Graph architecture 3:** face winding is assumed, not validated.
+- **Graph helpers:** `bridgeOpenPath` defaults are still tuned for wall cycles.
+- **Untested:** `polygon-analysis/grid-polygon-path`. `segment-sweep` is only exercised through CDT.
+- **Dead code:** `Line2.parametricOffsetInterval` and `Axis.withDomain` are still unused.
+- **One import cycle** remains in `grid/regions` (allowlisted).
 
 ---
 

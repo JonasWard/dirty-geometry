@@ -106,7 +106,7 @@ function HalfEdgeCell({ scenario, offset }: { scenario: HalfEdgeScenario; offset
       ))}
 
       <Html center position={labelPosition(offset)} style={{ pointerEvents: 'none' }}>
-        <div className='max-w-44 rounded bg-black/75 px-1.5 py-0.5 text-center text-[8px] leading-tight text-white'>
+        <div className='w-max max-w-56 rounded bg-black/75 px-1.5 py-0.5 text-center text-[8px] leading-tight text-white'>
           <div className='font-semibold'>{scenario.name}</div>
           <div className='text-white/70'>{result.summary}</div>
           <div className='text-green-300/90'>

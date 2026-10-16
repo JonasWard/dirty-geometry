@@ -89,7 +89,7 @@ export function GraphResultCell({
 
       {(result.input ?? []).map((id) => {
         const points = segment(id, 0.01);
-        return points && !blocked.has(id) ? (
+        return points && !blocked.has(id) && !groupColor.has(id) ? (
           <Line key={`input-${id}`} points={points} color={GRAPH_COLORS.input} lineWidth={2.5} />
         ) : null;
       })}
@@ -122,7 +122,7 @@ export function GraphResultCell({
         })}
 
       <Html center position={labelPosition(offset)} style={{ pointerEvents: 'none' }}>
-        <div className='max-w-40 rounded bg-black/75 px-1.5 py-0.5 text-center text-[8px] leading-tight text-white'>
+        <div className='w-max max-w-48 rounded bg-black/75 px-1.5 py-0.5 text-center text-[8px] leading-tight text-white'>
           <div className='font-semibold'>{name}</div>
           <div className={result.found ? 'text-green-300/90' : 'text-red-300/90'}>{result.summary}</div>
         </div>

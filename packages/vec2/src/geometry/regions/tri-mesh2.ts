@@ -262,7 +262,10 @@ export class TriMesh2 {
     return loops;
   }
 
-  /** Pick the sharpest left turn at a boundary vertex (interior stays on the left). */
+  /**
+   * Pick the sharpest left turn at a boundary vertex (interior stays on the left), ranked by the
+   * turn angle so edge lengths do not matter at pinch vertices.
+   */
   private static nextBoundaryVertex(
     vertices: readonly Vec2[],
     from: number,
@@ -273,17 +276,20 @@ export class TriMesh2 {
     if (candidates.length === 0) return null;
     if (candidates.length === 1) return candidates[0]!;
 
-    const fromVertex = vertices[from]!;
     const toVertex = vertices[to]!;
+    const incoming = toVertex.subtract(vertices[from]!);
+    const turn = (candidate: number) => {
+      const outgoingDirection = vertices[candidate]!.subtract(toVertex);
+      return Math.atan2(incoming.crossProduct(outgoingDirection), incoming.dot(outgoingDirection));
+    };
 
     let best = candidates[0]!;
-    let bestTurn = Vec2.orient(fromVertex, toVertex, vertices[best]!);
-
+    let bestTurn = turn(best);
     for (let index = 1; index < candidates.length; index++) {
       const candidate = candidates[index]!;
-      const turn = Vec2.orient(fromVertex, toVertex, vertices[candidate]!);
-      if (turn > bestTurn) {
-        bestTurn = turn;
+      const candidateTurn = turn(candidate);
+      if (candidateTurn > bestTurn) {
+        bestTurn = candidateTurn;
         best = candidate;
       }
     }

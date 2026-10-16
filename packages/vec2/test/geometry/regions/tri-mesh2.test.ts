@@ -283,3 +283,23 @@ describe('TriMesh2 cleanup', () => {
     expect(mesh.triangles).toHaveLength(2);
   });
 });
+
+describe('TriMesh2 boundary loops at a pinch vertex (M18)', () => {
+  test('follow the sharpest left turn by angle, not by edge length', () => {
+    // Two CCW triangles touching only at (0, 0); the second is far away with long edges.
+    const mesh = new TriMesh2(
+      [new Vec2(-2, -1), new Vec2(0, 0), new Vec2(-2, 1), new Vec2(100, 80), new Vec2(100, 60)],
+      [
+        [0, 1, 2],
+        [3, 1, 4],
+      ],
+    );
+    const loops = mesh.boundaryLoops();
+    expect(loops).toHaveLength(2);
+    for (const loop of loops) {
+      expect(loop.polygon.vertices).toHaveLength(3);
+      expect(loop.signedArea).toBeGreaterThan(0);
+    }
+  });
+});
+

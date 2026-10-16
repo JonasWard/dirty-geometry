@@ -75,7 +75,7 @@ describe('Deserialise', () => {
 
   test('Hesse2', () => {
     const hesse = new Hesse2(new Vec2(0, 2), 4);
-    const restored = Deserialise.Hesse2(hesse.toJson());
+    const restored = Deserialise.hesse2(hesse.toJson());
 
     expect(restored).toBeInstanceOf(Hesse2);
     expectVec2Close(restored.normal, hesse.normal);

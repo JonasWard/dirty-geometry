@@ -1,8 +1,8 @@
 import { Aabb2 } from '../../bounds/aabb2';
 import { Vec2 } from '../../core/vec2';
-import { Epsilon } from '../../core/epsilon';
+import { Epsilon, type EpsilonJson } from '../../core/epsilon';
 import { GridCell2 } from './grid-cell2';
-import { Frame2 } from '../../core/frame2';
+import { Frame2, type Frame2Json } from '../../core/frame2';
 import type { Mat3 } from '../../core/mat3';
 import { Axis, type AxisJson } from './grid-axis';
 import { GRID_MAX_INDEX, GRID_MIN_INDEX } from './limits';
@@ -185,6 +185,8 @@ export class Grid2 {
       type: Grid2.type,
       u: this.u.toJson(),
       v: this.v.toJson(),
+      frame: this.frame.toJson(),
+      epsilon: this.epsilon.toJson(),
     };
   }
 }
@@ -193,4 +195,8 @@ export type Grid2Json = {
   type: typeof Grid2.type;
   u: AxisJson;
   v: AxisJson;
+  /** Optional when reading; defaults to the world XY frame. */
+  frame?: Frame2Json;
+  /** Optional when reading; defaults to `Epsilon.preferIn`. */
+  epsilon?: EpsilonJson;
 };

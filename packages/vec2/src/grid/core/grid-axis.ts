@@ -249,11 +249,12 @@ export class Axis {
 
     switch (this.kind()) {
       case 'unit':
-        return { kind: 'unit', ...(domain ? { domain } : {}) };
+        return { type: Axis.type, kind: 'unit', ...(domain ? { domain } : {}) };
       case 'uniform':
-        return { kind: 'uniform', size: this._defaultSize, ...(domain ? { domain } : {}) };
+        return { type: Axis.type, kind: 'uniform', size: this._defaultSize, ...(domain ? { domain } : {}) };
       case 'custom':
         return {
+          type: Axis.type,
           kind: 'custom',
           defaultSize: this._defaultSize,
           sizes: { ...this._customSizes! } as Record<number, number>,
@@ -264,6 +265,8 @@ export class Axis {
 }
 
 type AxisJsonBase = {
+  /** Optional when reading, for JSON written before axes carried their type tag. */
+  type?: typeof Axis.type;
   domain?: Interval2Json;
 };
 

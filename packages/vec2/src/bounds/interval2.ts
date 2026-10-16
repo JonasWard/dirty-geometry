@@ -1,3 +1,4 @@
+import { encodeJsonNumber, type JsonNumber } from '../core/json-number';
 import { Epsilon } from '../core/epsilon';
 
 /** Closed numeric interval `[min, max]`. Endpoints may be `±Infinity`. */
@@ -257,8 +258,9 @@ export class Interval2 {
     return new Interval2(this.min, this.max);
   }
 
+  /** ±Infinity endpoints are written as `"Infinity"` / `"-Infinity"` so they survive `JSON.stringify`. */
   toJson(): Interval2Json {
-    return { type: Interval2.type, min: this.min, max: this.max };
+    return { type: Interval2.type, min: encodeJsonNumber(this.min), max: encodeJsonNumber(this.max) };
   }
 
   private static hasInfiniteEndpoint(min: number, max: number): boolean {
@@ -268,6 +270,6 @@ export class Interval2 {
 
 export type Interval2Json = {
   type: typeof Interval2.type;
-  min: number;
-  max: number;
+  min: JsonNumber;
+  max: JsonNumber;
 };

@@ -8,7 +8,12 @@ import { Polygon2 } from '@dirty-geometry/vec2/geometry/regions/polygon2';
 import { Polyline2 } from '@dirty-geometry/vec2/geometry/curves/polyline2';
 import { Epsilon } from '@dirty-geometry/vec2/core/epsilon';
 import { Vec2 } from '@dirty-geometry/vec2/core/vec2';
-import { createCurve, polygonScenarios, polylineScenarios, type CurveScenario } from '@dirty-geometry/vec2/examples/curves/scenarios';
+import {
+  createCurve,
+  polygonScenarios,
+  polylineScenarios,
+  type CurveScenario,
+} from '@dirty-geometry/vec2/examples/curves/scenarios';
 import { fitPointsToFrame, frameCorners, labelPosition, vec2ToTuple } from '../../core/frame';
 import { ScenarioGridVisualisation } from '../../core/ScenarioGridVisualisation';
 

@@ -12,7 +12,10 @@ const load = <M,>(module: Promise<M>, pick: (module: M) => ComponentType): DemoM
 const components: Record<string, LazyExoticComponent<ComponentType>> = {
   curves: lazy(() => load(import('../demos/curves/CurveVisualisation'), (m) => m.CurveVisualisation)),
   'intersection-lines': lazy(() =>
-    load(import('../demos/intersection-lines/IntersectionLines2Visualisation'), (m) => m.IntersectionLines2Visualisation),
+    load(
+      import('../demos/intersection-lines/IntersectionLines2Visualisation'),
+      (m) => m.IntersectionLines2Visualisation,
+    ),
   ),
   'constrained-delaunay': lazy(() =>
     load(
@@ -28,10 +31,7 @@ const components: Record<string, LazyExoticComponent<ComponentType>> = {
   interval2: lazy(() => load(import('../demos/interval2/Interval2Visualisation'), (m) => m.Interval2Visualisation)),
   grid2: lazy(() => load(import('../demos/grid2/Grid2Visualisation'), (m) => m.Grid2Visualisation)),
   'grid2/rectangle-detection': lazy(() =>
-    load(
-      import('../demos/grid2/Grid2RectangleDetectionVisualisation'),
-      (m) => m.Grid2RectangleDetectionVisualisation,
-    ),
+    load(import('../demos/grid2/Grid2RectangleDetectionVisualisation'), (m) => m.Grid2RectangleDetectionVisualisation),
   ),
 };
 

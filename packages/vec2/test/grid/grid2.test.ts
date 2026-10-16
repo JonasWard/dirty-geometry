@@ -230,7 +230,10 @@ describe('Grid2.constraintRegion (M12)', () => {
   });
 
   test('spans the axis domains, falling back to the index limits on an unconstrained axis', () => {
-    const both = new Grid2({ u: Axis.unit(new Interval2(0, 3)), v: Axis.unit(new Interval2(0, 3)) }).constraintRegion()!;
+    const both = new Grid2({
+      u: Axis.unit(new Interval2(0, 3)),
+      v: Axis.unit(new Interval2(0, 3)),
+    }).constraintRegion()!;
     expect([both.bottomLeft.i, both.bottomLeft.j, both.topRight.i, both.topRight.j]).toEqual([0, 0, 3, 3]);
 
     const onlyU = new Grid2({ u: Axis.unit(new Interval2(1, 2)) }).constraintRegion()!;

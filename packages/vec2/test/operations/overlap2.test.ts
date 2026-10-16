@@ -233,4 +233,3 @@ describe('Overlap2 fixes', () => {
     expect(Overlap2.overlaps(box(0, 0, 1, 1), box(1 + 0.5e-6, 0, 2, 1))).toBe(true);
   });
 });
-

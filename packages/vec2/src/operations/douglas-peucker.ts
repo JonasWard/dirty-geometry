@@ -135,8 +135,7 @@ function douglasPeuckerKeep(
       }
     }
 
-    const flat =
-      maxDistance <= tolerances.distance.value && segmentIsAngleFlat(vertices, start, end, tolerances.angle);
+    const flat = maxDistance <= tolerances.distance.value && segmentIsAngleFlat(vertices, start, end, tolerances.angle);
     if (flat) continue;
 
     keep.add(index);

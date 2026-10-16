@@ -50,13 +50,27 @@ describe('peelSpurs (G4)', () => {
 
   test('keeps the path through the two longest arms of a Y', () => {
     const graph = graphOf(y);
-    expect([...peelSpurs(graph, y.map(([id]) => id))].sort()).toEqual(['b1', 'b2', 'd1', 'd2', 'd3']);
+    expect(
+      [
+        ...peelSpurs(
+          graph,
+          y.map(([id]) => id),
+        ),
+      ].sort(),
+    ).toEqual(['b1', 'b2', 'd1', 'd2', 'd3']);
   });
 
   test('removes a spur hanging off a cycle', () => {
     const edges: [string, string, string][] = [...triangle('t'), ['s1', 'ta', 'x'], ['s2', 'x', 'y']];
     const graph = graphOf(edges);
-    expect([...peelSpurs(graph, edges.map(([id]) => id))].sort()).toEqual(['t1', 't2', 't3']);
+    expect(
+      [
+        ...peelSpurs(
+          graph,
+          edges.map(([id]) => id),
+        ),
+      ].sort(),
+    ).toEqual(['t1', 't2', 't3']);
   });
 
   test('leaves a graph without leaves alone', () => {
@@ -68,13 +82,30 @@ describe('peelSpurs (G4)', () => {
       ['e5', 'n', 'b'],
     ];
     const graph = graphOf(theta);
-    expect(peelSpurs(graph, theta.map(([id]) => id)).size).toBe(5);
+    expect(
+      peelSpurs(
+        graph,
+        theta.map(([id]) => id),
+      ).size,
+    ).toBe(5);
   });
 
   test('twoCore drops every tree part', () => {
     const graph = graphOf(y);
-    expect(twoCore(graph, y.map(([id]) => id)).size).toBe(0);
+    expect(
+      twoCore(
+        graph,
+        y.map(([id]) => id),
+      ).size,
+    ).toBe(0);
     const edges: [string, string, string][] = [...triangle('t'), ['s1', 'ta', 'x']];
-    expect([...twoCore(graphOf(edges), edges.map(([id]) => id))].sort()).toEqual(['t1', 't2', 't3']);
+    expect(
+      [
+        ...twoCore(
+          graphOf(edges),
+          edges.map(([id]) => id),
+        ),
+      ].sort(),
+    ).toEqual(['t1', 't2', 't3']);
   });
 });

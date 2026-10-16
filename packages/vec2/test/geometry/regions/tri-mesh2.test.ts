@@ -302,4 +302,3 @@ describe('TriMesh2 boundary loops at a pinch vertex (M18)', () => {
     }
   });
 });
-

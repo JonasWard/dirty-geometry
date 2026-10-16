@@ -329,7 +329,9 @@ function splitAtCrossings(vertices: Vec2[], constraints: readonly ConstraintEdge
       const [c, d] = constraintEdgeEndpoints(constraints[j]!);
       if (a === c || a === d || b === c || b === d) continue;
       if (!crosses(vertices[a]!, vertices[b]!, vertices[c]!, vertices[d]!)) continue;
-      const hit = asPoint(intersectionLines(new Line2(vertices[a]!, vertices[b]!), new Line2(vertices[c]!, vertices[d]!)));
+      const hit = asPoint(
+        intersectionLines(new Line2(vertices[a]!, vertices[b]!), new Line2(vertices[c]!, vertices[d]!)),
+      );
       if (hit && !vertices.some((v) => v.distance(hit) < Epsilon.value)) vertices.push(hit.clone());
     }
   }

@@ -9,7 +9,11 @@ import { Polygon2 } from '../../src/geometry/regions/polygon2';
 import { Polyline2 } from '../../src/geometry/curves/polyline2';
 import type { TriMesh2 } from '../../src/geometry/regions/tri-mesh2';
 import { Vec2 } from '../../src/core/vec2';
-import { cdtBasicScenarios, cdtComplexScenarios, cdtShapeScenarios } from '../../examples/constrained-delaunay/scenarios';
+import {
+  cdtBasicScenarios,
+  cdtComplexScenarios,
+  cdtShapeScenarios,
+} from '../../examples/constrained-delaunay/scenarios';
 import { expectClose } from '../testHelpers';
 
 function edgeSet(triangles: readonly (readonly [number, number, number])[]): Set<string> {

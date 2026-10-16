@@ -7,7 +7,13 @@ import { InfiniteLine2 } from '@dirty-geometry/vec2/geometry/primitives/infinite
 import { Line2 } from '@dirty-geometry/vec2/geometry/primitives/line2';
 import { Ray2 } from '@dirty-geometry/vec2/geometry/primitives/ray2';
 import { Vec2 } from '@dirty-geometry/vec2/core/vec2';
-import { angledIntersectionScenarios, evaluateIntersectionScenario, fixedIntersectionScenarios, randomIntersectionScenarios, type IntersectionScenario } from '@dirty-geometry/vec2/examples/intersection-lines/scenarios';
+import {
+  angledIntersectionScenarios,
+  evaluateIntersectionScenario,
+  fixedIntersectionScenarios,
+  randomIntersectionScenarios,
+  type IntersectionScenario,
+} from '@dirty-geometry/vec2/examples/intersection-lines/scenarios';
 import { frameCorners, labelPosition, lineLikeKind, missMarkerPosition, vec2ToTuple } from '../../core/frame';
 import { ScenarioGridVisualisation } from '../../core/ScenarioGridVisualisation';
 import { GeometryRender } from '../../geometry/components/GeometryRender';

@@ -7,7 +7,15 @@ import type { Interval2 } from '@dirty-geometry/vec2/bounds/interval2';
 import { Vec2 } from '@dirty-geometry/vec2/core/vec2';
 import { fitPointsToFrame, frameCorners, labelPosition, vec2ToTuple } from '../../core/frame';
 import { ScenarioGridVisualisation } from '../../core/ScenarioGridVisualisation';
-import { evaluateInterval2Scenario, formatCall, formatResult, interval2ComplementScenarios, interval2LongestScenarios, interval2MergeScenarios, type Interval2Scenario } from '@dirty-geometry/vec2/examples/interval2/scenarios';
+import {
+  evaluateInterval2Scenario,
+  formatCall,
+  formatResult,
+  interval2ComplementScenarios,
+  interval2LongestScenarios,
+  interval2MergeScenarios,
+  type Interval2Scenario,
+} from '@dirty-geometry/vec2/examples/interval2/scenarios';
 
 const DOMAIN_COLOR = '#3a4150';
 

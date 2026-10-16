@@ -3,7 +3,16 @@ import { Vec2 } from '@dirty-geometry/vec2/core/vec2';
 import { GridCell2 } from '@dirty-geometry/vec2/grid/core/grid-cell2';
 import { Grid2 } from '@dirty-geometry/vec2/grid/core/grid2';
 import { gridWorldLines } from '../../geometry/display/grid/shared';
-import { type Grid2ChainScenario, type Grid2Scenario, type Grid2SetOpScenario, type Grid2UnionIterateScenario, evaluateChainScenario, evaluateGridScenario, evaluateSetOpScenario, evaluateUnionIterateScenario } from '@dirty-geometry/vec2/examples/grid2/scenarios';
+import {
+  type Grid2ChainScenario,
+  type Grid2Scenario,
+  type Grid2SetOpScenario,
+  type Grid2UnionIterateScenario,
+  evaluateChainScenario,
+  evaluateGridScenario,
+  evaluateSetOpScenario,
+  evaluateUnionIterateScenario,
+} from '@dirty-geometry/vec2/examples/grid2/scenarios';
 
 function pushCellWorldExtents(points: Vec2[], grid: Grid2, cells: Iterable<GridCell2>): void {
   for (const cell of cells) {

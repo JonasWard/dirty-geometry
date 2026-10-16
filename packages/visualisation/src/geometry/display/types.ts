@@ -57,7 +57,10 @@ export type SegmentListOutlineDisplay = {
 };
 
 export type OutlineDisplay =
-  PointOutlineDisplay | SegmentOutlineDisplay | PolylineOutlineDisplay | SegmentListOutlineDisplay;
+  | PointOutlineDisplay
+  | SegmentOutlineDisplay
+  | PolylineOutlineDisplay
+  | SegmentListOutlineDisplay;
 
 export type ShapeFillDisplay = {
   threeKind: typeof CONTAINER_FILL_THREE_KIND.Circle2;

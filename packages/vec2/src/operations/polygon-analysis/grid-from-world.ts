@@ -69,8 +69,14 @@ export function buildGrid2FromWorldVertices(vertices: readonly Vec2[], epsilon: 
     throw new Error('buildGrid2FromWorldVertices requires at least one vertex');
   }
 
-  const xCoordinates = clusterSortedValues(vertices.map((vertex) => vertex.x), epsilon);
-  const yCoordinates = clusterSortedValues(vertices.map((vertex) => vertex.y), epsilon);
+  const xCoordinates = clusterSortedValues(
+    vertices.map((vertex) => vertex.x),
+    epsilon,
+  );
+  const yCoordinates = clusterSortedValues(
+    vertices.map((vertex) => vertex.y),
+    epsilon,
+  );
 
   if (xCoordinates.length < 2 || yCoordinates.length < 2) {
     throw new Error('buildGrid2FromWorldVertices requires at least two distinct x and y coordinates');

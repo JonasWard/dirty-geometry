@@ -2,7 +2,11 @@
 import type { Geometry2 } from '@dirty-geometry/vec2/geometry/kinds';
 import { Vec2 } from '@dirty-geometry/vec2/core/vec2';
 import { frameAnchorPoints } from '../../geometry';
-import { type Boolean2Scenario, evaluateBooleanScenario, scenarioClips } from '@dirty-geometry/vec2/examples/boolean2/scenarios';
+import {
+  type Boolean2Scenario,
+  evaluateBooleanScenario,
+  scenarioClips,
+} from '@dirty-geometry/vec2/examples/boolean2/scenarios';
 
 export function scenarioAnchorPoints(scenario: Boolean2Scenario): Vec2[] {
   const result = evaluateBooleanScenario(scenario);

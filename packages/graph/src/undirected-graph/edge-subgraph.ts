@@ -55,7 +55,11 @@ export function peelSpurs<T extends object>(graph: UndirectedGraph2D<T>, edgeIds
     for (const leaf of leafNodesInEdgeSet(graph, active)) {
       const chain = danglingChain(leaf, active, degree);
       if (!chain) continue;
-      if (!shortest || chain.length < shortest.length || (chain.length === shortest.length && chain[0]! < shortest[0]!)) {
+      if (
+        !shortest ||
+        chain.length < shortest.length ||
+        (chain.length === shortest.length && chain[0]! < shortest[0]!)
+      ) {
         shortest = chain;
       }
     }

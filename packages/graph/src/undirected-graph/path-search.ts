@@ -209,7 +209,9 @@ export function searchPath<T extends object>(
 
   if (search === 'bfs') return bfs(start, goal, interpret);
   const heuristic =
-    search === 'astar' ? (options.heuristic ?? (options.interpret ? zeroHeuristic : euclideanHeuristic)) : zeroHeuristic;
+    search === 'astar'
+      ? (options.heuristic ?? (options.interpret ? zeroHeuristic : euclideanHeuristic))
+      : zeroHeuristic;
   return weightedSearch(start, goal, interpret, heuristic);
 }
 

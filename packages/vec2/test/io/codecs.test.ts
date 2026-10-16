@@ -48,7 +48,16 @@ const samples: { name: string; value: { toJson(): unknown } }[] = [
   { name: 'Polygon2', value: new Polygon2([V(0, 0), V(1, 0), V(1, 1)]) },
   { name: 'Circle2', value: new Circle2(V(1, 1), 2) },
   // Raw mesh with a repeated vertex: decoding must not re-run cleanup.
-  { name: 'TriMesh2', value: TriMesh2.withoutCleanup([V(0, 0), V(1, 0), V(1, 0), V(0, 1)], [[0, 1, 3], [0, 2, 3]]) },
+  {
+    name: 'TriMesh2',
+    value: TriMesh2.withoutCleanup(
+      [V(0, 0), V(1, 0), V(1, 0), V(0, 1)],
+      [
+        [0, 1, 3],
+        [0, 2, 3],
+      ],
+    ),
+  },
   { name: 'GridCell2', value: cell(2, -3) },
   { name: 'Axis', value: Axis.custom(1, { 2: 3 }, new Interval2(-4, 6)) },
   {

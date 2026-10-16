@@ -5,7 +5,18 @@ import { useMemo } from 'react';
 import { isContainer2 } from '@dirty-geometry/vec2/geometry/kinds';
 import { Vec2 } from '@dirty-geometry/vec2/core/vec2';
 import { Epsilon } from '@dirty-geometry/vec2/core/epsilon';
-import { evaluateOverlapScenario, geometryKind, overlap2BoxScenarios, overlap2CircleScenarios, overlap2CurveScenarios, overlap2HalfPlaneScenarios, overlap2PolylineScenarios, overlap2RegionScenarios, overlap2TouchingScenarios, type Overlap2Scenario } from '@dirty-geometry/vec2/examples/overlap2/scenarios';
+import {
+  evaluateOverlapScenario,
+  geometryKind,
+  overlap2BoxScenarios,
+  overlap2CircleScenarios,
+  overlap2CurveScenarios,
+  overlap2HalfPlaneScenarios,
+  overlap2PolylineScenarios,
+  overlap2RegionScenarios,
+  overlap2TouchingScenarios,
+  type Overlap2Scenario,
+} from '@dirty-geometry/vec2/examples/overlap2/scenarios';
 import { ContainerInteriorMesh } from '../../geometry/components/ContainerInteriorMesh';
 import { GeometryRender } from '../../geometry/components/GeometryRender';
 import { fitGeometriesToFrame } from '../../geometry';

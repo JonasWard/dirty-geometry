@@ -1,7 +1,13 @@
 import { describe, expect, test } from 'bun:test';
 import { Epsilon } from '../../../src/core/epsilon';
 import { Vec2 } from '../../../src/core/vec2';
-import { buildingYardMesh, hPlateMesh, lWingMesh, perfPlateMesh, swissCheeseMesh } from '../../../examples/tri-mesh2/meshes';
+import {
+  buildingYardMesh,
+  hPlateMesh,
+  lWingMesh,
+  perfPlateMesh,
+  swissCheeseMesh,
+} from '../../../examples/tri-mesh2/meshes';
 import { sampleGridPoints } from '../../../examples/tri-mesh2/scenarios';
 
 function medianMs(run: () => void, iterations = 5): number {

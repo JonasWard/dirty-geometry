@@ -81,4 +81,3 @@ describe('douglasPeuckerVertices on closed loops (M19)', () => {
     expect(douglasPeuckerVertices(circle, DOUGLAS_PEUCKER_DEFAULTS, true).length).toBeGreaterThan(3);
   });
 });
-

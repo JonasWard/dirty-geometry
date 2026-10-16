@@ -6,12 +6,7 @@ import { Vec2 } from '@dirty-geometry/vec2/core/vec2';
 import { Epsilon } from '@dirty-geometry/vec2/core/epsilon';
 import type { LineLike2 } from '@dirty-geometry/vec2/geometry/kinds';
 import { intersectionLines } from '@dirty-geometry/vec2/operations/intersection/line2-like';
-import {
-  clipInfiniteLineToDisplayFrame,
-  clipRayToDisplayFrame,
-  FRAME_MAX,
-  FRAME_MIN,
-} from '../../../core/frame';
+import { clipInfiniteLineToDisplayFrame, clipRayToDisplayFrame, FRAME_MAX, FRAME_MIN } from '../../../core/frame';
 import { INFINITE_DISPLAY_SCALE } from '../../frame/constants';
 import type { GeometryDisplayContext } from '../context';
 

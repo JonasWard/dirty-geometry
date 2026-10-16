@@ -246,4 +246,3 @@ describe('Aabb2.fromParameterInterval (M20)', () => {
     expect([box.y.min, box.y.max]).toEqual([2, 2]);
   });
 });
-

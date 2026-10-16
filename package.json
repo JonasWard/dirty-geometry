@@ -10,7 +10,9 @@
     "lint": "next lint",
     "test": "bun test packages",
     "test:perf": "PERF=1 bun test packages",
-    "typecheck": "tsc --noEmit -p packages/vec2 && tsc --noEmit -p packages/graph && tsc --noEmit -p packages/visualisation && tsc --noEmit"
+    "typecheck": "tsc --noEmit -p packages/vec2 && tsc --noEmit -p packages/graph && tsc --noEmit -p packages/visualisation && tsc --noEmit",
+    "format": "prettier --write \"packages/**/*.{ts,tsx,json}\"",
+    "format:check": "prettier --check \"packages/**/*.{ts,tsx,json}\""
   },
   "dependencies": {
     "@dirty-geometry/graph": "workspace:*",
@@ -32,6 +34,7 @@
     "eslint": "^8",
     "eslint-config-next": "16.2.3",
     "postcss": "^8",
+    "prettier": "3.6.2",
     "tailwindcss": "^3.4.1",
     "typescript": "^5"
   },

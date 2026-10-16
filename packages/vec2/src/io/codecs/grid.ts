@@ -49,7 +49,11 @@ export const grid2Codec = codec(
     }),
 );
 
-export const gridLine2Codec = codec(GridLine2.type, isGridLine2Json, (json) => new GridLine2(cell(json.from), cell(json.to)));
+export const gridLine2Codec = codec(
+  GridLine2.type,
+  isGridLine2Json,
+  (json) => new GridLine2(cell(json.from), cell(json.to)),
+);
 
 export const gridPolyline2Codec = codec(
   GridPolyline2.type,

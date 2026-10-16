@@ -33,7 +33,12 @@ export type GeometryOfType<K extends GeometryType> = Extract<Geometry2, { type: 
 export const LINE_LIKE_TYPES: ReadonlySet<GeometryType> = new Set(['Hesse2', 'InfiniteLine2', 'Ray2', 'Line2']);
 export const REGION_TYPES: ReadonlySet<GeometryType> = new Set(['Circle2', 'Polygon2', 'TriMesh2']);
 export const CONTAINER_TYPES: ReadonlySet<GeometryType> = new Set([...REGION_TYPES, 'Aabb2', 'InfiniteLine2']);
-export const GEOMETRY_TYPES: ReadonlySet<GeometryType> = new Set([...LINE_LIKE_TYPES, ...CONTAINER_TYPES, 'Vec2', 'Polyline2']);
+export const GEOMETRY_TYPES: ReadonlySet<GeometryType> = new Set([
+  ...LINE_LIKE_TYPES,
+  ...CONTAINER_TYPES,
+  'Vec2',
+  'Polyline2',
+]);
 
 export function isLineLike2(geometry: Geometry2): geometry is LineLike2 {
   return LINE_LIKE_TYPES.has(geometry.type);

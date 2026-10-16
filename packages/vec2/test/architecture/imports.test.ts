@@ -12,8 +12,7 @@ const ALLOWED_CYCLES: string[][] = [
 ];
 
 /** Known imports that point to a higher layer; same shrink-only rule. */
-const ALLOWED_LAYER_VIOLATIONS: string[] = [
-];
+const ALLOWED_LAYER_VIOLATIONS: string[] = [];
 
 const graph = buildImportGraph([SRC]);
 
@@ -59,4 +58,3 @@ describe('vec2 import architecture', () => {
     expect(outside).toEqual([]);
   });
 });
-

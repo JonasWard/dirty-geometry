@@ -508,7 +508,10 @@ describe('intersectionLines random', () => {
 
 describe('intersection tolerances are lengths, not parameters (M20)', () => {
   test('a long segment on a collinear infinite line overlaps along its whole length', () => {
-    const result = intersectionLines(new Line2(new Vec2(0, 0), new Vec2(1e7, 0)), new InfiniteLine2(new Vec2(0, 0), new Vec2(1, 0)));
+    const result = intersectionLines(
+      new Line2(new Vec2(0, 0), new Vec2(1e7, 0)),
+      new InfiniteLine2(new Vec2(0, 0), new Vec2(1, 0)),
+    );
     expect(result?.type).toBe('Line2');
     expect((result as Line2).length()).toBeCloseTo(1e7, 3);
   });
@@ -529,7 +532,6 @@ describe('intersection tolerances are lengths, not parameters (M20)', () => {
     expect(hit?.type).toBe('Vec2');
   });
 });
-
 
 describe('random intersection scenarios (V7)', () => {
   test('are reproducible for a seed', () => {

@@ -24,7 +24,9 @@ test('the geometry display layer does not import demos', () => {
 
 test('visualisation and graph have no import cycles', () => {
   const ownCycles = (dir: string) =>
-    findCycles(buildImportGraph([dir])).filter((cycle) => cycle.some((file) => !relativeModule(dir, file).startsWith('..')));
+    findCycles(buildImportGraph([dir])).filter((cycle) =>
+      cycle.some((file) => !relativeModule(dir, file).startsWith('..')),
+    );
   expect(ownCycles(SRC)).toEqual([]);
   expect(ownCycles('packages/graph/src')).toEqual([]);
 });
@@ -48,4 +50,3 @@ test('the metadata entry point loads no React or three.js', () => {
   visit(path.join(repoRoot, SRC, 'meta.ts'));
   expect(external.filter((specifier) => /^(react|three|@react-three)/.test(specifier))).toEqual([]);
 });
-

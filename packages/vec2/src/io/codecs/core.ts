@@ -13,7 +13,11 @@ export const mat3Codec = codec(Mat3.type, isMat3Json, (json) => {
   return new Mat3(m00, m01, m02, m10, m11, m12, m20, m21, m22);
 });
 
-export const angleCodec = codec(Angle.type, isAngleJson, (json) => new Angle(json.value, json.domainKind, json.precision));
+export const angleCodec = codec(
+  Angle.type,
+  isAngleJson,
+  (json) => new Angle(json.value, json.domainKind, json.precision),
+);
 
 export const frame2Codec = codec(
   Frame2.type,

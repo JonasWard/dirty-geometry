@@ -1,4 +1,9 @@
-import { Boolean2, asBoolean2ClipList, type Boolean2ClipInput, type Boolean2Options } from '../../src/operations/boolean2';
+import {
+  Boolean2,
+  asBoolean2ClipList,
+  type Boolean2ClipInput,
+  type Boolean2Options,
+} from '../../src/operations/boolean2';
 import { Aabb2 } from '../../src/bounds/aabb2';
 import { Epsilon } from '../../src/core/epsilon';
 import { InfiniteLine2 } from '../../src/geometry/primitives/infinite-line2';

@@ -1,5 +1,9 @@
 import { Circle2 } from '../../src/geometry/regions/circle2';
-import { Contains2, type Container2 as ContainingGeometry2, type Geometry2 as ContainedGeometry2 } from '../../src/operations/contains2';
+import {
+  Contains2,
+  type Container2 as ContainingGeometry2,
+  type Geometry2 as ContainedGeometry2,
+} from '../../src/operations/contains2';
 import { Epsilon } from '../../src/core/epsilon';
 import { InfiniteLine2 } from '../../src/geometry/primitives/infinite-line2';
 import { Line2 } from '../../src/geometry/primitives/line2';
@@ -11,7 +15,14 @@ import { Vec2 } from '../../src/core/vec2';
 import { annulusMesh, buildingYardMesh, hPlateMesh, lWingMesh, swissCheeseMesh } from '../tri-mesh2/meshes';
 
 export type Contains2ScenarioSection =
-  'point' | 'segment' | 'circle' | 'curve' | 'unbounded' | 'mesh' | 'mesh-complex' | 'mesh-guest';
+  | 'point'
+  | 'segment'
+  | 'circle'
+  | 'curve'
+  | 'unbounded'
+  | 'mesh'
+  | 'mesh-complex'
+  | 'mesh-guest';
 
 export type Contains2Scenario = {
   name: string;

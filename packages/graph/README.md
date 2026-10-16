@@ -25,4 +25,6 @@ import { geometryEdgeData } from '@dirty-geometry/graph/undirected-graph/geometr
 const graph = new UndirectedGraph2D({ codec: geometryEdgeData() });
 ```
 
+`examples/` holds the scenario data behind the `/lab/graph/` demos (`@dirty-geometry/graph/examples/...`).
+
 Review findings and the fixes for them are in [docs/REVIEW.md](../../docs/REVIEW.md).

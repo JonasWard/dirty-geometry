@@ -3,7 +3,9 @@
     "home": "Home",
     "about": "Chi sono",
     "frame": "Riferimento 3D",
-    "lab": "Laboratorio"
+    "lab": "Laboratorio",
+    "vec2": "vec2",
+    "graph": "graph"
   },
   "home": {
     "meta": {
@@ -53,5 +55,24 @@
     "body": "L'indirizzo potrebbe essere errato, oppure la pagina è stata rimossa.",
     "backHome": "Torna alla home",
     "otherLocales": "Home in un'altra lingua"
+  },
+  "lab": {
+    "eyebrow": "Laboratorio di geometria 2D",
+    "heading": "Demo interattive di geometria",
+    "intro": "Ogni demo fa passare una serie di scenari attraverso una delle librerie e ne disegna il risultato. Scorri per lo zoom, trascina per spostare.",
+    "home": "Home",
+    "backHome": "Torna alla home",
+    "allDemos": "Tutte le demo",
+    "previous": "Precedente",
+    "next": "Successivo",
+    "demos": "demo",
+    "openLibrary": "Sfoglia le demo",
+    "homeSection": "Il Laboratorio",
+    "homeHeading": "Geometria da esplorare",
+    "homeCta": "Apri il laboratorio",
+    "libraries": {
+      "vec2": "Matematica 2D: curve, intersezioni, triangolazione, contenimento, operazioni booleane, limiti e griglie.",
+      "graph": "Grafi: ricerca di percorsi, sottoinsiemi di archi e mesh a semispigoli."
+    }
   }
 }

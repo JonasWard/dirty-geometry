@@ -1,6 +1,7 @@
 import Logo from "@/components/logo";
 import Nav from "@/components/nav";
 import { Page } from "@/config";
+import { getLocale, getPath } from "@/utilities/l10n";
 import Link from "next/link";
 
 export default function Main({
@@ -17,7 +18,7 @@ export default function Main({
       <header className="sticky top-0 z-50 bg-dg-canvas/95 backdrop-blur-sm border-b border-dg-border">
         <div className="max-w-[1400px] mx-auto w-full px-6 md:px-12 py-4 flex items-center justify-between">
           <Link
-            href="/"
+            href={getPath(getLocale(locale), "home")}
             className="flex items-center gap-3 hover:opacity-70 transition-opacity"
           >
             <Logo />

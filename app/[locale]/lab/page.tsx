@@ -1,23 +1,19 @@
-import LabBody from "@/components/lab/lab-body";
-import { getTranslations } from "@/utilities/l10n";
-import { Metadata } from "next";
+import LabHub from "@/components/lab/lab-hub";
+import { labMetadata } from "@/components/lab/lab-routes";
 import Main from "@/components/main";
+import { Metadata } from "next";
 import type { Props } from "../route-params";
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { locale } = await params;
-  const t = getTranslations(locale);
-  return {
-    title: `${t.pages.lab} — ${t.home.meta.title}`,
-    description: "Interactive demos of the vec2 2D geometry library.",
-  };
+  return labMetadata(locale);
 }
 
 export default async function Lab({ params }: Readonly<Props>) {
   const { locale } = await params;
   return (
     <Main locale={locale} page="lab">
-      <LabBody />
+      <LabHub locale={locale} />
     </Main>
   );
 }

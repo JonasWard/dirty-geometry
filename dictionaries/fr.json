@@ -3,7 +3,9 @@
     "home": "Accueil",
     "about": "À propos",
     "frame": "Repère 3D",
-    "lab": "Labo"
+    "lab": "Labo",
+    "vec2": "vec2",
+    "graph": "graph"
   },
   "home": {
     "meta": {
@@ -53,5 +55,24 @@
     "body": "L'adresse est peut-être incorrecte, ou la page a été supprimée.",
     "backHome": "Retour à l'accueil",
     "otherLocales": "Accueil dans une autre langue"
+  },
+  "lab": {
+    "eyebrow": "Labo de géométrie 2D",
+    "heading": "Démos interactives de géométrie",
+    "intro": "Chaque démo fait passer une série de scénarios par l’une des bibliothèques et dessine le résultat. Faites défiler pour zoomer, glissez pour déplacer.",
+    "home": "Accueil",
+    "backHome": "Retour à l’accueil",
+    "allDemos": "Toutes les démos",
+    "previous": "Précédent",
+    "next": "Suivant",
+    "demos": "démos",
+    "openLibrary": "Voir les démos",
+    "homeSection": "Le Labo",
+    "homeHeading": "De la géométrie à manipuler",
+    "homeCta": "Ouvrir le labo",
+    "libraries": {
+      "vec2": "Maths 2D : courbes, intersections, triangulation, inclusion, opérations booléennes, boîtes englobantes et grilles.",
+      "graph": "Graphes : recherche de chemin, sous-ensembles d’arêtes et maillages en demi-arêtes."
+    }
   }
 }

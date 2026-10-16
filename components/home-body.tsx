@@ -1,7 +1,9 @@
 import Logo from "@/components/logo";
 import Nav from "@/components/nav";
 import { Page, basePath } from '@/config';
-import { getTranslations } from '@/utilities/l10n';
+import { getDemoPath, getLocale, getPath, getTranslations } from '@/utilities/l10n';
+import { demoLibraries, demoLibraryInfo, demosFor } from '@dirty-geometry/visualisation/meta';
+import Link from 'next/link';
 
 const heroWatermarkSrc = `${basePath}/icon.svg`.replace(/\/{2,}/g, '/');
 
@@ -57,7 +59,8 @@ function PatternPreview({ index }: { index: number }) {
 }
 
 export default function HomeBody({ locale, page = 'home' }: { locale?: string; page?: Page }) {
-  const t = getTranslations(locale);
+  const activeLocale = getLocale(locale);
+  const t = getTranslations(activeLocale);
 
   return (
     <div className="min-h-screen bg-dg-canvas text-dg-ink">
@@ -127,6 +130,58 @@ export default function HomeBody({ locale, page = 'home' }: { locale?: string; p
                   </div>
                   <h3 className="text-sm font-bold tracking-wide uppercase mb-2">{item.title}</h3>
                   <p className="text-sm text-dg-muted leading-relaxed">{item.desc}</p>
+                </article>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+
+      <section id="lab" className="border-t border-dg-border px-8 md:px-16 lg:px-24 py-24">
+        <div className="max-w-[1400px] mx-auto">
+          <div className="flex flex-wrap items-end justify-between gap-6 mb-16">
+            <div>
+              <p className="text-xs font-bold tracking-[0.45em] uppercase mb-6 text-dg-sky-600">{t.lab.homeSection}</p>
+              <h2 className="font-bold leading-tight max-w-2xl" style={{ fontSize: 'clamp(2rem, 4vw, 3.25rem)' }}>
+                {t.lab.homeHeading}
+              </h2>
+            </div>
+            <Link
+              href={getPath(activeLocale, 'lab')}
+              className="inline-flex items-center gap-3 border-2 border-dg-navy-900 px-8 py-4 text-xs font-bold tracking-[0.25em] uppercase hover:bg-dg-navy-900 hover:text-dg-sky-200 transition-all duration-300"
+            >
+              {t.lab.homeCta} <span aria-hidden="true">→</span>
+            </Link>
+          </div>
+          <div className="grid md:grid-cols-2 gap-8 lg:gap-12">
+            {demoLibraries.map((library) => {
+              const demos = demosFor(library);
+              return (
+                <article key={library} className="border border-dg-border p-8 flex flex-col">
+                  <Link href={getPath(activeLocale, library)} className="group">
+                    <h3 className="text-3xl font-extrabold tracking-tight mb-2 group-hover:text-dg-steel-600 transition-colors duration-200">
+                      {demoLibraryInfo[library].label}
+                    </h3>
+                    <p className="text-sm text-dg-muted leading-relaxed mb-6">{t.lab.libraries[library]}</p>
+                  </Link>
+                  <ul className="flex flex-wrap gap-2 mb-8">
+                    {demos.map((demo) => (
+                      <li key={demo.id}>
+                        <Link
+                          href={getDemoPath(activeLocale, library, demo.id)}
+                          className="inline-block border border-dg-border px-3 py-1.5 text-xs tracking-widest uppercase font-medium text-dg-subtle hover:border-dg-steel-600 hover:text-dg-steel-600 transition-colors duration-200"
+                        >
+                          {demo.label}
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                  <Link
+                    href={getPath(activeLocale, library)}
+                    className="mt-auto text-xs font-bold tracking-[0.25em] uppercase text-dg-subtle hover:text-dg-steel-600 transition-colors duration-200"
+                  >
+                    {t.lab.openLibrary} ({demos.length} {t.lab.demos}) →
+                  </Link>
                 </article>
               );
             })}

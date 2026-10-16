@@ -3,7 +3,9 @@
     "home": "Startseite",
     "about": "Über mich",
     "frame": "3D-Rahmen",
-    "lab": "Labor"
+    "lab": "Labor",
+    "vec2": "vec2",
+    "graph": "graph"
   },
   "home": {
     "meta": {
@@ -53,5 +55,24 @@
     "body": "Die Adresse ist möglicherweise falsch, oder die Seite wurde entfernt.",
     "backHome": "Zur Startseite",
     "otherLocales": "Startseite in einer anderen Sprache"
+  },
+  "lab": {
+    "eyebrow": "2D-Geometrie-Labor",
+    "heading": "Interaktive Geometrie-Demos",
+    "intro": "Jede Demo führt eine Reihe von Szenarien durch eine der Bibliotheken und zeichnet das Ergebnis. Scrollen zum Zoomen, Ziehen zum Verschieben.",
+    "home": "Startseite",
+    "backHome": "Zurück zur Startseite",
+    "allDemos": "Alle Demos",
+    "previous": "Zurück",
+    "next": "Weiter",
+    "demos": "Demos",
+    "openLibrary": "Demos ansehen",
+    "homeSection": "Das Labor",
+    "homeHeading": "Geometrie zum Anfassen",
+    "homeCta": "Labor öffnen",
+    "libraries": {
+      "vec2": "2D-Mathematik: Kurven, Schnitte, Triangulierung, Enthaltensein, Boolesche Operationen, Begrenzungen und Raster.",
+      "graph": "Graphen: Wegsuche, Kantenmengen und Halbkanten-Netze."
+    }
   }
 }

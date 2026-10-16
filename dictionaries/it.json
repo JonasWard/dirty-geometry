@@ -73,6 +73,9 @@
     "libraries": {
       "vec2": "Matematica 2D: curve, intersezioni, triangolazione, contenimento, operazioni booleane, limiti e griglie.",
       "graph": "Grafi: ricerca di percorsi, sottoinsiemi di archi e mesh a semispigoli."
-    }
+    },
+    "playground": "Playground",
+    "playgroundIntro": "Costruisci una definizione vec2 con menu a tendina, in JSON o in TypeScript. Ogni geometria intermedia viene disegnata e l’intera definizione sta nel link come stringa densing.",
+    "openPlayground": "Apri il playground"
   }
 }

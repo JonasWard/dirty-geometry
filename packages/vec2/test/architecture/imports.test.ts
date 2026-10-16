@@ -35,16 +35,33 @@ describe('vec2 import architecture', () => {
     expect(violations.sort()).toEqual([...ALLOWED_LAYER_VIOLATIONS].sort());
   });
 
-  test('src never imports from examples or other packages', () => {
+  test('src never imports from examples or other packages (recording may read the generated schema)', () => {
     const outside: string[] = [];
     for (const [file, targets] of graph) {
+      const from = relativeModule(SRC, file);
       for (const target of targets) {
-        if (relativeModule(SRC, target).startsWith('..')) {
+        const to = relativeModule(SRC, target);
+        const schemaRead =
+          (from.startsWith('recording/') && to.startsWith('../schema/')) || from.startsWith('../schema/');
+        if (to.startsWith('..') && !schemaRead) {
           outside.push(`${relativeModule(SRC, file)} -> ${relativeModule(EXAMPLES, target)}`);
         }
       }
     }
     expect(outside).toEqual([]);
+  });
+
+  test('nothing outside recording/ imports the recording layer', () => {
+    const users: string[] = [];
+    for (const [file, targets] of graph) {
+      const from = relativeModule(SRC, file);
+      if (from.startsWith('recording/')) continue;
+      for (const target of targets) {
+        if (relativeModule(SRC, target).startsWith('recording/'))
+          users.push(`${from} -> ${relativeModule(SRC, target)}`);
+      }
+    }
+    expect(users).toEqual([]);
   });
 
   test('examples only import vec2 itself', () => {

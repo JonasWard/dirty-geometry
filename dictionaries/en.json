@@ -73,6 +73,9 @@
     "libraries": {
       "vec2": "2D math: curves, intersections, triangulation, containment, booleans, bounds and grids.",
       "graph": "Graphs: path search, edge-subset helpers and half-edge meshes."
-    }
+    },
+    "playground": "Playground",
+    "playgroundIntro": "Build a vec2 definition with dropdowns, as JSON or as TypeScript. Every intermediate geometry is drawn, and the whole definition lives in the link as a densing string.",
+    "openPlayground": "Open the playground"
   }
 }

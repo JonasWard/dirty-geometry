@@ -6,6 +6,8 @@ The react-three-fiber display layer for `@dirty-geometry/vec2` geometry. It has 
 - `core/`: a shared scenario-grid canvas;
 - `demos/vec2/`, `demos/graph/`: the interactive demos shown on the site under `/lab/vec2/<demo>/` and `/lab/graph/<demo>/`.
 
+- `playground/`: the `/lab/vec2/playground/` builder (`@dirty-geometry/visualisation/playground`), with a DOM builder, JSON mode, TypeScript editing, a canvas of every intermediate geometry and densing URL state.
+
 The scenario data for the demos lives in `@dirty-geometry/vec2/examples` and `@dirty-geometry/graph/examples`. This package only fits frames and draws them.
 
 Peer dependencies: `react@19`, `three`, `@react-three/fiber@9`, `@react-three/drei@10`. The components only run on the client. In Next.js, load them with `next/dynamic({ ssr: false })`.

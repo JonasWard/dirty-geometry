@@ -132,6 +132,13 @@ wall-graph keeps its own copy of the old code, so these only affect code that us
 | `NGonMesh` from vec2 `geometry/regions/ngon-mesh` | from `@dirty-geometry/graph` |
 | `VisualisationShell`, `GEOMETRY_KIND` | removed; kinds are vec2 type tags |
 
+### Added after the fix pass
+
+- **Recorded definitions** (`packages/vec2/src/recording/`). Calls through `createRecorder().lib` are recorded into a JSON DAG with named params and outputs. They replay with new params (`evaluateDefinition`), and the DAG can be inspected (`definitionGraph`).
+  - It relies on the immutability work in Phase 2: every method is pure, so replaying the calls rebuilds the same values.
+  - The class files are untouched. Operations are resolved through a schema generated from the source (`packages/vec2/schema/`) and kept current by `bun run schema:check`.
+  - Commits: 0511356 (schema), 9e5f3cc (recorder), 807811c (replay), f47ad42 (graph and demo).
+
 ### Still open
 
 - **V8:** the drei `<Html>` / React canary issue. It is worked around in the lab viewer, not fixed upstream.

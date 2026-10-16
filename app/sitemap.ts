@@ -1,5 +1,5 @@
 import { defaultLocale, locales, pages } from "@/config";
-import { getAbsoluteUrl, getDemoPath, getUrl } from "@/utilities/l10n";
+import { getAbsoluteUrl, getDemoPath, getPlaygroundPath, getUrl } from "@/utilities/l10n";
 import { visualisationMetas } from "@dirty-geometry/visualisation/meta";
 import { MetadataRoute } from "next";
 
@@ -28,5 +28,15 @@ export default function sitemap(): MetadataRoute.Sitemap {
       ),
     },
   }));
-  return [...sitePages, ...demoPages];
+  const playground = {
+    url: getAbsoluteUrl(getPlaygroundPath(defaultLocale)),
+    lastModified: new Date(),
+    priority: 0.5,
+    alternates: {
+      languages: Object.fromEntries(
+        locales.filter((l) => l !== defaultLocale).map((l) => [l, getAbsoluteUrl(getPlaygroundPath(l))])
+      ),
+    },
+  };
+  return [...sitePages, playground, ...demoPages];
 }

@@ -1,36 +1,18 @@
 'use client';
 
+import { GAP_COLOR, INPUT_COLOR, LONGEST_COLOR, MERGED_COLOR } from './meta';
 import { Html, Line } from '@react-three/drei';
 import { useMemo } from 'react';
 import type { Interval2 } from '@dirty-geometry/vec2/bounds/interval2';
 import { Vec2 } from '@dirty-geometry/vec2/core/vec2';
 import { fitPointsToFrame, frameCorners, labelPosition, vec2ToTuple } from '../../core/frame';
 import { ScenarioGridVisualisation } from '../../core/ScenarioGridVisualisation';
-import { type VisualisationMeta } from '../../core/VisualisationShell';
 import { evaluateInterval2Scenario, formatCall, formatResult, interval2ComplementScenarios, interval2LongestScenarios, interval2MergeScenarios, type Interval2Scenario } from '@dirty-geometry/vec2/examples/interval2/scenarios';
 
-const INPUT_COLOR = '#8a93a5';
-const MERGED_COLOR = '#7dff7d';
-const GAP_COLOR = '#ff6b6b';
-const LONGEST_COLOR = '#ffb347';
 const DOMAIN_COLOR = '#3a4150';
 
 /** Vertical spacing between stacked interval bars, in scenario units. */
 const LANE_GAP = 0.22;
-
-export const interval2VisualisationMeta: VisualisationMeta = {
-  id: 'interval2',
-  label: 'Interval2',
-  title: 'Interval2 sets',
-  description:
-    'Grey = input intervals stacked on their own lanes, above the domain line. Below it: green = Interval2.merge, red = Interval2.complement, orange = Interval2.longest. Rows: merge → complement → longest. A cell naming an ε passes that Epsilon to every call in its chain; the default is Epsilon.preferIn.',
-  legend: [
-    { color: INPUT_COLOR, label: 'Input intervals', shape: 'line' },
-    { color: MERGED_COLOR, label: 'merge', shape: 'line' },
-    { color: GAP_COLOR, label: 'complement', shape: 'line' },
-    { color: LONGEST_COLOR, label: 'longest', shape: 'line' },
-  ],
-};
 
 const interval2ScenarioRows = [
   interval2MergeScenarios,

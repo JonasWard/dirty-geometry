@@ -9,21 +9,6 @@ import { GRID2_COLORS, chainOperandColor, earthToneAt, setOpOperandColor } from 
 import { fitPointsToFrame, frameCorners, labelPosition } from '../../core/frame';
 import { GridGeometryRender } from '../../geometry/components/GridGeometryRender';
 import { ScenarioGridVisualisation } from '../../core/ScenarioGridVisualisation';
-import { type VisualisationMeta } from '../../core/VisualisationShell';
-
-export const grid2VisualisationMeta: VisualisationMeta = {
-  id: 'grid2',
-  label: 'Grid2',
-  title: 'Grid2',
-  description:
-    'Grid lattice with uniform or custom column/row sizes, Bresenham lines, concave polygon fills, iterative unions, set ops, and chains. Blue = result; red = subtracted; earth tones = operands.',
-  legend: [
-    { color: GRID2_COLORS.lattice, label: 'Grid lattice', shape: 'line' },
-    { color: GRID2_COLORS.resultFill, label: 'Result cells' },
-    { color: GRID2_COLORS.subtractive, label: 'Subtracted' },
-    { color: GRID2_COLORS.earthTones[0]!, label: 'Operands', shape: 'line' },
-  ],
-};
 
 type Grid2AnyScenario = Grid2Scenario | Grid2SetOpScenario | Grid2ChainScenario | Grid2UnionIterateScenario;
 

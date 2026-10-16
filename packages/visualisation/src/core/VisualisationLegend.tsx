@@ -1,11 +1,8 @@
 'use client';
 
-export type LegendItem = {
-  color: string;
-  label: string;
-  /** Optional shape hint for the swatch. Defaults to a filled circle. */
-  shape?: 'line' | 'point' | 'polygon';
-};
+import type { LegendItem } from './meta';
+
+export type { LegendItem };
 
 export function VisualisationLegend({ items }: { items: readonly LegendItem[] }) {
   return (

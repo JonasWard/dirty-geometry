@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { VisualisationLegend, visualisationViews } from "@dirty-geometry/visualisation";
 
 const views = visualisationViews;
@@ -65,7 +65,8 @@ export default function LabViewer() {
       </div>
 
       <div className="relative h-[75vh] min-h-[480px] w-full overflow-hidden border border-dg-border bg-[#0b0d12]">
-        {mounted?.render()}
+        {/* Each demo's code is loaded on first view. */}
+        <Suspense fallback={null}>{mounted?.render()}</Suspense>
         <VisualisationLegend items={active.meta.legend} />
       </div>
     </section>

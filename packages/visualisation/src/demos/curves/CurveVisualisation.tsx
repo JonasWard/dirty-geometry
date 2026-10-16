@@ -11,23 +11,6 @@ import { Vec2 } from '@dirty-geometry/vec2/core/vec2';
 import { createCurve, polygonScenarios, polylineScenarios, type CurveScenario } from '@dirty-geometry/vec2/examples/curves/scenarios';
 import { fitPointsToFrame, frameCorners, labelPosition, vec2ToTuple } from '../../core/frame';
 import { ScenarioGridVisualisation } from '../../core/ScenarioGridVisualisation';
-import { type VisualisationMeta } from '../../core/VisualisationShell';
-
-export const curveVisualisationMeta: VisualisationMeta = {
-  id: 'curves',
-  label: 'Polyline / Polygon',
-  title: 'Polyline2 / Polygon2',
-  description:
-    'Content is scaled into each [-2, 2] frame with margin. Hover overlapping samples to fan them apart and inspect their source.',
-  legend: [
-    { color: '#4da3ff', label: 'Curve', shape: 'line' },
-    { color: '#5ce1ff', label: 'evaluate(t)' },
-    { color: '#ffb347', label: 'evaluateAtLength(s)' },
-    { color: '#ff5c5c', label: 'Query point' },
-    { color: '#7dff7d', label: 'Closest point' },
-    { color: '#c77dff', label: 'Closest (+tolerance)' },
-  ],
-};
 
 const curveScenarioRows = [polylineScenarios, polygonScenarios] as const;
 

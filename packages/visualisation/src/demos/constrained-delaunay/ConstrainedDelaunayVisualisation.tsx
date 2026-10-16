@@ -12,20 +12,6 @@ import {
 } from '@dirty-geometry/vec2/examples/constrained-delaunay/scenarios';
 import { fitPointsToFrame, frameCorners, labelPosition, vec2ToTuple } from '../../core/frame';
 import { ScenarioGridVisualisation } from '../../core/ScenarioGridVisualisation';
-import { type VisualisationMeta } from '../../core/VisualisationShell';
-
-export const cdtVisualisationMeta: VisualisationMeta = {
-  id: 'constrained-delaunay',
-  label: 'Constrained Delaunay',
-  title: 'Constrained Delaunay',
-  description:
-    'Rows: basic → shape collections → large / self-intersecting cases. Blue = triangulation; purple = input constraints (crossings are split automatically).',
-  legend: [
-    { color: '#4da3ff', label: 'Triangle edge', shape: 'line' },
-    { color: '#c77dff', label: 'Constraint (input)', shape: 'line' },
-    { color: '#ffb347', label: 'Vertex' },
-  ],
-};
 
 const cdtScenarioRows = [cdtBasicScenarios, cdtShapeScenarios, cdtComplexScenarios] as const;
 

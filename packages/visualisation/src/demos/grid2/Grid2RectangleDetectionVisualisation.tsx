@@ -15,22 +15,7 @@ import { GRID2_COLORS, earthToneAt } from '../../geometry/display/grid/colors';
 import { fitPointsToFrame, frameCorners, labelPosition, vec2ToTuple } from '../../core/frame';
 import { GridGeometryRender } from '../../geometry/components/GridGeometryRender';
 import { ScenarioGridVisualisation } from '../../core/ScenarioGridVisualisation';
-import { type VisualisationMeta } from '../../core/VisualisationShell';
 import { gridWorldLines } from '../../geometry/display/grid/shared';
-
-export const grid2RectangleDetectionMeta: VisualisationMeta = {
-  id: 'grid2/rectangle-detection',
-  label: 'Grid2 Rect Detect',
-  title: 'Grid2 rectangle detection',
-  description:
-    'Build a custom Grid2 from one or more world-space rectilinear Polygon2s (optionally Douglas-Peucker simplified), trace axis-aligned grid boundaries, and decompose occupied cells into rectangles.',
-  legend: [
-    { color: '#d0d0d0', label: 'World polygon', shape: 'line' },
-    { color: GRID2_COLORS.lattice, label: 'Grid lattice', shape: 'line' },
-    { color: GRID2_COLORS.geometryOutline, label: 'Grid polygon', shape: 'line' },
-    { color: GRID2_COLORS.resultFill, label: 'Detected rectangles' },
-  ],
-};
 
 export type RectangleDetectionScenario = {
   name: string;

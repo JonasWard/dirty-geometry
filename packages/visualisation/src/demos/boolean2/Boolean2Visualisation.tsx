@@ -8,21 +8,7 @@ import { GeometryRender } from '../../geometry/components/GeometryRender';
 import { fitGeometriesToFrame } from '../../geometry';
 import { frameCorners, labelPosition } from '../../core/frame';
 import { ScenarioGridVisualisation } from '../../core/ScenarioGridVisualisation';
-import { type VisualisationMeta } from '../../core/VisualisationShell';
 import { boolean2IntersectPolygonScenarios, boolean2IntersectScenarios, boolean2ManyIntersectScenarios, boolean2ManySubtractScenarios, boolean2SubtractPolygonScenarios, boolean2SubtractScenarios, boolean2UnionScenarios, evaluateBooleanScenario, scenarioClips, type Boolean2Scenario } from '@dirty-geometry/vec2/examples/boolean2/scenarios';
-
-export const boolean2VisualisationMeta: VisualisationMeta = {
-  id: 'boolean2',
-  label: 'Boolean2',
-  title: 'Boolean2',
-  description:
-    'Orange = subject polygons. Purple = clip (half-plane line or polygon). Green = boolean result (filtered CDT mesh). Union merges via non-zero winding; intersect / subtract clip against one or many half-planes and/or polygons.',
-  legend: [
-    { color: '#ffb347', label: 'Subject polygon', shape: 'line' },
-    { color: '#c77dff', label: 'Clip geometry', shape: 'line' },
-    { color: '#7dff7d', label: 'Result interior' },
-  ],
-};
 
 const boolean2ScenarioRows = [
   boolean2UnionScenarios,

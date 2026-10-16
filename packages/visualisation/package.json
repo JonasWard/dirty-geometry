@@ -5,7 +5,8 @@
   "type": "module",
   "description": "react-three-fiber display layer and interactive demos for @dirty-geometry/vec2.",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./meta": "./src/meta.ts"
   },
   "dependencies": {
     "@dirty-geometry/vec2": "workspace:*"

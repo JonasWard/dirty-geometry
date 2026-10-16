@@ -145,17 +145,15 @@ export class Contains2 {
       }
 
       const dirLen = container.direction.length();
-      if (dirLen < Epsilon.value) {
-        return Contains2.pointIn(container, ray.start, slack);
+      const rayLen = ray.direction.length();
+      if (dirLen < Epsilon.value || rayLen < Epsilon.value) {
+        return true;
       }
 
-      const slope = container.direction.crossProduct(ray.direction) / dirLen;
-      const { value: signedSlack } = slack;
-      if (signedSlack < 0) {
-        return slope < signedSlack && container.signedDistance(ray.start) < signedSlack;
-      }
-
-      return slope <= signedSlack;
+      // With the start inside, the ray stays in unless it turns towards the outside (positive side);
+      // a parallel ray keeps its start's distance. Compare the angle, not a length-scaled slope.
+      const sinOutward = container.direction.crossProduct(ray.direction) / (dirLen * rayLen);
+      return sinOutward <= Epsilon.value;
     }
 
     if (ray.direction.length() < Epsilon.value) {
@@ -183,33 +181,12 @@ export class Contains2 {
     return inside(container.signedDistance(line.through), slack);
   }
 
+  /** Every boundary loop (outer and holes) must stay in the container, as for a polygon guest. */
   private static triMeshIn(container: Container2, mesh: TriMesh2, slack: Epsilon): boolean {
-    const loopPolygons = mesh.boundaryLoopPolygons();
-
-    if (loopPolygons.length > 0) {
-      for (const polygon of loopPolygons) {
-        for (const vertex of polygon.vertices) {
-          if (!inside(container.signedDistance(vertex), slack)) {
-            return false;
-          }
-        }
-      }
-
-      if (!isConvexContainer(container)) {
-        for (const polygon of loopPolygons) {
-          for (const segment of polygon.segments()) {
-            const mid = segment.from.add(segment.to).scale(0.5);
-            if (!inside(container.signedDistance(mid), slack)) {
-              return false;
-            }
-          }
-        }
-      }
-
-      return true;
+    if (mesh.triangles.length === 0) {
+      return mesh.vertices.every((vertex) => inside(container.signedDistance(vertex), slack));
     }
-
-    return mesh.vertices.every((vertex) => inside(container.signedDistance(vertex), slack));
+    return Contains2.linesIn(container, meshBoundarySegments(mesh), slack);
   }
 }
 

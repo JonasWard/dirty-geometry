@@ -41,8 +41,10 @@ const interval2ScenarioRows = [
 type Bar = { interval: Interval2; lane: number; color: string; width: number };
 
 /** Input lanes above the domain line, result lanes below it. */
-function scenarioBars(scenario: Interval2Scenario): Bar[] {
-  const { merged, gaps, longest } = evaluateInterval2Scenario(scenario);
+function scenarioBars(
+  scenario: Interval2Scenario,
+  { merged, gaps, longest }: ReturnType<typeof evaluateInterval2Scenario>,
+): Bar[] {
   const bars: Bar[] = scenario.inputs.map((interval, index) => ({
     interval,
     lane: (scenario.inputs.length - index) * LANE_GAP,
@@ -64,8 +66,8 @@ function scenarioBars(scenario: Interval2Scenario): Bar[] {
 }
 
 function Interval2ScenarioVisual({ scenario, offset }: { scenario: Interval2Scenario; offset: Vec2 }) {
-  const result = evaluateInterval2Scenario(scenario);
-  const bars = useMemo(() => scenarioBars(scenario), [scenario]);
+  const result = useMemo(() => evaluateInterval2Scenario(scenario), [scenario]);
+  const bars = useMemo(() => scenarioBars(scenario, result), [scenario, result]);
 
   const fit = useMemo(() => {
     const points = bars.flatMap((bar) => [new Vec2(bar.interval.min, bar.lane), new Vec2(bar.interval.max, bar.lane)]);

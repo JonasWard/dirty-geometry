@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useMemo, type ReactNode } from 'react';
 import type { Geometry2 } from '@dirty-geometry/vec2/geometry/kinds';
 import { Vec2 } from '@dirty-geometry/vec2/core/vec2';
 import type { GeometryFrameOptions } from '../frame/constants';
@@ -31,7 +31,12 @@ export function GeometryRender({
   z = 0,
   definitionGeometry = false,
 }: GeometryRenderProps): ReactNode {
-  const ctx: GeometryDisplayContext = { fit, offset, definitionGeometry };
+  // Outline points are rebuilt only when the inputs change, so drei's <Line> keeps its geometry.
+  const display = useMemo(() => {
+    if (geometry.type === 'Vec2') return null;
+    const ctx: GeometryDisplayContext = { fit, offset, definitionGeometry };
+    return createGeometryOutline(geometry, ctx);
+  }, [geometry, fit, offset, definitionGeometry]);
 
   if (geometry.type === 'Vec2') {
     const [x, y] = vec2ToTuple(fit(geometry), offset);
@@ -43,7 +48,6 @@ export function GeometryRender({
     );
   }
 
-  const display = createGeometryOutline(geometry, ctx);
   if (!display) return null;
 
   return (

@@ -15,18 +15,23 @@ export function vec2ToTuple(v: Vec2, offset: Vec2 = new Vec2()): [number, number
   return [v.x + offset.x, v.y + offset.y, 0];
 }
 
-/** Clip a segment to the display frame content square in fitted coordinates. */
+/** Clip a segment to the display frame square `[FRAME_MIN, FRAME_MAX]²` in fitted coordinates. */
 export function clipSegmentToDisplayFrame(from: Vec2, to: Vec2): [Vec2, Vec2] | null {
   return clipSegmentToFrame(from, to);
 }
 
-/** Clip a ray (t ≥ 0) to the display frame content square in fitted coordinates. */
+/** Clip a ray (t ≥ 0) to the display frame square `[FRAME_MIN, FRAME_MAX]²` in fitted coordinates. */
 export function clipRayToDisplayFrame(start: Vec2, direction: Vec2): [Vec2, Vec2] | null {
   return clipRayToFrame(start, direction);
 }
 
-/** Clip an infinite line to the display frame content square in fitted coordinates. */
+/**
+ * Clip an infinite line to the display frame square `[FRAME_MIN, FRAME_MAX]²` in fitted coordinates.
+ * `null` when it misses the frame or has no direction.
+ */
 export function clipInfiniteLineToDisplayFrame(through: Vec2, direction: Vec2): [Vec2, Vec2] | null {
+  if (direction.length() < 1e-9) return null;
+
   let tMin = -Infinity;
   let tMax = Infinity;
 

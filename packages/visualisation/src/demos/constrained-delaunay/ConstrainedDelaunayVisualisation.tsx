@@ -1,5 +1,6 @@
 'use client';
 
+import { useMemo } from 'react';
 import { Html, Line } from '@react-three/drei';
 import { Vec2 } from '@dirty-geometry/vec2/core/vec2';
 import {
@@ -33,28 +34,33 @@ function edgeKey(a: number, b: number): string {
 }
 
 function CdtScenarioVisual({ scenario, offset }: { scenario: CdtScenario; offset: Vec2 }) {
-  const mesh = evaluateCdtScenario(scenario);
-  const fitPoints =
-    mesh.vertices.length > 0
-      ? mesh.vertices
-      : [...scenario.points, ...scenario.constraintSegments.flatMap((segment) => [segment.from, segment.to])];
-  const fit = fitPointsToFrame(fitPoints);
+  // Triangulating is the expensive part; redo it only when the scenario changes.
+  const { mesh, fit, triangleEdges } = useMemo(() => {
+    const mesh = evaluateCdtScenario(scenario);
+    const fitPoints =
+      mesh.vertices.length > 0
+        ? mesh.vertices
+        : [...scenario.points, ...scenario.constraintSegments.flatMap((segment) => [segment.from, segment.to])];
+    const fit = fitPointsToFrame(fitPoints);
 
-  const triangleEdges: [number, number][] = [];
-  const seen = new Set<string>();
+    const triangleEdges: [number, number][] = [];
+    const seen = new Set<string>();
 
-  for (const [a, b, c] of mesh.triangles) {
-    for (const [u, v] of [
-      [a, b],
-      [b, c],
-      [c, a],
-    ] as [number, number][]) {
-      const key = edgeKey(u, v);
-      if (seen.has(key)) continue;
-      seen.add(key);
-      triangleEdges.push([u, v]);
+    for (const [a, b, c] of mesh.triangles) {
+      for (const [u, v] of [
+        [a, b],
+        [b, c],
+        [c, a],
+      ] as [number, number][]) {
+        const key = edgeKey(u, v);
+        if (seen.has(key)) continue;
+        seen.add(key);
+        triangleEdges.push([u, v]);
+      }
     }
-  }
+
+    return { mesh, fit, triangleEdges };
+  }, [scenario]);
 
   return (
     <group>

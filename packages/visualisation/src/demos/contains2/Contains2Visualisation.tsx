@@ -43,7 +43,7 @@ const INSIDE_COLOR = '#7dff7d';
 const OUTSIDE_COLOR = '#ff5c5c';
 
 function Contains2ScenarioVisual({ scenario, offset }: { scenario: Contains2Scenario; offset: Vec2 }) {
-  const inside = evaluateContainsScenario(scenario);
+  const inside = useMemo(() => evaluateContainsScenario(scenario), [scenario]);
   const fit = useMemo(
     () => fitGeometriesToFrame([scenario.container, scenario.guest]),
     [scenario.container, scenario.guest],

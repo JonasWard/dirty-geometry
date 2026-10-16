@@ -175,7 +175,7 @@ export const angledIntersectionScenarios: IntersectionScenario[] = [
   },
 ];
 
-export const randomIntersectionScenarios = createRandomIntersectionScenarios(12);
+export const randomIntersectionScenarios = createRandomIntersectionScenarios(12, 0xc0ffee);
 
 export const intersectionLines2Scenarios: IntersectionScenario[] = [
   ...fixedIntersectionScenarios,

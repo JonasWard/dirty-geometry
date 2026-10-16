@@ -31,7 +31,7 @@ const AABB_COLOR = '#7dff7d';
 function Aabb2ScenarioVisual({ scenario, offset }: { scenario: Aabb2Scenario; offset: Vec2 }) {
   const definitionGeometry = scenario.definitionGeometry ?? false;
   const fit = useMemo(() => fitPointsToFrame(scenarioAnchorPoints(scenario)), [scenario]);
-  const box = evaluateAabbScenario(scenario);
+  const box = useMemo(() => evaluateAabbScenario(scenario), [scenario]);
 
   return (
     <group>

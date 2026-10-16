@@ -3,8 +3,8 @@
 import { Html, Line } from '@react-three/drei';
 import { useMemo } from 'react';
 import { Vec2 } from '@dirty-geometry/vec2/core/vec2';
+import { ContainerInteriorMesh } from '../../geometry/components/ContainerInteriorMesh';
 import { GeometryRender } from '../../geometry/components/GeometryRender';
-import { createContainerFill } from '../../geometry/display/interior';
 import { fitGeometriesToFrame } from '../../geometry';
 import { frameCorners, labelPosition } from '../../core/frame';
 import { ScenarioGridVisualisation } from '../../core/ScenarioGridVisualisation';
@@ -37,26 +37,6 @@ const boolean2ScenarioRows = [
 const INPUT_COLOR = '#ffb347';
 const CLIP_COLOR = '#c77dff';
 
-function ResultInteriorMesh({
-  mesh,
-  fit,
-  offset,
-}: {
-  mesh: NonNullable<ReturnType<typeof evaluateBooleanScenario>['triMesh']>;
-  fit: (point: Vec2) => Vec2;
-  offset: Vec2;
-}) {
-  const fill = useMemo(() => createContainerFill(mesh, { fit, offset }), [mesh, fit, offset]);
-  if (!fill) return null;
-
-  return (
-    <mesh position={[offset.x, offset.y, -0.1]} renderOrder={-1}>
-      <primitive object={fill.geometry} attach='geometry' />
-      <meshBasicMaterial color='#7dff7d' transparent opacity={0.25} depthWrite={false} />
-    </mesh>
-  );
-}
-
 function Boolean2ScenarioVisual({ scenario, offset }: { scenario: Boolean2Scenario; offset: Vec2 }) {
   const result = useMemo(() => evaluateBooleanScenario(scenario), [scenario]);
   const fit = useMemo(
@@ -71,7 +51,17 @@ function Boolean2ScenarioVisual({ scenario, offset }: { scenario: Boolean2Scenar
 
   return (
     <group>
-      {result.triMesh ? <ResultInteriorMesh mesh={result.triMesh} fit={fit} offset={offset} /> : null}
+      {result.triMesh ? (
+        <ContainerInteriorMesh
+          container={result.triMesh}
+          fit={fit}
+          offset={offset}
+          color='#7dff7d'
+          opacity={0.25}
+          z={-0.1}
+          renderOrder={-1}
+        />
+      ) : null}
 
       <Line points={frameCorners(offset)} color='#3a4150' lineWidth={1} />
 

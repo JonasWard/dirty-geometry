@@ -41,7 +41,7 @@ const COLOR_A = '#4da3ff';
 const COLOR_B = '#ffb347';
 
 function Overlap2ScenarioVisual({ scenario, offset }: { scenario: Overlap2Scenario; offset: Vec2 }) {
-  const overlaps = evaluateOverlapScenario(scenario);
+  const overlaps = useMemo(() => evaluateOverlapScenario(scenario), [scenario]);
   const fit = useMemo(() => fitGeometriesToFrame([scenario.a, scenario.b]), [scenario.a, scenario.b]);
   const slack = scenario.slack ?? Epsilon.preferIn;
 

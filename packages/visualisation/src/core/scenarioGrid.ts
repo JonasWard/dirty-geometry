@@ -36,12 +36,13 @@ export function buildScenarioGridLayout<T extends NamedScenario>(
   let rowOffset = 0;
   const cells: ScenarioGridCell<T>[] = [];
 
-  for (const row of scenarioRows) {
+  for (const [rowIndex, row] of scenarioRows.entries()) {
     for (let index = 0; index < row.length; index++) {
       const scenario = row[index]!;
       const base = gridOffset(index, columns, rowOffset);
       cells.push({
-        key: scenario.name,
+        // Names repeat across sections (e.g. the same shapes for union and intersect), so key by position.
+        key: `${rowIndex}-${index}-${scenario.name}`,
         scenario,
         offset: new Vec2(base.x * cellScale, base.y * cellScale),
       });
@@ -58,4 +59,18 @@ export function buildScenarioGridLayout<T extends NamedScenario>(
   const cameraCenterY = -(spanRows * pitch) / 2;
 
   return { columns, totalRows, gridWidth, gridHeight, cameraCenterX, cameraCenterY, cells };
+}
+
+/** Orthographic zoom (pixels per world unit) that fits the whole layout into `size`. */
+export function fitZoom(
+  size: { readonly width: number; readonly height: number },
+  layout: Pick<ScenarioGridLayout, 'gridWidth' | 'gridHeight'>,
+  zoomScale = 0.85,
+): number {
+  return Math.min(size.width / layout.gridWidth, size.height / layout.gridHeight) * zoomScale;
+}
+
+/** Smallest zoom the controls allow: never above the fitted zoom, so the whole grid stays reachable. */
+export function minZoomFor(fittedZoom: number, preferredMinZoom = 20): number {
+  return Math.min(preferredMinZoom, fittedZoom * 0.5);
 }

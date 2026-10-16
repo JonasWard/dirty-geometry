@@ -1,4 +1,4 @@
-import { randomLineLike2 } from '../../examples/intersection-lines/randomLineLike2';
+import { createRandomIntersectionScenarios, randomLineLike2 } from '../../examples/intersection-lines/randomLineLike2';
 import { describe, expect, test } from 'bun:test';
 import { intersectionLines, type LineLike2IntersectionResult } from '../../src/operations/intersection/line2-like';
 import { type LineLike2 } from '../../src/geometry/kinds';
@@ -530,3 +530,12 @@ describe('intersection tolerances are lengths, not parameters (M20)', () => {
   });
 });
 
+
+describe('random intersection scenarios (V7)', () => {
+  test('are reproducible for a seed', () => {
+    const json = (seed: number) =>
+      JSON.stringify(createRandomIntersectionScenarios(5, seed).map(({ a, b }) => [a.toJson(), b.toJson()]));
+    expect(json(7)).toBe(json(7));
+    expect(json(7)).not.toBe(json(8));
+  });
+});

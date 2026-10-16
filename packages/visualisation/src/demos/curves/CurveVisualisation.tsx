@@ -257,86 +257,91 @@ function SampleClusterVisual({ cluster, offset }: { cluster: SampleCluster; offs
 }
 
 function CurveScenarioVisual({ scenario, offset }: { scenario: CurveScenario; offset: Vec2 }) {
-  const curve = createCurve(scenario);
-  const tolerance = scenario.additionalTolerance ?? 0;
-  const indexSamples = scenario.indexSamples.map((t) => ({
-    t,
-    point: curve.evaluate(t),
-  }));
-  const lengthSamples = scenario.lengthSamples.map((s) => ({
-    s,
-    point: curve.evaluateAtLength(s),
-  }));
-  const closestPoints = scenario.query ? curve.closestPointsForPoint(scenario.query, tolerance) : [];
-  const closestParams = scenario.query ? curve.closestParametersForPoint(scenario.query, tolerance) : [];
-  const smallestDistance = scenario.query ? curve.distanceToPoint(scenario.query) : 0;
+  // Curve queries and marker clustering only change with the scenario (and the cell offset).
+  const { curve, fit, tolerance, closestParams, closestMarkers, outlineTuples, clusters } = useMemo(() => {
+    const curve = createCurve(scenario);
+    const tolerance = scenario.additionalTolerance ?? 0;
+    const indexSamples = scenario.indexSamples.map((t) => ({
+      t,
+      point: curve.evaluate(t),
+    }));
+    const lengthSamples = scenario.lengthSamples.map((s) => ({
+      s,
+      point: curve.evaluateAtLength(s),
+    }));
+    const closestPoints = scenario.query ? curve.closestPointsForPoint(scenario.query, tolerance) : [];
+    const closestParams = scenario.query ? curve.closestParametersForPoint(scenario.query, tolerance) : [];
+    const smallestDistance = scenario.query ? curve.distanceToPoint(scenario.query) : 0;
 
-  const fitPoints = [
-    ...scenario.vertices,
-    ...indexSamples.map((sample) => sample.point),
-    ...lengthSamples.map((sample) => sample.point),
-    ...(scenario.query ? [scenario.query, ...closestPoints] : []),
-  ];
-  const fit = fitPointsToFrame(fitPoints);
+    const fitPoints = [
+      ...scenario.vertices,
+      ...indexSamples.map((sample) => sample.point),
+      ...lengthSamples.map((sample) => sample.point),
+      ...(scenario.query ? [scenario.query, ...closestPoints] : []),
+    ];
+    const fit = fitPointsToFrame(fitPoints);
 
-  const outline = scenario.vertices.map(fit);
-  if (curve.type === 'Polygon2') {
-    outline.push(fit(scenario.vertices[0]!));
-  }
+    const outline = scenario.vertices.map(fit);
+    if (curve.type === 'Polygon2') {
+      outline.push(fit(scenario.vertices[0]!));
+    }
 
-  const outlineTuples = outline.map((point) => vec2ToTuple(point, offset));
+    const outlineTuples = outline.map((point) => vec2ToTuple(point, offset));
 
-  const closestMarkers = closestPoints.map((point, index) => {
-    const distance = scenario.query!.distance(point);
-    const isStrict = distance <= smallestDistance + Epsilon.value;
-    const t = closestParams[index] ?? 0;
+    const closestMarkers = closestPoints.map((point, index) => {
+      const distance = scenario.query!.distance(point);
+      const isStrict = distance <= smallestDistance + Epsilon.value;
+      const t = closestParams[index] ?? 0;
 
-    return {
-      id: `closest-${index}`,
-      fitted: fit(point),
-      point,
-      color: isStrict ? '#7dff7d' : '#c77dff',
-      radius: isStrict ? MARKER_RADIUS.closest : MARKER_RADIUS.closestTol,
-      source: isStrict
-        ? `closest (t=${formatNumber(t)})`
-        : `closest +tol (t=${formatNumber(t)}, d=${formatNumber(distance)})`,
-      isStrict,
-    };
-  });
+      return {
+        id: `closest-${index}`,
+        fitted: fit(point),
+        point,
+        color: isStrict ? '#7dff7d' : '#c77dff',
+        radius: isStrict ? MARKER_RADIUS.closest : MARKER_RADIUS.closestTol,
+        source: isStrict
+          ? `closest (t=${formatNumber(t)})`
+          : `closest +tol (t=${formatNumber(t)}, d=${formatNumber(distance)})`,
+        isStrict,
+      };
+    });
 
-  const markers: SampleMarker[] = [
-    ...indexSamples.map((sample, index) => ({
-      id: `index-${index}`,
-      fitted: fit(sample.point),
-      point: sample.point,
-      color: '#5ce1ff',
-      radius: MARKER_RADIUS.index,
-      source: `evaluate(${formatNumber(sample.t)})`,
-    })),
-    ...lengthSamples.map((sample, index) => ({
-      id: `length-${index}`,
-      fitted: fit(sample.point),
-      point: sample.point,
-      color: '#ffb347',
-      radius: MARKER_RADIUS.length,
-      source: `evaluateAtLength(${formatNumber(sample.s)})`,
-    })),
-    ...(scenario.query
-      ? [
-          {
-            id: 'query',
-            fitted: fit(scenario.query),
-            point: scenario.query,
-            color: '#ff5c5c',
-            radius: MARKER_RADIUS.query,
-            source: 'query point',
-          },
-          ...closestMarkers,
-        ]
-      : []),
-  ];
+    const markers: SampleMarker[] = [
+      ...indexSamples.map((sample, index) => ({
+        id: `index-${index}`,
+        fitted: fit(sample.point),
+        point: sample.point,
+        color: '#5ce1ff',
+        radius: MARKER_RADIUS.index,
+        source: `evaluate(${formatNumber(sample.t)})`,
+      })),
+      ...lengthSamples.map((sample, index) => ({
+        id: `length-${index}`,
+        fitted: fit(sample.point),
+        point: sample.point,
+        color: '#ffb347',
+        radius: MARKER_RADIUS.length,
+        source: `evaluateAtLength(${formatNumber(sample.s)})`,
+      })),
+      ...(scenario.query
+        ? [
+            {
+              id: 'query',
+              fitted: fit(scenario.query),
+              point: scenario.query,
+              color: '#ff5c5c',
+              radius: MARKER_RADIUS.query,
+              source: 'query point',
+            },
+            ...closestMarkers,
+          ]
+        : []),
+    ];
 
-  const clusters = clusterMarkers(markers, OVERLAP_THRESHOLD);
+    const clusters = clusterMarkers(markers, OVERLAP_THRESHOLD);
+
+    return { curve, fit, tolerance, closestParams, closestMarkers, outlineTuples, clusters };
+  }, [scenario, offset]);
 
   return (
     <group>

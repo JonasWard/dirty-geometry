@@ -34,7 +34,7 @@ const intersectionScenarioRows = [
 ] as const;
 
 function IntersectionScenarioVisual({ scenario, offset }: { scenario: IntersectionScenario; offset: Vec2 }) {
-  const result = evaluateIntersectionScenario(scenario);
+  const result = useMemo(() => evaluateIntersectionScenario(scenario), [scenario]);
   const fit = useMemo(() => fitGeometriesToFrame([scenario.a, scenario.b]), [scenario.a, scenario.b]);
 
   return (

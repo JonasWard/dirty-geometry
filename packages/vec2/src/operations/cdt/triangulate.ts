@@ -31,7 +31,7 @@ export function triangulateConstrained(
   const hull = convexHullLoop(vertices);
   if (hull.length < 3) return { triangles: [], unresolved: constraints.map(([a, b]) => [a, b]), stats };
 
-  const box = Aabb2.fromPoints(...vertices);
+  const box = Aabb2.fromPointList(vertices);
   const size = Math.max(box.width(), box.height(), 1);
   const center = Vec2.center(box.min(), box.max());
   const far = size * 100;

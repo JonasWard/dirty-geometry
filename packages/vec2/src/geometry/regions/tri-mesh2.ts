@@ -175,7 +175,7 @@ export class TriMesh2 {
   }
 
   aabb2(): Aabb2 {
-    return Aabb2.fromPoints(...this.vertices);
+    return Aabb2.fromPointList(this.vertices);
   }
 
   /** Undirected mesh edges with one entry per vertex pair. */

@@ -45,14 +45,26 @@ export class Aabb2 {
   }
 
   static fromPoints(...points: readonly Vec2[]): Aabb2 {
+    return Aabb2.fromPointList(points);
+  }
+
+  /** Bounds of a point array of any length (no argument spreading, so no call-stack limit). */
+  static fromPointList(points: readonly Vec2[]): Aabb2 {
     if (points.length === 0) {
       throw new Error('Aabb2.fromPoints requires at least one point');
     }
 
-    return new Aabb2(
-      Interval2.union(...points.map((point) => point.x)),
-      Interval2.union(...points.map((point) => point.y)),
-    );
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+    for (const point of points) {
+      minX = Math.min(minX, point.x);
+      minY = Math.min(minY, point.y);
+      maxX = Math.max(maxX, point.x);
+      maxY = Math.max(maxY, point.y);
+    }
+    return new Aabb2(new Interval2(minX, maxX), new Interval2(minY, maxY));
   }
 
   static union(...items: readonly (Aabb2 | Vec2)[]): Aabb2 {
@@ -60,7 +72,13 @@ export class Aabb2 {
       throw new Error('Aabb2.union requires at least one item');
     }
 
-    return new Aabb2(Interval2.union(...items.map((item) => item.x)), Interval2.union(...items.map((item) => item.y)));
+    let x = Interval2.empty();
+    let y = Interval2.empty();
+    for (const item of items) {
+      x = Interval2.union(x, item.x);
+      y = Interval2.union(y, item.y);
+    }
+    return new Aabb2(x, y);
   }
 
   /** AABB of `origin + t * direction` for `t` in `parameter`. */

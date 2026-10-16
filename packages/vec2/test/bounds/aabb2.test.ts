@@ -44,6 +44,12 @@ describe('Aabb2', () => {
     expect(aabb.containsPoint(new Vec2(0, 4))).toBe(false);
   });
 
+  test('fromPointList and union handle more items than fit in a call', () => {
+    const points = Array.from({ length: 1_000_000 }, (_, i) => new Vec2(i % 1000, -Math.floor(i / 1000)));
+    expectAabb2Close(Aabb2.fromPointList(points), box(new Vec2(0, -999), new Vec2(999, 0)));
+    expectAabb2Close(Aabb2.union(...points.slice(0, 2000)), box(new Vec2(0, -1), new Vec2(999, 0)));
+  });
+
   test('infinite box contains every point', () => {
     const aabb = Aabb2.infinite();
     expect(aabb.isInfinite()).toBe(true);

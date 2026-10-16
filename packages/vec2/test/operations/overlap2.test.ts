@@ -9,6 +9,7 @@ import { InfiniteLine2 } from '../../src/geometry/primitives/infinite-line2';
 import { Line2 } from '../../src/geometry/primitives/line2';
 import { Polygon2 } from '../../src/geometry/regions/polygon2';
 import { Polyline2 } from '../../src/geometry/curves/polyline2';
+import { Hesse2 } from '../../src/geometry/primitives/hesse2';
 import { Ray2 } from '../../src/geometry/primitives/ray2';
 import { TriMesh2 } from '../../src/geometry/regions/tri-mesh2';
 import { Vec2 } from '../../src/core/vec2';
@@ -188,3 +189,48 @@ describe('Overlap2', () => {
     });
   });
 });
+
+describe('Overlap2 fixes', () => {
+  const V = (x: number, y: number) => new Vec2(x, y);
+  const xAxis = new InfiniteLine2(V(0, 0), V(1, 0)); // half-plane y <= 0
+  const box = (x0: number, y0: number, x1: number, y1: number) => Aabb2.fromPoints(V(x0, y0), V(x1, y1));
+
+  test('rays reach geometry beyond their definition segment (M14)', () => {
+    const ray = new Ray2(V(0, 0), V(1, 0));
+    expect(Overlap2.overlaps(ray, new Polyline2([V(5, -1), V(5, 1), V(6, 1)]))).toBe(true);
+    expect(Overlap2.overlaps(new Ray2(V(0, 5), V(1, 0)), box(20, 0, 30, 10))).toBe(true);
+    expect(Overlap2.overlaps(ray, new Polygon2([V(20, -1), V(30, -1), V(30, 1), V(20, 1)]))).toBe(true);
+    expect(Overlap2.overlaps(new Ray2(V(0, 0), V(-1, 0)), new Polyline2([V(5, -1), V(5, 1)]))).toBe(false);
+  });
+
+  test('Hesse2 overlaps as the half-plane it describes (M15)', () => {
+    const lower = new Hesse2(V(0, 1), 0);
+    expect(Overlap2.overlaps(lower, new Line2(V(0, -1), V(0, 1)))).toBe(true);
+    expect(Overlap2.overlaps(lower, V(0, -5))).toBe(true);
+    expect(Overlap2.overlaps(lower, V(0, 5))).toBe(false);
+    expect(Overlap2.overlaps(V(3, -2), lower)).toBe(true);
+  });
+
+  test('half-planes against circles, boxes and rays (M15)', () => {
+    expect(Overlap2.overlaps(xAxis, new Circle2(V(0, -10), 1))).toBe(true);
+    expect(Overlap2.overlaps(xAxis, new Circle2(V(0, 0.5), 1))).toBe(true);
+    expect(Overlap2.overlaps(xAxis, new Circle2(V(0, 10), 1))).toBe(false);
+    expect(Overlap2.overlaps(xAxis, box(0, -2, 1, -1))).toBe(true);
+    expect(Overlap2.overlaps(xAxis, box(0, 1, 1, 2))).toBe(false);
+    expect(Overlap2.overlaps(xAxis, new Ray2(V(0, 5), V(0, -1)))).toBe(true);
+    expect(Overlap2.overlaps(xAxis, new Ray2(V(0, 5), V(0, 1)))).toBe(false);
+    expect(Overlap2.overlaps(xAxis, new Ray2(V(0, 0), V(1, 0)), Epsilon.preferOut)).toBe(false);
+  });
+
+  test('a box inside a polygon overlaps it', () => {
+    const square = new Polygon2([V(0, 0), V(10, 0), V(10, 10), V(0, 10)]);
+    expect(Overlap2.overlaps(box(4, 4, 6, 6), square)).toBe(true);
+    expect(Overlap2.overlaps(square, box(4, 4, 6, 6))).toBe(true);
+  });
+
+  test('the broad phase applies the slack once', () => {
+    expect(Overlap2.overlaps(box(0, 0, 1, 1), box(1 + 1.5e-6, 0, 2, 1))).toBe(false);
+    expect(Overlap2.overlaps(box(0, 0, 1, 1), box(1 + 0.5e-6, 0, 2, 1))).toBe(true);
+  });
+});
+

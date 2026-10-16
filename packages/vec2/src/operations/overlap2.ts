@@ -1,5 +1,6 @@
 import { Aabb2 } from '../bounds/aabb2';
 import { Interval2 } from '../bounds/interval2';
+import { assertNever } from '../core/assert';
 import { Epsilon } from '../core/epsilon';
 import { Vec2 } from '../core/vec2';
 import type { Polyline2 } from '../geometry/curves/polyline2';
@@ -8,6 +9,7 @@ import { Line2 } from '../geometry/primitives/line2';
 import type { Ray2 } from '../geometry/primitives/ray2';
 import type { Circle2 } from '../geometry/regions/circle2';
 import type { Container2, Geometry2 } from '../geometry/kinds';
+import type { Hesse2 } from '../geometry/primitives/hesse2';
 import { Polygon2 } from '../geometry/regions/polygon2';
 import type { TriMesh2 } from '../geometry/regions/tri-mesh2';
 import { intersectionLines } from './intersection/line2-like';
@@ -21,18 +23,51 @@ type LineLike2 = InfiniteLine2 | Ray2 | Line2;
  * Touching counts as overlap with `Epsilon.preferIn`; `Epsilon.preferOut` requires proper overlap.
  */
 export class Overlap2 {
+  /** `InfiniteLine2` and `Hesse2` act as half-planes (`signedDistance <= 0`); rays are unbounded. */
   static overlaps(a: Geometry2, b: Geometry2, slack: Epsilon = Epsilon.preferIn): boolean {
-    if (!(a.type === 'InfiniteLine2' || b.type === 'InfiniteLine2')) {
-      if (!aabbOverlap(geometryAabb(a), geometryAabb(b), slack)) {
+    const first = normalise(a);
+    const second = normalise(b);
+
+    if (first.type !== 'InfiniteLine2' && second.type !== 'InfiniteLine2') {
+      if (!aabbOverlap(geometryAabb(first), geometryAabb(second), slack)) {
         return false;
       }
     }
 
-    return overlapPair(a, b, slack);
+    return overlapPair(clipRayTo(first, second, slack), clipRayTo(second, first, slack), slack);
   }
 }
 
-function overlapPair(a: Geometry2, b: Geometry2, slack: Epsilon): boolean {
+type NormalisedGeometry2 = Exclude<Geometry2, Hesse2>;
+
+/** A Hesse2 is the same half-plane as its infinite line. */
+function normalise(geometry: Geometry2): NormalisedGeometry2 {
+  return geometry.type === 'Hesse2' ? geometry.infiniteLine() : geometry;
+}
+
+/**
+ * Against a bounded partner a ray only matters up to the partner's bounds, so cut it to a segment
+ * that covers them. Unbounded partners (half-planes, rays, infinite boxes) keep the ray.
+ */
+function clipRayTo(geometry: NormalisedGeometry2, partner: NormalisedGeometry2, slack: Epsilon): NormalisedGeometry2 {
+  if (geometry.type !== 'Ray2' || partner.type === 'InfiniteLine2' || partner.type === 'Ray2') return geometry;
+
+  const bounds = geometryAabb(partner);
+  if (bounds.isInfinite()) return geometry;
+
+  const lengthSq = geometry.direction.dot(geometry.direction);
+  if (lengthSq < Epsilon.sq) return geometry.start;
+
+  const pad = Math.abs(slack.value);
+  const corners = Aabb2.fromPoints(bounds.min().subtract(new Vec2(pad, pad)), bounds.max().add(new Vec2(pad, pad)));
+  const reach = Math.max(
+    1,
+    ...corners.corners().map((corner) => corner.subtract(geometry.start).dot(geometry.direction) / lengthSq),
+  );
+  return new Line2(geometry.start, geometry.evaluate(reach));
+}
+
+function overlapPair(a: NormalisedGeometry2, b: NormalisedGeometry2, slack: Epsilon): boolean {
   if (a.type === 'InfiniteLine2' && b.type !== 'InfiniteLine2') {
     return overlapsHalfPlane(a, b, slack);
   }
@@ -72,16 +107,12 @@ function overlapPair(a: Geometry2, b: Geometry2, slack: Epsilon): boolean {
   return overlapsFilledRegions(a, b, slack);
 }
 
-function overlapsPoint(point: Vec2, other: Geometry2, slack: Epsilon): boolean {
+function overlapsPoint(point: Vec2, other: NormalisedGeometry2, slack: Epsilon): boolean {
   if (other.type === 'Vec2') {
     return withinDistance(point.distance(other), slack);
   }
 
   if (other.type === 'Line2' || other.type === 'Polyline2' || other.type === 'Ray2') {
-    return withinDistance(other.distanceToPoint(point), slack);
-  }
-
-  if (other.type === 'InfiniteLine2') {
     return withinDistance(other.distanceToPoint(point), slack);
   }
 
@@ -91,10 +122,6 @@ function overlapsPoint(point: Vec2, other: Geometry2, slack: Epsilon): boolean {
 
   if (other.type === 'Aabb2') {
     return pointInContainer(other, point, slack);
-  }
-
-  if (other.type === 'Hesse2') {
-    return withinDistance(other.distanceToPoint(point), slack);
   }
 
   return pointInContainer(other, point, slack);
@@ -150,7 +177,7 @@ function overlapsSegments(a: Line2, b: Line2, slack: Epsilon): boolean {
   );
 }
 
-function overlapsCircle(circle: Circle2, other: Geometry2, slack: Epsilon): boolean {
+function overlapsCircle(circle: Circle2, other: NormalisedGeometry2, slack: Epsilon): boolean {
   if (other.type === 'Circle2') {
     const gap = circle.center.distance(other.center) - circle.radius - other.radius;
     return withinSeparation(gap, slack);
@@ -171,10 +198,6 @@ function overlapsCircle(circle: Circle2, other: Geometry2, slack: Epsilon): bool
 
   if (other.type === 'Ray2') {
     return withinSeparation(other.distanceToPoint(circle.center) - circle.radius, slack);
-  }
-
-  if (other.type === 'InfiniteLine2') {
-    return withinSeparation(Math.abs(other.signedDistance(circle.center)) - circle.radius, slack);
   }
 
   if (other.type === 'Aabb2') {
@@ -202,37 +225,47 @@ function overlapsCircle(circle: Circle2, other: Geometry2, slack: Epsilon): bool
   return false;
 }
 
-function overlapsHalfPlane(plane: InfiniteLine2, other: Geometry2, slack: Epsilon): boolean {
-  if (other.type === 'Vec2') {
-    return inside(plane.signedDistance(other), slack);
-  }
-
-  for (const point of verticesOf(other)) {
-    if (inside(plane.signedDistance(point), slack)) {
-      return true;
+/** `plane` is the half-plane `signedDistance <= 0`; a linear distance is smallest at a vertex or towards infinity. */
+function overlapsHalfPlane(plane: InfiniteLine2, other: NormalisedGeometry2, slack: Epsilon): boolean {
+  switch (other.type) {
+    case 'Vec2':
+      return inside(plane.signedDistance(other), slack);
+    case 'Circle2':
+      return withinSeparation(plane.signedDistance(other.center) - other.radius, slack);
+    case 'Ray2': {
+      if (inside(plane.signedDistance(other.start), slack)) return true;
+      // Heading into the half-plane reaches it eventually.
+      return plane.signedDistance(other.evaluate(1)) < plane.signedDistance(other.start);
     }
+    case 'InfiniteLine2':
+      return overlapsLineLikes(plane, other, slack);
+    case 'Aabb2':
+      if (other.isInfinite()) return true;
+      return other.corners().some((corner) => inside(plane.signedDistance(corner), slack));
+    case 'Line2':
+    case 'Polyline2':
+    case 'Polygon2':
+    case 'TriMesh2':
+      return verticesOf(other).some((vertex) => inside(plane.signedDistance(vertex), slack));
+    default:
+      return assertNever(other, 'Overlap2: unknown geometry');
   }
-
-  for (const edge of edgesOf(other)) {
-    if (overlapsLineLikes(plane, edge, slack)) {
-      return true;
-    }
-  }
-
-  if (other.type === 'Circle2') {
-    return withinSeparation(Math.abs(plane.signedDistance(other.center)) - other.radius, slack);
-  }
-
-  return false;
 }
 
-function overlapsAabb(box: Aabb2, other: Geometry2, slack: Epsilon): boolean {
+function overlapsAabb(box: Aabb2, other: NormalisedGeometry2, slack: Epsilon): boolean {
   if (other.type === 'Aabb2') {
     return aabbOverlap(box, other, slack);
   }
 
   if (other.type === 'Circle2') {
     return overlapsCircle(other, box, slack);
+  }
+
+  // The box may lie entirely inside a region without any of the region's vertices or edges touching it.
+  if ((other.type === 'Polygon2' || other.type === 'TriMesh2') && !box.isInfinite()) {
+    if (box.corners().some((corner) => pointInContainer(other, corner, slack))) {
+      return true;
+    }
   }
 
   for (const point of verticesOf(other)) {
@@ -264,7 +297,7 @@ function overlapsAabbSegment(box: Aabb2, segment: Line2, slack: Epsilon): boolea
   return false;
 }
 
-function overlapsFilledRegions(a: Geometry2, b: Geometry2, slack: Epsilon): boolean {
+function overlapsFilledRegions(a: NormalisedGeometry2, b: NormalisedGeometry2, slack: Epsilon): boolean {
   for (const point of verticesOf(a)) {
     if (overlapsPoint(point, b, slack)) {
       return true;
@@ -318,7 +351,7 @@ function intervalOverlap(a: Interval2, b: Interval2, slack: Epsilon): boolean {
     return a.max > b.min - s && b.max > a.min - s;
   }
 
-  return a.max + s >= b.min - s && b.max + s >= a.min - s;
+  return a.max + s >= b.min && b.max + s >= a.min;
 }
 
 function inside(value: number, slack: Epsilon): boolean {

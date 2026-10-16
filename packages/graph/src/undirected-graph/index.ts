@@ -2,6 +2,7 @@ export { UndirectedNode2D } from './undirected-node-2d';
 export { UndirectedEdge2D } from './undirected-edge-2d';
 export {
   UndirectedGraph2D,
+  type UndirectedGraph2DOptions,
   type UndirectedNode2DJson,
   type UndirectedEdge2DJson,
   type UndirectedGraph2DJson,
@@ -20,13 +21,11 @@ export {
   type ViaWaypoint,
 } from './path-search';
 export {
-  isEdgeDataRecord,
-  isEdgeDataValue,
-  isGeometry2,
+  isJsonRecord,
   isJsonValue,
-  type EdgeDataRecord,
+  jsonEdgeData,
+  type EdgeDataCodec,
   type EdgeDataJson,
-  type EdgeDataValue,
   type JsonPrimitive,
   type JsonValue,
 } from './edge-data';

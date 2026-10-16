@@ -1,13 +1,7 @@
 import { Vec2, type Vec2Json } from '@dirty-geometry/vec2/core/vec2';
 import { UndirectedEdge2D } from './undirected-edge-2d';
 import { UndirectedNode2D } from './undirected-node-2d';
-import {
-  deserialiseEdgeData,
-  isEdgeDataRecord,
-  serialiseEdgeData,
-  type EdgeDataJson,
-  type EdgeDataRecord,
-} from './edge-data';
+import { jsonEdgeData, type EdgeDataCodec, type EdgeDataJson } from './edge-data';
 import {
   defaultEdgeCost,
   expandWaypoints,
@@ -38,9 +32,15 @@ export type UndirectedGraph2DJson = {
   edges: UndirectedEdge2DJson[];
 };
 
+export type UndirectedGraph2DOptions<T extends object> = {
+  /** Validates, writes and reads edge payloads; defaults to plain JSON records ({@link jsonEdgeData}). */
+  codec?: EdgeDataCodec<T>;
+};
+
 /**
  * Undirected planar graph.
- * Edge payload `T` is a record of JSON values and/or Geometry2 (or Geometry2 arrays).
+ * Edge payload `T` is checked and serialised by the graph's {@link EdgeDataCodec} (plain JSON by
+ * default; pass `geometryEdgeData()` from `undirected-graph/geometry-edge-data` for vec2 geometry).
  *
  * Pathfinding (`bfs` / `dijkstra` / `aStar` / `path`) accepts an optional
  * `interpret` callback that maps an edge (+ payload) to a positive traversal
@@ -50,10 +50,15 @@ export type UndirectedGraph2DJson = {
 export class UndirectedGraph2D<T extends object = Record<string, never>> {
   static readonly type = 'UndirectedGraph2D' as const;
 
+  private readonly codec: EdgeDataCodec<T>;
   private readonly nodesById = new Map<string, UndirectedNode2D>();
   private readonly edgesById = new Map<string, UndirectedEdge2D<T>>();
   private nodeList: readonly UndirectedNode2D[] | null = null;
   private edgeList: readonly UndirectedEdge2D<T>[] | null = null;
+
+  constructor(options: UndirectedGraph2DOptions<T> = {}) {
+    this.codec = options.codec ?? jsonEdgeData<T>();
+  }
 
   /** All nodes; the same frozen array is returned until the graph changes. */
   get nodes(): readonly UndirectedNode2D[] {
@@ -117,7 +122,7 @@ export class UndirectedGraph2D<T extends object = Record<string, never>> {
     if (nodeA.id === nodeB.id) throw new Error('Self-loop edges are not supported');
 
     const payload = (data[0] ?? {}) as T;
-    if (!isEdgeDataRecord(payload)) throw new Error(`Edge ${id} data must be a record of JSON / Geometry2 values`);
+    if (!this.codec.isValid(payload)) throw new Error(`Edge ${id} data is not accepted by the graph's edge-data codec`);
 
     const edge = new UndirectedEdge2D(id, nodeA, nodeB, payload);
     this.edgesById.set(id, edge);
@@ -157,7 +162,7 @@ export class UndirectedGraph2D<T extends object = Record<string, never>> {
         id: edge.id,
         a: edge.a.id,
         b: edge.b.id,
-        data: serialiseEdgeData(edge.data as EdgeDataRecord),
+        data: this.codec.toJson(edge.data),
       })),
     };
   }
@@ -166,21 +171,27 @@ export class UndirectedGraph2D<T extends object = Record<string, never>> {
     return JSON.stringify(this.toJson());
   }
 
-  static fromJson<T extends object = Record<string, never>>(data: unknown): UndirectedGraph2D<T> {
+  static fromJson<T extends object = Record<string, never>>(
+    data: unknown,
+    options: UndirectedGraph2DOptions<T> = {},
+  ): UndirectedGraph2D<T> {
     if (!isUndirectedGraph2DJson(data)) throw new Error('Invalid UndirectedGraph2D JSON');
 
-    const graph = new UndirectedGraph2D<T>();
+    const graph = new UndirectedGraph2D<T>(options);
     for (const node of data.nodes) {
       graph.addNode(node.id, new Vec2(node.position.x, node.position.y));
     }
     for (const edge of data.edges) {
-      graph.addEdge(edge.id, edge.a, edge.b, ...([deserialiseEdgeData(edge.data) as T] as [T]));
+      graph.addEdge(edge.id, edge.a, edge.b, ...([graph.codec.fromJson(edge.data)] as [T]));
     }
     return graph;
   }
 
-  static deserialise<T extends object = Record<string, never>>(json: string): UndirectedGraph2D<T> {
-    return UndirectedGraph2D.fromJson<T>(JSON.parse(json));
+  static deserialise<T extends object = Record<string, never>>(
+    json: string,
+    options: UndirectedGraph2DOptions<T> = {},
+  ): UndirectedGraph2D<T> {
+    return UndirectedGraph2D.fromJson<T>(JSON.parse(json), options);
   }
 
   /** Fewest-hop path (interpret filters blocked edges only). */

@@ -1,7 +1,8 @@
 import { describe, expect, test } from 'bun:test';
 import { Vec2 } from '@dirty-geometry/vec2/core/vec2';
 import { Line2 } from '@dirty-geometry/vec2/geometry/primitives/line2';
-import { searchLongestSimplePath, UndirectedGraph2D } from '../src/undirected-graph';
+import { searchLongestSimplePath, UndirectedGraph2D, type EdgeDataCodec } from '../src/undirected-graph';
+import { geometryEdgeData } from '../src/undirected-graph/geometry-edge-data';
 
 type WallData = { weight: number };
 
@@ -159,16 +160,38 @@ describe('UndirectedGraph2D', () => {
 
   test('toJson / fromJson round-trips Geometry2 edge payloads', () => {
     type Payload = { weight: number; axis: Line2 };
-    const graph = new UndirectedGraph2D<Payload>();
+    const graph = new UndirectedGraph2D<Payload>({ codec: geometryEdgeData() });
     graph.addNode('a', new Vec2(0, 0));
     graph.addNode('b', new Vec2(2, 0));
     graph.addEdge('ab', 'a', 'b', { weight: 3, axis: new Line2(new Vec2(0, 0), new Vec2(1, 0)) });
 
-    const restored = UndirectedGraph2D.fromJson<Payload>(graph.toJson());
+    const restored = UndirectedGraph2D.fromJson<Payload>(graph.toJson(), { codec: geometryEdgeData() });
     expect(restored.getEdge('ab').data.weight).toBe(3);
     expect(restored.getEdge('ab').data.axis).toBeInstanceOf(Line2);
     expect(restored.getEdge('ab').data.axis.toJson()).toEqual(graph.getEdge('ab').data.axis.toJson());
   });
+  test('the default codec only accepts plain JSON payloads', () => {
+    const graph = new UndirectedGraph2D<{ axis: Line2 }>();
+    graph.addNode('a', new Vec2(0, 0));
+    graph.addNode('b', new Vec2(2, 0));
+    expect(() => graph.addEdge('ab', 'a', 'b', { axis: new Line2(new Vec2(0, 0), new Vec2(1, 0)) })).toThrow('codec');
+  });
+
+  test('a custom codec controls validation and serialisation', () => {
+    type Payload = { since: Date };
+    const dates: EdgeDataCodec<Payload> = {
+      isValid: (data): data is Payload => (data as Payload)?.since instanceof Date,
+      toJson: (data) => ({ since: data.since.toISOString() }),
+      fromJson: (json) => ({ since: new Date(json.since as string) }),
+    };
+    const graph = new UndirectedGraph2D<Payload>({ codec: dates });
+    graph.addNode('a', new Vec2(0, 0));
+    graph.addNode('b', new Vec2(1, 0));
+    graph.addEdge('ab', 'a', 'b', { since: new Date('2026-01-02T00:00:00Z') });
+    const restored = UndirectedGraph2D.deserialise(graph.serialise(), { codec: dates });
+    expect(restored.getEdge('ab').data.since.getUTCDate()).toBe(2);
+  });
+
   test('fromJson rejects invalid payloads', () => {
     expect(() => UndirectedGraph2D.fromJson({ type: 'nope', nodes: [], edges: [] })).toThrow();
   });

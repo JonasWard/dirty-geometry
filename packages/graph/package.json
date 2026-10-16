@@ -6,6 +6,7 @@
   "description": "Undirected 2D graph with path search, and a half-edge graph built from n-gon meshes.",
   "exports": {
     ".": "./src/index.ts",
+    "./examples/*": "./examples/*.ts",
     "./*": "./src/*.ts"
   },
   "dependencies": {

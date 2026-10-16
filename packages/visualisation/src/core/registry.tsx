@@ -45,6 +45,15 @@ const components: Record<string, LazyExoticComponent<ComponentType>> = {
       (m) => m.Grid2RectangleDetectionVisualisation,
     ),
   ),
+  'graph/path-search': lazy(() =>
+    load(import('../demos/graph/path-search/PathSearchVisualisation'), (m) => m.PathSearchVisualisation),
+  ),
+  'graph/edge-subgraph': lazy(() =>
+    load(import('../demos/graph/edge-subgraph/EdgeSubgraphVisualisation'), (m) => m.EdgeSubgraphVisualisation),
+  ),
+  'graph/half-edge': lazy(() =>
+    load(import('../demos/graph/half-edge/HalfEdgeVisualisation'), (m) => m.HalfEdgeVisualisation),
+  ),
 };
 
 export type DemoView = { meta: DemoMeta; render: () => ReactNode };

@@ -47,6 +47,7 @@
       "name": "@dirty-geometry/visualisation",
       "version": "0.1.0",
       "dependencies": {
+        "@dirty-geometry/graph": "workspace:*",
         "@dirty-geometry/vec2": "workspace:*",
       },
       "peerDependencies": {

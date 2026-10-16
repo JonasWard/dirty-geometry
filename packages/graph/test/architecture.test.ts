@@ -18,3 +18,16 @@ test('the graph core imports nothing from vec2 but Vec2 itself', () => {
   }
   expect(violations).toEqual([]);
 });
+
+test('graph examples only use graph src and vec2, never other packages or the site', () => {
+  const graph = buildImportGraph(['packages/graph/examples']);
+  const violations: string[] = [];
+  for (const [file, targets] of graph) {
+    for (const target of targets) {
+      const inGraph = !relativeModule('packages/graph', target).startsWith('..');
+      const inVec2 = !relativeModule('packages/vec2/src', target).startsWith('..');
+      if (!inGraph && !inVec2) violations.push(`${relativeModule('packages/graph', file)} -> ${target}`);
+    }
+  }
+  expect(violations).toEqual([]);
+});

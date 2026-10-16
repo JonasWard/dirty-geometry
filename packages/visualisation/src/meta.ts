@@ -12,6 +12,9 @@ import { intersectionLines2VisualisationMeta } from './demos/vec2/intersection-l
 import { interval2VisualisationMeta } from './demos/vec2/interval2/meta';
 import { overlap2VisualisationMeta } from './demos/vec2/overlap2/meta';
 import { triMesh2VisualisationMeta } from './demos/vec2/tri-mesh2/meta';
+import { edgeSubgraphVisualisationMeta } from './demos/graph/edge-subgraph/meta';
+import { halfEdgeVisualisationMeta } from './demos/graph/half-edge/meta';
+import { pathSearchVisualisationMeta } from './demos/graph/path-search/meta';
 import type { VisualisationMeta } from './core/meta';
 
 export type { LegendItem, VisualisationMeta } from './core/meta';
@@ -64,6 +67,7 @@ export const visualisationMetas: readonly DemoMeta[] = [
     grid2VisualisationMeta,
     grid2RectangleDetectionMeta,
   ]),
+  ...inLibrary('graph', [pathSearchVisualisationMeta, edgeSubgraphVisualisationMeta, halfEdgeVisualisationMeta]),
 ];
 
 export function isDemoLibrary(value: string): value is DemoLibrary {

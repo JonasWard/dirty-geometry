@@ -5,6 +5,8 @@ import { Vec2, type Vec2Json } from '../../core/vec2';
 import { segmentsFromVertices } from '../curves/segments';
 import { Line2 } from '../primitives/line2';
 
+const segmentsCache = new WeakMap<Polygon2, readonly Line2[]>();
+
 /** Closed polygon: consecutive vertex pairs plus a segment from last to first. */
 export class Polygon2 {
   static readonly type = 'Polygon2' as const;
@@ -39,7 +41,14 @@ export class Polygon2 {
 
   /** Boundary segments including the closing edge (`n` segments). */
   segments(): Line2[] {
-    return segmentsFromVertices(this.vertices, true);
+    // Vertices are readonly and segments immutable, so the list is built once; callers get a copy.
+    // Kept outside the instance so equality checks and spreads don't see it.
+    let cached = segmentsCache.get(this);
+    if (!cached) {
+      cached = segmentsFromVertices(this.vertices, true);
+      segmentsCache.set(this, cached);
+    }
+    return cached.slice();
   }
 
   length(): number {
@@ -78,8 +87,28 @@ export class Polygon2 {
     return Line2.closestToPointForSegments(this.segments(), point, additionalTolerance).points;
   }
 
+  /** Distance to the nearest boundary edge. Allocation-free: point-in-region tests call it per loop. */
   distanceToPoint(point: Vec2): number {
-    return Line2.closestToPointForSegments(this.segments(), point).smallestDistance;
+    const vertices = this.vertices;
+    const count = vertices.length;
+    let best = Infinity;
+
+    for (let i = 0; i < count; i++) {
+      const a = vertices[i]!;
+      const b = vertices[(i + 1) % count]!;
+      const dx = b.x - a.x;
+      const dy = b.y - a.y;
+      const px = point.x - a.x;
+      const py = point.y - a.y;
+      const lengthSquared = dx * dx + dy * dy;
+      const t = lengthSquared > 0 ? Math.min(1, Math.max(0, (px * dx + py * dy) / lengthSquared)) : 0;
+      const ex = px - t * dx;
+      const ey = py - t * dy;
+      const distanceSquared = ex * ex + ey * ey;
+      if (distanceSquared < best) best = distanceSquared;
+    }
+
+    return Math.sqrt(best);
   }
 
   /** Negative inside, positive outside, zero on the boundary. */

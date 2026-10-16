@@ -1,25 +1,42 @@
 {
   "name": "dirty-geometry",
+  "workspaces": [
+    "packages/*"
+  ],
   "scripts": {
     "dev": "next dev --webpack",
     "build": "next build",
     "start": "npx serve@latest out",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test": "bun test packages",
+    "test:perf": "PERF=1 bun test packages",
+    "typecheck": "tsc --noEmit -p packages/vec2 && tsc --noEmit -p packages/graph && tsc --noEmit -p packages/visualisation && tsc --noEmit",
+    "format": "prettier --write \"packages/**/*.{ts,tsx,json}\"",
+    "format:check": "prettier --check \"packages/**/*.{ts,tsx,json}\""
   },
   "dependencies": {
-    "react": "^18",
-    "react-dom": "^18",
-    "next": "16.2.3"
+    "@dirty-geometry/graph": "workspace:*",
+    "@dirty-geometry/vec2": "workspace:*",
+    "@dirty-geometry/visualisation": "workspace:*",
+    "@react-three/drei": "^10.7.8",
+    "@react-three/fiber": "^9.7.0",
+    "next": "16.2.3",
+    "react": "^19",
+    "react-dom": "^19",
+    "three": "^0.185.1"
   },
   "devDependencies": {
-    "typescript": "^5",
+    "@types/bun": "latest",
     "@types/node": "^20",
-    "@types/react": "^18",
-    "@types/react-dom": "^18",
-    "postcss": "^8",
-    "tailwindcss": "^3.4.1",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "@types/three": "^0.185.0",
     "eslint": "^8",
-    "eslint-config-next": "16.2.3"
+    "eslint-config-next": "16.2.3",
+    "postcss": "^8",
+    "prettier": "3.6.2",
+    "tailwindcss": "^3.4.1",
+    "typescript": "^5"
   },
   "repository": {
     "url": "https://github.com/JonasWard/dirty-geometry"

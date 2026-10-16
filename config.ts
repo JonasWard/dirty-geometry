@@ -3,7 +3,8 @@ import en from "./dictionaries/en.json";
 import fr from "./dictionaries/fr.json";
 import it from "./dictionaries/it.json";
 
-export const baseUrl = process.env.NEXT_PUBLIC_BASE_URL!;
+/** Absolute site URL without a trailing slash (`NEXT_PUBLIC_BASE_URL`, or Render's URL; see next.config). */
+export const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? "";
 
 /** URL prefix for subpath hosting (e.g. `/dirty-geometry`). Empty on apex or local dev. */
 const rawBasePath = process.env.NEXT_PUBLIC_BASE_PATH?.trim() ?? "";
@@ -16,5 +17,5 @@ export type Locale = keyof typeof translations;
 export const locales = Object.keys(translations) as Locale[];
 export const defaultLocale: Locale = "en" as const;
 
-export const pages = ["home", "about", "frame"] as const;
+export const pages = ["home", "about", "frame", "lab", "vec2", "graph"] as const;
 export type Page = (typeof pages)[number];

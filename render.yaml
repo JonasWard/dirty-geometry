@@ -1,0 +1,23 @@
+# Render Blueprint: deploys the site (including the /lab demos) as a free static site.
+# In Render: New → Blueprint → pick this repository. See docs/README.md#deploy.
+services:
+  - type: web
+    runtime: static
+    name: dirty-geometry
+    branch: main
+    # Bun is pinned and fetched from npm, so the build works in Render's Node build image.
+    buildCommand: npx --yes bun@1.4.2 install --frozen-lockfile && npx --yes bun@1.4.2 run build
+    staticPublishPath: ./out
+    envVars:
+      # Served at the root: "/" overrides the GitHub Pages base path in .env.production.
+      - key: NEXT_PUBLIC_BASE_PATH
+        value: /
+      # Sitemap and robots.txt use Render's RENDER_EXTERNAL_URL; for a custom domain, add
+      # SITE_URL (e.g. https://geometry.example.com) in the dashboard.
+      - key: NEXT_TELEMETRY_DISABLED
+        value: "1"
+    headers:
+      # Next's hashed assets never change under the same name.
+      - path: /_next/static/*
+        name: Cache-Control
+        value: public, max-age=31536000, immutable

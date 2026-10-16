@@ -1,0 +1,112 @@
+'use client';
+
+import { Html, Line } from '@react-three/drei';
+import { useMemo } from 'react';
+import { Vec2 } from '@dirty-geometry/vec2/core/vec2';
+import { ContainerInteriorMesh } from '../../../geometry/components/ContainerInteriorMesh';
+import { GeometryRender } from '../../../geometry/components/GeometryRender';
+import { fitGeometriesToFrame } from '../../../geometry';
+import { frameCorners, labelPosition } from '../../../core/frame';
+import { ScenarioGridVisualisation } from '../../../core/ScenarioGridVisualisation';
+import {
+  boolean2IntersectPolygonScenarios,
+  boolean2IntersectScenarios,
+  boolean2ManyIntersectScenarios,
+  boolean2ManySubtractScenarios,
+  boolean2SubtractPolygonScenarios,
+  boolean2SubtractScenarios,
+  boolean2UnionScenarios,
+  evaluateBooleanScenario,
+  scenarioClips,
+  type Boolean2Scenario,
+} from '@dirty-geometry/vec2/examples/boolean2/scenarios';
+
+const boolean2ScenarioRows = [
+  boolean2UnionScenarios,
+  boolean2IntersectScenarios,
+  boolean2SubtractScenarios,
+  boolean2IntersectPolygonScenarios,
+  boolean2ManyIntersectScenarios,
+  boolean2SubtractPolygonScenarios,
+  boolean2ManySubtractScenarios,
+] as const;
+
+const INPUT_COLOR = '#ffb347';
+const CLIP_COLOR = '#c77dff';
+
+function Boolean2ScenarioVisual({ scenario, offset }: { scenario: Boolean2Scenario; offset: Vec2 }) {
+  const result = useMemo(() => evaluateBooleanScenario(scenario), [scenario]);
+  const fit = useMemo(
+    () =>
+      fitGeometriesToFrame([
+        ...scenario.inputs,
+        ...scenarioClips(scenario),
+        ...(result.triMesh ? [result.triMesh] : result.polygons),
+      ]),
+    [scenario, result],
+  );
+
+  return (
+    <group>
+      {result.triMesh ? (
+        <ContainerInteriorMesh
+          container={result.triMesh}
+          fit={fit}
+          offset={offset}
+          color='#7dff7d'
+          opacity={0.25}
+          z={-0.1}
+          renderOrder={-1}
+        />
+      ) : null}
+
+      <Line points={frameCorners(offset)} color='#3a4150' lineWidth={1} />
+
+      {scenario.inputs.map((polygon, index) => (
+        <GeometryRender
+          key={`input-${index}`}
+          geometry={polygon}
+          fit={fit}
+          offset={offset}
+          color={INPUT_COLOR}
+          keyPrefix={`input-${index}`}
+          lineWidth={1.75}
+        />
+      ))}
+
+      {scenarioClips(scenario).map((clip, index) => (
+        <GeometryRender
+          key={`clip-${index}`}
+          geometry={clip}
+          fit={fit}
+          offset={offset}
+          color={CLIP_COLOR}
+          keyPrefix={`clip-${index}`}
+          lineWidth={2.5}
+        />
+      ))}
+
+      <Html center position={labelPosition(offset)} style={{ pointerEvents: 'none' }}>
+        <div className='max-w-32 rounded bg-black/75 px-1.5 py-0.5 text-center text-[8px] leading-tight text-white'>
+          <div className='font-semibold'>{scenario.name}</div>
+          <div className='text-white/70'>{scenario.section}</div>
+          <div className='text-green-300'>
+            {result.polygons.length} loop{result.polygons.length === 1 ? '' : 's'}
+            {result.triMesh ? ` · ${result.triMesh.triangles.length} tris` : ''}
+          </div>
+        </div>
+      </Html>
+    </group>
+  );
+}
+
+export function Boolean2Visualisation() {
+  return (
+    <ScenarioGridVisualisation
+      scenarioRows={boolean2ScenarioRows}
+      renderCell={(scenario, offset) => <Boolean2ScenarioVisual scenario={scenario} offset={offset} />}
+    />
+  );
+}
+
+export default Boolean2Visualisation;

@@ -2,7 +2,10 @@
   "pages": {
     "home": "Home",
     "about": "About",
-    "frame": "3D Frame"
+    "frame": "3D Frame",
+    "lab": "Lab",
+    "vec2": "vec2",
+    "graph": "graph"
   },
   "home": {
     "meta": {
@@ -52,5 +55,24 @@
     "body": "The address may be wrong, or the page was removed.",
     "backHome": "Back to home",
     "otherLocales": "Home in another language"
+  },
+  "lab": {
+    "eyebrow": "2D Geometry Lab",
+    "heading": "Interactive geometry demos",
+    "intro": "Each demo runs a set of scenarios through one of the libraries and draws the result. Scroll to zoom, drag to pan.",
+    "home": "Home",
+    "backHome": "Back to home",
+    "allDemos": "All demos",
+    "previous": "Previous",
+    "next": "Next",
+    "demos": "demos",
+    "openLibrary": "Browse the demos",
+    "homeSection": "The Lab",
+    "homeHeading": "Geometry you can poke at",
+    "homeCta": "Open the lab",
+    "libraries": {
+      "vec2": "2D math: curves, intersections, triangulation, containment, booleans, bounds and grids.",
+      "graph": "Graphs: path search, edge-subset helpers and half-edge meshes."
+    }
   }
 }

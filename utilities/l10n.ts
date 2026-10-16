@@ -19,13 +19,20 @@ export const getTranslations = (input?: string) =>
 const getPageSegment = (page?: Page) => {
   if (!page || page === "home") return "";
   if (page === "frame") return "entries/frame/";
+  if (page === "vec2" || page === "graph") return `lab/${page}/`;
   return `${page}/`;
 };
 
 export const getPath = (locale: Locale, page?: Page) =>
   `/${locale === defaultLocale ? "" : `${locale}/`}${getPageSegment(page)}`;
 
-export const getUrl = (locale: Locale, page?: Page) =>
-  `${baseUrl}${getPath(locale, page)}`.replace(/\/$/, "");
+/** Path of one lab demo, e.g. `/lab/vec2/curves/` or `/de/lab/graph/path-search/`. */
+export const getDemoPath = (locale: Locale, library: string, id: string) =>
+  `${getPath(locale, "lab")}${library}/${id}/`;
+
+/** Absolute URL of a site path (paths end in `/`, matching the trailing-slash export). */
+export const getAbsoluteUrl = (path: string) => `${baseUrl}${path}`;
+
+export const getUrl = (locale: Locale, page?: Page) => getAbsoluteUrl(getPath(locale, page));
 
 export const state = { locale: defaultLocale };

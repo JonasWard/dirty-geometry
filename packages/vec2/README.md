@@ -71,6 +71,7 @@ const { outputs } = evaluateDefinition(definition, { params: { width: 6 } }); //
 - **What is recorded.** Calls to vec2 operations: constructors, static and instance methods, static constants, readonly fields and the functions in `operations/`. Arguments are stored as literals, references to earlier nodes, or (for vec2 values made outside the recorder) their `toJson()`. Callbacks, generators and policy exclusions run unrecorded with a warning, or throw with `createRecorder({ strict: true })`.
 - **Scalars.** Numbers and strings returned by vec2 operations come back as `Scalar` objects that remember their node, so `v.scale(line.length())` is linked in the graph. Arithmetic works through `valueOf()` but gives plain numbers, recorded as literals: `line.length() * 2` does not follow a new param. Because a `Scalar` is an object, use `.value` for `===`, truthiness and `typeof`.
 - **Calls, not code.** Loops and branches run once while recording; replay repeats the same calls with the new params but does not re-decide a branch or a loop count.
+- **Packing.** `@dirty-geometry/vec2-dense` packs definitions and values into densing strings, and `/lab/vec2/playground/` builds definitions interactively.
 - **Replay and inspection.** `evaluateDefinition` checks the schema hash (and that every operation still exists, via aliases) and type-checks param overrides. `definitionGraph` lays the DAG out in layers; `/lab/vec2/definitions/` shows both on the plate example in `examples/definitions/plate.ts`.
 
 ## Tests

@@ -12,7 +12,7 @@ import type { Container2, Geometry2 } from '../geometry/kinds';
 import type { Hesse2 } from '../geometry/primitives/hesse2';
 import { Polygon2 } from '../geometry/regions/polygon2';
 import type { TriMesh2 } from '../geometry/regions/tri-mesh2';
-import { intersectionLines } from './intersection/line2-like';
+import { Intersection2 } from './intersection2';
 
 export type { Geometry2 } from '../geometry/kinds';
 
@@ -23,6 +23,8 @@ type LineLike2 = InfiniteLine2 | Ray2 | Line2;
  * Touching counts as overlap with `Epsilon.preferIn`; `Epsilon.preferOut` requires proper overlap.
  */
 export class Overlap2 {
+  private constructor() {}
+
   /** `InfiniteLine2` and `Hesse2` act as half-planes (`signedDistance <= 0`); rays are unbounded. */
   static overlaps(a: Geometry2, b: Geometry2, slack: Epsilon = Epsilon.preferIn): boolean {
     const first = normalise(a);
@@ -128,7 +130,7 @@ function overlapsPoint(point: Vec2, other: NormalisedGeometry2, slack: Epsilon):
 }
 
 function overlapsLineLikes(a: LineLike2, b: LineLike2, slack: Epsilon): boolean {
-  const hit = intersectionLines(a, b);
+  const hit = Intersection2.lines(a, b);
   if (hit === null) {
     return false;
   }

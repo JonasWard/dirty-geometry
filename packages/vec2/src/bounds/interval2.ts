@@ -124,8 +124,8 @@ export class Interval2 {
     return new Interval2(this.min + offset, this.max + offset);
   }
 
-  clamp(t: number): number {
-    return Math.max(this.min, Math.min(this.max, t));
+  clamp(value: number): number {
+    return Math.max(this.min, Math.min(this.max, value));
   }
 
   contains(value: number, slack: Epsilon = Epsilon.preferIn): boolean {

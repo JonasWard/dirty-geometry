@@ -2,14 +2,14 @@
 import type { ArgJson, Definition, NodeJson, ParamJson } from '@dirty-geometry/vec2/recording/definition';
 import type { OperationSchema, TypeRef } from '@dirty-geometry/vec2/schema/types';
 import { matchesType } from '@dirty-geometry/vec2/recording/runtime';
-import { vec2Schema } from '@dirty-geometry/vec2-dense/definition-schema';
+import { operationOf as lookup, vec2Schema } from '@dirty-geometry/vec2-dense/definition-schema';
 import { numericRole } from '@dirty-geometry/vec2-dense/roles';
 import { defaultLiteral } from './defaults';
 
 export type OperationNode = Extract<NodeJson, { args: ArgJson[] }>;
 export const isOperationNode = (node: NodeJson): node is OperationNode => 'args' in node;
 
-export const operationOf = (id: string): OperationSchema | undefined => vec2Schema.operations[id];
+export const operationOf = (id: string): OperationSchema | undefined => lookup(id);
 
 export const needsSelf = (op: OperationSchema) => op.kind === 'method' || op.kind === 'field';
 

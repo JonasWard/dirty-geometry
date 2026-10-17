@@ -23,7 +23,7 @@ export const OPERATION_GROUPS: readonly { label: string; ops: readonly string[] 
       'Line2#closestPointForPoint',
       'Ray2.new',
       'InfiniteLine2.new',
-      'operations/intersection/line2-like:intersectionLines',
+      'Intersection2.lines',
     ],
   },
   {
@@ -33,7 +33,7 @@ export const OPERATION_GROUPS: readonly { label: string; ops: readonly string[] 
       'Polyline2#evaluate',
       'Polyline2#evaluateAtLength',
       'Polyline2#length',
-      'operations/douglas-peucker:douglasPeucker',
+      'DouglasPeucker.simplify',
     ],
   },
   {
@@ -51,7 +51,7 @@ export const OPERATION_GROUPS: readonly { label: string; ops: readonly string[] 
     ],
   },
   { label: 'Booleans', ops: ['Boolean2.union', 'Boolean2.subtract', 'Boolean2.intersect'] },
-  { label: 'Mesh', ops: ['operations/constrained-delaunay:constrainedDelaunay', 'operations/cdt/hull:convexHullLoop'] },
+  { label: 'Mesh', ops: ['ConstrainedDelaunay.triangulate', 'operations/helpers/cdt/hull:convexHullLoop'] },
   { label: 'Transforms', ops: ['Mat3.translation', 'Mat3.rotation', 'Mat3.scale'] },
 ];
 

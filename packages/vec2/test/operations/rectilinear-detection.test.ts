@@ -3,14 +3,9 @@ import { clusterSortedValues } from '../../src/analysis/clustering/center';
 import { Epsilon } from '../../src/core/epsilon';
 import { Vec2 } from '../../src/core/vec2';
 import { Polygon2 } from '../../src/geometry/regions/polygon2';
-import { buildGrid2FromWorldVertices } from '../../src/operations/polygon-analysis/grid-from-world';
-import { decomposeOccupancyIntoRectangles } from '../../src/operations/polygon-analysis/rectangle-decomposition';
-import {
-  detectRectilinearGridFromPolygon,
-  detectRectilinearGridFromPolygons,
-  DOUGLAS_PEUCKER_GRID_DEFAULTS,
-  isAxisAlignedPolygonPath,
-} from '../../src/operations/polygon-analysis/rectilinear-detection';
+import { DouglasPeucker } from '../../src/operations/douglas-peucker';
+import { isAxisAlignedPolygonPath } from '../../src/operations/helpers/grid-polygon-path';
+import { RectilinearGrid2 } from '../../src/operations/rectilinear-grid2';
 import {
   exampleBuildingFootprintPolygon,
   exampleNotchPolygon,
@@ -70,10 +65,10 @@ describe('clusterSortedValues', () => {
   });
 });
 
-describe('buildGrid2FromWorldVertices', () => {
+describe('RectilinearGrid2.fromVertices', () => {
   test('builds frame at minimum clustered coordinates', () => {
     const epsilon = Epsilon.preferIn;
-    const layout = buildGrid2FromWorldVertices(
+    const layout = RectilinearGrid2.fromVertices(
       [new Vec2(1, 2), new Vec2(4, 2), new Vec2(4, 5), new Vec2(1, 5)],
       epsilon,
     );
@@ -88,7 +83,7 @@ describe('buildGrid2FromWorldVertices', () => {
 
   test('stores custom column widths from coordinate spans', () => {
     const epsilon = Epsilon.preferIn;
-    const layout = buildGrid2FromWorldVertices(
+    const layout = RectilinearGrid2.fromVertices(
       [new Vec2(0, 0), new Vec2(2, 0), new Vec2(5, 0), new Vec2(5, 1), new Vec2(0, 1)],
       epsilon,
     );
@@ -99,11 +94,11 @@ describe('buildGrid2FromWorldVertices', () => {
   });
 
   test('rejects non-positive epsilon', () => {
-    expect(() => buildGrid2FromWorldVertices([new Vec2(0, 0), new Vec2(1, 1)], Epsilon.preferOut)).toThrow();
+    expect(() => RectilinearGrid2.fromVertices([new Vec2(0, 0), new Vec2(1, 1)], Epsilon.preferOut)).toThrow();
   });
 });
 
-describe('decomposeOccupancyIntoRectangles', () => {
+describe('RectilinearGrid2.decompose', () => {
   test('partitions aligned horizontal runs into a minimum cover', () => {
     const occupied = new GridCell2Collection([
       new GridCell2(0, 0),
@@ -113,13 +108,13 @@ describe('decomposeOccupancyIntoRectangles', () => {
       new GridCell2(2, 0),
     ]);
 
-    expect(decomposeOccupancyIntoRectangles(occupied)).toHaveLength(2);
+    expect(RectilinearGrid2.decompose(occupied)).toHaveLength(2);
   });
 });
 
-describe('detectRectilinearGridFromPolygon', () => {
+describe('RectilinearGrid2.detect', () => {
   test('building footprint yields a minimal two-rectangle cover', () => {
-    const detection = detectRectilinearGridFromPolygon(exampleBuildingFootprintPolygon, Epsilon.preferIn);
+    const detection = RectilinearGrid2.detect([exampleBuildingFootprintPolygon], Epsilon.preferIn);
 
     expect(detection.extent.columnCount()).toBe(7);
     expect(detection.extent.rowCount()).toBe(5);
@@ -133,7 +128,7 @@ describe('detectRectilinearGridFromPolygon', () => {
   });
 
   test('notch polygon decomposes into two rectangles', () => {
-    const detection = detectRectilinearGridFromPolygon(exampleNotchPolygon, Epsilon.preferIn);
+    const detection = RectilinearGrid2.detect([exampleNotchPolygon], Epsilon.preferIn);
 
     expect(detection.extent.columnCount()).toBe(2);
     expect(detection.extent.rowCount()).toBe(2);
@@ -145,7 +140,7 @@ describe('detectRectilinearGridFromPolygon', () => {
 
   test('axis-aligned world rectangle maps to one grid rectangle', () => {
     const polygon = new Polygon2([new Vec2(0, 0), new Vec2(4, 0), new Vec2(4, 3), new Vec2(0, 3)]);
-    const detection = detectRectilinearGridFromPolygon(polygon, Epsilon.preferIn);
+    const detection = RectilinearGrid2.detect([polygon], Epsilon.preferIn);
 
     expect(detection.rectangles).toHaveLength(1);
     expect(detection.rectangles[0]!.toCellCollection().size()).toBe(1);
@@ -157,8 +152,8 @@ describe('detectRectilinearGridFromPolygon', () => {
     expect(floors.length).toBeGreaterThanOrEqual(2);
 
     for (const floor of floors) {
-      const detection = detectRectilinearGridFromPolygons([...floor.polygons], Epsilon.preferIn, {
-        simplify: DOUGLAS_PEUCKER_GRID_DEFAULTS,
+      const detection = RectilinearGrid2.detect([...floor.polygons], Epsilon.preferIn, {
+        simplify: DouglasPeucker.gridDefaults,
       });
 
       expect(detection.sourcePolygons.length).toBe(floor.polygons.length);
@@ -181,8 +176,8 @@ describe('detectRectilinearGridFromPolygon', () => {
       new Vec2(7.667001026666667, -0.4009999930858612 + 0.001),
     ]);
     const rawCount = noisy.vertices.length;
-    const detection = detectRectilinearGridFromPolygon(noisy, Epsilon.preferIn, {
-      simplify: DOUGLAS_PEUCKER_GRID_DEFAULTS,
+    const detection = RectilinearGrid2.detect([noisy], Epsilon.preferIn, {
+      simplify: DouglasPeucker.gridDefaults,
     });
 
     expect(detection.sourcePolygons[0]!.vertices.length).toBeLessThanOrEqual(rawCount);
@@ -192,7 +187,7 @@ describe('detectRectilinearGridFromPolygon', () => {
   test('multiple disjoint polygons share one grid and keep separate boundaries', () => {
     const left = new Polygon2([new Vec2(0, 0), new Vec2(2, 0), new Vec2(2, 2), new Vec2(0, 2)]);
     const right = new Polygon2([new Vec2(5, 0), new Vec2(7, 0), new Vec2(7, 2), new Vec2(5, 2)]);
-    const detection = detectRectilinearGridFromPolygons([left, right], Epsilon.preferIn);
+    const detection = RectilinearGrid2.detect([left, right], Epsilon.preferIn);
 
     expect(detection.sourcePolygons).toHaveLength(2);
     expect(detection.gridPolygons).toHaveLength(2);

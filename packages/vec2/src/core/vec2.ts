@@ -16,16 +16,16 @@ export class Vec2 {
     readonly y = 0,
   ) {}
 
-  add(v: Vec2): Vec2 {
-    return new Vec2(this.x + v.x, this.y + v.y);
+  add(other: Vec2): Vec2 {
+    return new Vec2(this.x + other.x, this.y + other.y);
   }
 
-  subtract(v: Vec2): Vec2 {
-    return new Vec2(this.x - v.x, this.y - v.y);
+  subtract(other: Vec2): Vec2 {
+    return new Vec2(this.x - other.x, this.y - other.y);
   }
 
-  scale(s: number): Vec2 {
-    return new Vec2(this.x * s, this.y * s);
+  scale(factor: number): Vec2 {
+    return new Vec2(this.x * factor, this.y * factor);
   }
 
   unit(): Vec2 {
@@ -43,8 +43,8 @@ export class Vec2 {
     return new Vec2(-this.y, this.x);
   }
 
-  distance(v: Vec2): number {
-    return Math.hypot(this.x - v.x, this.y - v.y);
+  distance(other: Vec2): number {
+    return Math.hypot(this.x - other.x, this.y - other.y);
   }
 
   length(): number {
@@ -55,40 +55,40 @@ export class Vec2 {
     return this.length() < Epsilon.value;
   }
 
-  dot(v: Vec2): number {
-    return this.x * v.x + this.y * v.y;
+  dot(other: Vec2): number {
+    return this.x * other.x + this.y * other.y;
   }
 
   /** parallel (same direction) */
-  parallelCondition(v: Vec2, slack: Epsilon = Epsilon.preferIn): 'parallel' | 'antiparallel' | null {
-    const lenProduct = this.length() * v.length();
+  parallelCondition(other: Vec2, slack: Epsilon = Epsilon.preferIn): 'parallel' | 'antiparallel' | null {
+    const lenProduct = this.length() * other.length();
 
     if (lenProduct < Epsilon.sq) {
       return null;
     }
 
-    const sinTheta = this.crossProduct(v) / lenProduct;
+    const sinTheta = this.crossProduct(other) / lenProduct;
 
     if (Math.abs(sinTheta) >= slack.value) {
       return null;
     }
 
-    return this.dot(v) >= 0 ? 'parallel' : 'antiparallel';
+    return this.dot(other) >= 0 ? 'parallel' : 'antiparallel';
   }
 
   /** parallel or antiparallel */
-  parallel(v: Vec2, slack: Epsilon = Epsilon.preferIn): boolean {
-    return this.parallelCondition(v, slack) !== null;
+  parallel(other: Vec2, slack: Epsilon = Epsilon.preferIn): boolean {
+    return this.parallelCondition(other, slack) !== null;
   }
 
   /** antiparallel (opposite direction) */
-  antiparallel(v: Vec2, slack: Epsilon = Epsilon.preferIn): boolean {
-    return this.parallelCondition(v, slack) === 'antiparallel';
+  antiparallel(other: Vec2, slack: Epsilon = Epsilon.preferIn): boolean {
+    return this.parallelCondition(other, slack) === 'antiparallel';
   }
 
   /** Z component of the 3D cross product when both vectors have z = 0. */
-  crossProduct(v: Vec2): number {
-    return this.x * v.y - this.y * v.x;
+  crossProduct(other: Vec2): number {
+    return this.x * other.y - this.y * other.x;
   }
 
   /**
@@ -104,14 +104,14 @@ export class Vec2 {
   }
 
   /** Transform as a point (translation applies). */
-  transform(m: Mat3): Vec2 {
-    const e = m.elements;
+  transform(matrix: Mat3): Vec2 {
+    const e = matrix.elements;
     return new Vec2(e[0]! * this.x + e[3]! * this.y + e[6]!, e[1]! * this.x + e[4]! * this.y + e[7]!);
   }
 
-  /** Transform as a direction: only the linear part of `m` applies, translation is ignored. */
-  transformDirection(m: Mat3): Vec2 {
-    const e = m.elements;
+  /** Transform as a direction: only the linear part of `matrix` applies, translation is ignored. */
+  transformDirection(matrix: Mat3): Vec2 {
+    const e = matrix.elements;
     return new Vec2(e[0]! * this.x + e[3]! * this.y, e[1]! * this.x + e[4]! * this.y);
   }
 
@@ -151,14 +151,14 @@ export class Vec2 {
     return new Vec2(sumX / points.length, sumY / points.length);
   }
 
-  /** Directed CCW angle from this vector to `v`, in `[0, 2π)`. */
-  angleWith(v: Vec2, options?: AngleOptions): Angle {
-    return Angle.fromTwoVectors(this, v, options);
+  /** Directed CCW angle from this vector to `other`, in `[0, 2π)`. */
+  angleWith(other: Vec2, options?: AngleOptions): Angle {
+    return Angle.fromTwoVectors(this, other, options);
   }
 
-  /** Smallest unsigned angle between this vector and `v`, in `[0, π]`. */
-  angleWithSmallest(v: Vec2, options?: AngleOptions): Angle {
-    return Angle.fromTwoVectors(this, v, { ...options, ignoreSens: true });
+  /** Smallest unsigned angle between this vector and `other`, in `[0, π]`. */
+  angleWithSmallest(other: Vec2, options?: AngleOptions): Angle {
+    return Angle.fromTwoVectors(this, other, { ...options, ignoreSens: true });
   }
 
   /** Absolute polar angle from +X, in `[0, 2π)` (or `[0, π]` when `ignoreSens`). */

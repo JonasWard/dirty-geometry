@@ -7,7 +7,6 @@ export type OperandRole = NumericRole | 'epsilon';
 const BY_NAME: Readonly<Record<string, NumericRole>> = {
   // Angles in radians.
   theta: 'angle',
-  thetaInTau: 'angle',
   radians: 'angle',
   angle: 'angle',
   // Curve parameters.
@@ -18,7 +17,6 @@ const BY_NAME: Readonly<Record<string, NumericRole>> = {
   index: 'integer',
   count: 'integer',
   hash: 'integer',
-  hashValue: 'integer',
   edge: 'integer',
   a: 'integer',
   b: 'integer',

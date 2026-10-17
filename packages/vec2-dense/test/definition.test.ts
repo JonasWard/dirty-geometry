@@ -43,7 +43,7 @@ function recordMixed(): Definition {
   const square = new Polygon2([a, b, new V(size, size), new V(0, size)]);
   const other = new Polygon2([new V(2, 2), new V(6, 2), new V(6, 6), new V(2, 6)]);
   rec.output('union', Boolean2.union([square, other], { slack: Epsilon.custom(0.0005) }).polygons);
-  rec.output('mesh', rec.lib.ops.constrainedDelaunay([a, b, new V(1, 3)], [[0, 2], 1]));
+  rec.output('mesh', rec.lib.ConstrainedDelaunay.triangulate([a, b, new V(1, 3)], [[0, 2], 1]));
   rec.output('ray', new Interval2(-1, Infinity));
   rec.output('point', new Line2(a, b).evaluate(0.25));
   rec.output('rim', new Circle2(new V(1, 1), 0.5).evaluate(Math.PI / 3));

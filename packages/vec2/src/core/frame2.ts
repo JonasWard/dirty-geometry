@@ -32,12 +32,12 @@ export class Frame2 {
     );
   }
 
-  toWorld(local: Vec2): Vec2 {
-    return this.origin.add(this.xAxis.scale(local.x)).add(this.yAxis.scale(local.y));
+  toWorld(point: Vec2): Vec2 {
+    return this.origin.add(this.xAxis.scale(point.x)).add(this.yAxis.scale(point.y));
   }
 
-  toLocal(world: Vec2): Vec2 {
-    const relative = world.subtract(this.origin);
+  toLocal(point: Vec2): Vec2 {
+    const relative = point.subtract(this.origin);
     const det = this.xAxis.x * this.yAxis.y - this.xAxis.y * this.yAxis.x;
 
     // Relative check: |det| = |x||y| sin(angle between the axes), so this asks for a non-zero angle at any scale.

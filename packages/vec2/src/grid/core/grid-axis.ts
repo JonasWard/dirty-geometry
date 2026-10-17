@@ -161,23 +161,23 @@ export class Axis {
   }
 
   /** Map a local coordinate to its interval index, or `null` when it falls outside the domain. */
-  indexAt(coord: number): number | null {
+  indexAt(coordinate: number): number | null {
     const domain = this.indexDomain();
 
     if (this.kind() !== 'custom') {
-      const index = Math.floor(coord / this.baseSize());
+      const index = Math.floor(coordinate / this.baseSize());
       return index >= domain.min && index <= domain.max ? index : null;
     }
 
-    if (coord >= 0) {
+    if (coordinate >= 0) {
       const search = domain.intersect(Interval2.ray);
       if (!search) return null;
 
       let low = this.edge(search.min);
       for (const index of search.countUp()) {
         const high = low + this.rawSize(index);
-        if (coord >= low && coord < high) return index;
-        if (coord < low) return null;
+        if (coordinate >= low && coordinate < high) return index;
+        if (coordinate < low) return null;
         low = high;
       }
       return null;
@@ -189,8 +189,8 @@ export class Axis {
     let high = this.edge(search.max + 1);
     for (const index of search.countDown()) {
       const low = high - this.rawSize(index);
-      if (coord >= low && coord < high) return index;
-      if (coord >= high) return null;
+      if (coordinate >= low && coordinate < high) return index;
+      if (coordinate >= high) return null;
       high = low;
     }
     return null;
@@ -200,12 +200,12 @@ export class Axis {
    * Override size at `index`. Promotes unit/uniform to custom; clearing the last override
    * demotes back to unit/uniform.
    */
-  setSize(index: number, size: number, epsilon: Epsilon = Epsilon.preferIn): this {
+  setSize(index: number, size: number, slack: Epsilon = Epsilon.preferIn): this {
     Axis.assertPositiveSize(size, 'Axis size');
     if (!this.containsIndex(index)) {
       throw new Error('Axis index out of domain');
     }
-    const isDefaultSize = epsilon.areEqual(size, this._defaultSize);
+    const isDefaultSize = slack.areEqual(size, this._defaultSize);
     const customSizes = this._customSizes ?? {};
 
     if (isDefaultSize) {

@@ -14,7 +14,8 @@ function recordMixed(): Definition {
   const square = new Polygon2([a, new V(2, 0), new V(2, 2), new V(0, 2)]);
   rec.output('union', Boolean2.union([square], { slack: Epsilon.preferIn }).polygons);
   rec.output("it's", new Interval2(-1, Infinity));
-  rec.output('mesh', rec.lib.ops.constrainedDelaunay([a, new V(1, 0), new V(0, 1)], [[0, 1]]));
+  rec.output('mesh', rec.lib.ConstrainedDelaunay.triangulate([a, new V(1, 0), new V(0, 1)], [[0, 1]]));
+  rec.output('hull', rec.lib.helpers.convexHullLoop([a, new V(1, 0), new V(0, 1)]));
   rec.output('stored', V.center(new Vec2(2, 4), a));
   rec.output('from', square.segments()[0]!.from);
   return rec.definition();

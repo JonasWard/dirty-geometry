@@ -1,9 +1,5 @@
-import {
-  collectConstraintSources,
-  constrainedDelaunay,
-  constraintEdge,
-  type ConstraintEdge,
-} from '../../src/operations/constrained-delaunay';
+import { ConstrainedDelaunay, type ConstraintEdge } from '../../src/operations/constrained-delaunay';
+import { constraintEdge } from '../../src/operations/helpers/constraint-edge';
 import { Polygon2 } from '../../src/geometry/regions/polygon2';
 import { Polyline2 } from '../../src/geometry/curves/polyline2';
 import type { TriMesh2 } from '../../src/geometry/regions/tri-mesh2';
@@ -41,7 +37,7 @@ function scenarioFromPoints(
 }
 
 function scenarioFromShapes(name: string, shapes: ShapeInput[], steiner: Vec2[] = []): CdtScenario {
-  const { points, constraints, constraintSegments } = collectConstraintSources([
+  const { points, constraints, constraintSegments } = ConstrainedDelaunay.collectSources([
     ...shapes.map((entry) => entry.shape),
     ...steiner,
   ]);
@@ -338,5 +334,5 @@ export const cdtComplexScenarios: CdtScenario[] = [
 export const cdtScenarios: CdtScenario[] = [...cdtBasicScenarios, ...cdtShapeScenarios, ...cdtComplexScenarios];
 
 export function evaluateCdtScenario(scenario: CdtScenario): TriMesh2 {
-  return constrainedDelaunay(scenario.points, scenario.constraints);
+  return ConstrainedDelaunay.triangulate(scenario.points, scenario.constraints);
 }

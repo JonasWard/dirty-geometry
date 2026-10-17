@@ -1,5 +1,5 @@
-import { Aabb2 } from '../../bounds/aabb2';
-import { Vec2 } from '../../core/vec2';
+import { Aabb2 } from '../../../bounds/aabb2';
+import { Vec2 } from '../../../core/vec2';
 import { convexHullLoop } from './hull';
 import { CdtMesh, emptyCdtStats, type CdtStats } from './mesh';
 

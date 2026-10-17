@@ -72,7 +72,8 @@ describe('recorder', () => {
     rec.output('segment', square.segments()[1]);
     rec.output('union', Boolean2.union([square]).polygons[0]);
     rec.output('ray', new Interval2(0, Infinity));
-    rec.output('mesh', rec.lib.ops.constrainedDelaunay([a, b, c]));
+    rec.output('mesh', rec.lib.ConstrainedDelaunay.triangulate([a, b, c]));
+    rec.output('hull', rec.lib.helpers.convexHullLoop([a, b, c]));
 
     const definition = rec.definition();
     const ops = definition.nodes.map((node) => node.op);
@@ -80,7 +81,8 @@ describe('recorder', () => {
     expect(ops.filter((op) => op === 'Epsilon.preferIn')).toHaveLength(1);
     expect(ops).toContain('item');
     expect(ops).toContain('field');
-    expect(ops).toContain('operations/constrained-delaunay:constrainedDelaunay');
+    expect(ops).toContain('ConstrainedDelaunay.triangulate');
+    expect(ops).toContain('operations/helpers/cdt/hull:convexHullLoop');
     expect(nodeOf(definition, 'Vec2.center')).toMatchObject({ args: [{ ref: 'n0' }, { ref: 'n1' }, { ref: 'n2' }] });
     expect(nodeOf(definition, 'Interval2.new')).toMatchObject({ args: [{ lit: 0 }, { number: 'Infinity' }] });
   });

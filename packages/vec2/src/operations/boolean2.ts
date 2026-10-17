@@ -4,7 +4,7 @@ import { Vec2 } from '../core/vec2';
 import type { InfiniteLine2 } from '../geometry/primitives/infinite-line2';
 import { Polygon2 } from '../geometry/regions/polygon2';
 import { TriMesh2 } from '../geometry/regions/tri-mesh2';
-import { triangulateSources } from './constrained-delaunay';
+import { ConstrainedDelaunay } from './constrained-delaunay';
 
 export type Boolean2Clip = InfiniteLine2 | Polygon2;
 export type Boolean2ClipInput = Boolean2Clip | readonly Boolean2Clip[];
@@ -27,6 +27,8 @@ type ClipMode = 'intersect' | 'subtract';
  * non-zero winding classification. Boundary loops are extracted from the kept triangles.
  */
 export class Boolean2 {
+  private constructor() {}
+
   /** Union of one or more polygons (holes use clockwise winding). */
   static union(polygons: readonly Polygon2[], options: Boolean2Options = {}): Boolean2Result {
     if (polygons.length === 0) return emptyResult(options);
@@ -65,7 +67,7 @@ export class Boolean2 {
   }
 }
 
-export function asBoolean2ClipList(clips: Boolean2ClipInput): readonly Boolean2Clip[] {
+function asBoolean2ClipList(clips: Boolean2ClipInput): readonly Boolean2Clip[] {
   return Array.isArray(clips) ? clips : [clips as Boolean2Clip];
 }
 
@@ -175,7 +177,7 @@ type BooleanRun = {
 
 function runBoolean(run: BooleanRun): Boolean2Result {
   const slack = run.options.slack ?? Epsilon.preferIn;
-  const mesh = triangulateSources(
+  const mesh = ConstrainedDelaunay.fromGeometries(
     [...run.sources, ...(run.bounds ? [Polygon2.fromAabb2(run.bounds)] : []), ...(run.clipLines ?? [])],
     slack,
   );

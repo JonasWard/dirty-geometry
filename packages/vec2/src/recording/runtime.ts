@@ -1,13 +1,13 @@
 /** Shared by recording and replay: the schema, and how to run one schema operation on real values. */
-import { classes, functions } from '../../schema/bindings';
-import type { OperationSchema, TypeRef, Vec2Schema } from '../../schema/types';
-import schemaJson from '../../schema/vec2.schema.json';
+import { classes, helpers } from '../../schema/bindings';
+import { operationOf } from '../../schema/operations';
+import type { OperationSchema, TypeRef } from '../../schema/types';
 import { policy } from '../../schema/policy';
 
-export const schema = schemaJson as unknown as Vec2Schema;
+export { operationOf, vec2Schema } from '../../schema/operations';
 
 const classTable = classes as unknown as Record<string, any>;
-const functionTable = functions as unknown as Record<string, (...args: unknown[]) => unknown>;
+const helperTable = helpers as unknown as Record<string, (...args: unknown[]) => unknown>;
 
 /** Class constructor → class name, for finding the operations of an instance. */
 const classNames = new Map<unknown, string>(Object.entries(classTable).map(([name, cls]) => [cls, name]));
@@ -26,7 +26,7 @@ export function lookupOperation(
   aliases: Readonly<Record<string, string>> = policy.aliases,
 ): { id: string; op: OperationSchema } | null {
   const current = aliases[id] ?? id;
-  const op = schema.operations[current];
+  const op = operationOf(current);
   return op ? { id: current, op } : null;
 }
 
@@ -48,16 +48,16 @@ export function callOperation(id: string, op: OperationSchema, self: unknown, ar
     case 'field':
       return (self as any)[op.member];
     case 'function': {
-      const fn = functionTable[id];
+      const fn = helperTable[id];
       if (!fn) throw new RecordingError(`No implementation bound for ${id}`);
       return fn(...args);
     }
   }
 }
 
-/** Every exported operation function by its plain name (names are unique across vec2's operation modules). */
-export const functionsByName: Readonly<Record<string, string>> = Object.fromEntries(
-  Object.keys(functionTable).map((id) => [id.slice(id.indexOf(':') + 1), id]),
+/** Every helper id by its plain name (the schema generator keeps helper names unique). */
+export const helpersByName: Readonly<Record<string, string>> = Object.fromEntries(
+  Object.keys(helperTable).map((id) => [id.slice(id.indexOf(':') + 1), id]),
 );
 
 export function describeValue(value: unknown): TypeRef {

@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { constrainedDelaunay, constrainedDelaunayReport } from '../../src/operations/constrained-delaunay';
+import { ConstrainedDelaunay } from '../../src/operations/constrained-delaunay';
 import { inCircle, orient } from '../../src/core/predicates';
 import { Vec2 } from '../../src/core/vec2';
 import type { TriMesh2 } from '../../src/geometry/regions/tri-mesh2';
@@ -78,7 +78,7 @@ function delaunayViolations(mesh: TriMesh2, constrained: ReadonlySet<string> = n
 
 describe('CDT robustness', () => {
   test('50×50 collinear lattice: full coverage, all CCW', () => {
-    const mesh = constrainedDelaunay(lattice(50));
+    const mesh = ConstrainedDelaunay.triangulate(lattice(50));
 
     expect(mesh.triangles.length).toBe(2 * 49 * 49);
     expect(meshArea(mesh)).toBe(49 * 49);
@@ -87,7 +87,7 @@ describe('CDT robustness', () => {
   });
 
   test('random points: exact Delaunay property holds for every edge', () => {
-    const mesh = constrainedDelaunay(latticeRandomPoints(1500, 7));
+    const mesh = ConstrainedDelaunay.triangulate(latticeRandomPoints(1500, 7));
 
     expect(allCcw(mesh)).toBe(true);
     expect(delaunayViolations(mesh)).toBe(0);
@@ -97,7 +97,7 @@ describe('CDT robustness', () => {
     const points = latticeRandomPoints(400, 11);
     const constraints: [number, number][] = [];
     for (let i = 0; i < 20; i++) constraints.push([i * 2, i * 2 + 1]);
-    const report = constrainedDelaunayReport(points, constraints);
+    const report = ConstrainedDelaunay.report(points, constraints);
 
     // Random segments cross each other; the façade splits them, so the mesh keys differ from the input.
     expect(report.unresolved).toEqual([]);
@@ -120,14 +120,14 @@ describe('CDT robustness', () => {
       [0, 1],
       [2, 3],
     ];
-    const base = constrainedDelaunay(points, constraints);
+    const base = ConstrainedDelaunay.triangulate(points, constraints);
 
     const transforms = [
       (p: Vec2) => new Vec2(p.x * 2 ** -4 + 2 ** 20, p.y * 2 ** -4 - 2 ** 20),
       (p: Vec2) => new Vec2(p.x * 2 ** 6, p.y * 2 ** 6),
     ];
     for (const transform of transforms) {
-      const moved = constrainedDelaunay(points.map(transform), constraints);
+      const moved = ConstrainedDelaunay.triangulate(points.map(transform), constraints);
       expect(moved.vertices.length).toBe(base.vertices.length);
       expect(triangleSet(moved.triangles)).toEqual(triangleSet(base.triangles));
     }
@@ -140,7 +140,7 @@ describe('CDT robustness', () => {
       points.push(new Vec2(x, 400 - (x * x) / 4));
     }
     points.push(new Vec2(0, 0));
-    const mesh = constrainedDelaunay(points);
+    const mesh = ConstrainedDelaunay.triangulate(points);
 
     // Hull: the arc plus the apex (0, 0); area by the shoelace formula over that loop.
     let hullArea = 0;
@@ -170,7 +170,7 @@ describe('CDT robustness', () => {
       new Vec2(0, 1),
     ];
     const constraints = ring.map((_, i) => [i, (i + 1) % ring.length] as [number, number]);
-    const report = constrainedDelaunayReport(ring, constraints);
+    const report = ConstrainedDelaunay.report(ring, constraints);
 
     expect(report.unresolved).toEqual([]);
     expect(meshArea(report.mesh)).toBe(6);
@@ -180,7 +180,7 @@ describe('CDT robustness', () => {
 describe('CDT work budgets (operation counts, not wall clock)', () => {
   test('random points: about O(n) predicate calls and walk steps', () => {
     const n = 2000;
-    const { stats } = constrainedDelaunayReport(latticeRandomPoints(n, 5));
+    const { stats } = ConstrainedDelaunay.report(latticeRandomPoints(n, 5));
 
     expect(stats.inCircle).toBeLessThan(25 * n);
     expect(stats.walkSteps).toBeLessThan(10 * n);
@@ -188,7 +188,7 @@ describe('CDT work budgets (operation counts, not wall clock)', () => {
 
   test('collinear lattice: cocircular points stay within budget', () => {
     const n = 2500;
-    const { stats } = constrainedDelaunayReport(lattice(50));
+    const { stats } = ConstrainedDelaunay.report(lattice(50));
 
     expect(stats.inCircle).toBeLessThan(30 * n);
     expect(stats.walkSteps).toBeLessThan(10 * n);

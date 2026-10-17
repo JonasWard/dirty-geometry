@@ -3,7 +3,7 @@
  * definition again. Stored vec2 values print as `value({...codec JSON})`, so they stay stored values.
  */
 import type { ArgJson, Definition, NodeJson } from '@dirty-geometry/vec2/recording/definition';
-import { vec2Schema } from './definition-schema';
+import { operationOf } from './definition-schema';
 
 const IDENTIFIER = /^[A-Za-z_$][\w$]*$/;
 const RESERVED = new Set([
@@ -93,7 +93,7 @@ function nodeNames(definition: Definition): Map<string, string> {
     else if (node.op === 'item' || node.op === 'field' || node.op === 'param')
       base = node.op === 'field' && 'name' in node ? node.name : 'item';
     else {
-      const op = vec2Schema.operations[node.op];
+      const op = operationOf(node.op);
       base = !op ? 'v' : op.kind === 'constructor' ? lowerFirst(op.owner ?? 'value') : op.member;
     }
     names.set(node.id, unique(base));
@@ -115,7 +115,7 @@ function statement(node: NodeJson, names: ReadonlyMap<string, string>, definitio
     return `const ${name} = ${names.get(node.of)}${access};`;
   }
   if (!('args' in node)) return `// unsupported node ${node.id}`;
-  const op = vec2Schema.operations[node.op];
+  const op = operationOf(node.op);
   if (!op) return `// unknown operation ${node.op}`;
   const args = node.args.map((arg) => formatArg(arg, names)).join(', ');
   const self = node.self ? names.get(node.self) : undefined;
@@ -139,11 +139,11 @@ function statement(node: NodeJson, names: ReadonlyMap<string, string>, definitio
 export function definitionToTypeScript(definition: Definition): string {
   const names = nodeNames(definition);
   const classes = new Set<string>();
-  const functions = new Set<string>();
+  const helpers = new Set<string>();
   for (const node of definition.nodes) {
-    const op = 'args' in node ? vec2Schema.operations[node.op] : undefined;
+    const op = 'args' in node ? operationOf(node.op) : undefined;
     if (!op) continue;
-    if (op.kind === 'function') functions.add(op.member);
+    if (op.kind === 'function') helpers.add(op.member);
     else if (op.kind !== 'method' && op.kind !== 'field' && op.owner) classes.add(op.owner);
   }
 
@@ -153,7 +153,7 @@ export function definitionToTypeScript(definition: Definition): string {
     'const rec = createRecorder();',
   ];
   if (classes.size > 0) lines.push(`const { ${[...classes].sort().join(', ')} } = rec.lib;`);
-  if (functions.size > 0) lines.push(`const { ${[...functions].sort().join(', ')} } = rec.lib.ops;`);
+  if (helpers.size > 0) lines.push(`const { ${[...helpers].sort().join(', ')} } = rec.lib.helpers;`);
   lines.push('');
   for (const node of definition.nodes) lines.push(statement(node, names, definition));
   lines.push('');

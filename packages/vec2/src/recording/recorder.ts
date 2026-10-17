@@ -8,7 +8,7 @@
  *   rec.output('end', line.evaluate(line.length()));
  *   const definition = rec.definition(); // JSON-serialisable; replay with evaluateDefinition
  *
- * `rec.lib` mirrors the vec2 classes (and `rec.lib.ops` the operation functions) through Proxies. Every
+ * `rec.lib` mirrors the vec2 classes (and `rec.lib.helpers` the helper functions) through Proxies. Every
  * call is looked up in the generated schema, run on the real values, and its result is handed back
  * wrapped: objects as Proxies of the real object, numbers / strings as {@link Scalar}s. Calls the library
  * makes internally run on real values and are not recorded.
@@ -21,12 +21,13 @@ import {
   callOperation,
   classNameOf,
   describeValue,
-  functionsByName,
+  helpersByName,
   lookupOperation,
+  operationOf,
   RecordingError,
-  schema,
+  vec2Schema,
 } from './runtime';
-import { classes, functions } from '../../schema/bindings';
+import { classes, helpers } from '../../schema/bindings';
 
 export { RecordingError } from './runtime';
 
@@ -42,14 +43,14 @@ export type RecorderOptions = {
 type ClassTable = typeof classes;
 /** A node without its id (distributes over the node kinds). */
 type NodeBody = NodeJson extends infer N ? (N extends NodeJson ? Omit<N, 'id'> : never) : never;
-/** Operation functions by plain name (`constrainedDelaunay`), typed like the originals. */
-type OperationFunctions = {
-  readonly [K in keyof typeof functions as K extends `${string}:${infer Name}` ? Name : never]: (typeof functions)[K];
+/** Helper functions by plain name (`convexHullLoop`), typed like the originals. */
+type HelperFunctions = {
+  readonly [K in keyof typeof helpers as K extends `${string}:${infer Name}` ? Name : never]: (typeof helpers)[K];
 };
 
 export type Recorder = {
-  /** The vec2 classes, recording every call. */
-  readonly lib: ClassTable & { readonly ops: OperationFunctions };
+  /** The vec2 classes and helpers, recording every call. */
+  readonly lib: ClassTable & { readonly helpers: HelperFunctions };
   /** A named, editable input. Numbers and strings come back as {@link Scalar}s, vec2 objects as recorded objects. */
   param<T extends number | string | boolean | object>(name: string, value: T): T;
   /** Name a recorded value as an output of the definition. */
@@ -189,7 +190,7 @@ export function createRecorder(options: RecorderOptions = {}): Recorder {
       get(target, key) {
         if (typeof key !== 'string' || key === 'constructor' || key === 'type') return Reflect.get(target, key, target);
         const id = `${owner}#${key}`;
-        const op = schema.operations[id];
+        const op = operationOf(id);
         if (!op) {
           const value = Reflect.get(target, key, target);
           return typeof value === 'function' ? value.bind(target) : value;
@@ -215,7 +216,7 @@ export function createRecorder(options: RecorderOptions = {}): Recorder {
           return Reflect.get(target, key, target);
         }
         const id = `${name}.${key}`;
-        const op = schema.operations[id];
+        const op = operationOf(id);
         if (!op) return Reflect.get(target, key, target);
         if (op.kind === 'constant') return invoke(id, undefined, []);
         return (...args: unknown[]) => invoke(id, undefined, args);
@@ -223,12 +224,12 @@ export function createRecorder(options: RecorderOptions = {}): Recorder {
     });
   }
 
-  const ops = Object.fromEntries(
-    Object.entries(functionsByName).map(([name, id]) => [name, (...args: unknown[]) => invoke(id, undefined, args)]),
+  const helperFacade = Object.fromEntries(
+    Object.entries(helpersByName).map(([name, id]) => [name, (...args: unknown[]) => invoke(id, undefined, args)]),
   );
   const lib = Object.freeze({
     ...Object.fromEntries(Object.entries(classes).map(([name, cls]) => [name, classFacade(name, cls)])),
-    ops: Object.freeze(ops) as unknown as OperationFunctions,
+    helpers: Object.freeze(helperFacade) as unknown as HelperFunctions,
   }) as unknown as Recorder['lib'];
 
   return {
@@ -255,7 +256,14 @@ export function createRecorder(options: RecorderOptions = {}): Recorder {
       outputs[name] = traced.node;
     },
     definition() {
-      return pruneDefinition({ format: 'vec2-definition', version: 1, schema: schema.hash, params, nodes, outputs });
+      return pruneDefinition({
+        format: 'vec2-definition',
+        version: 1,
+        schema: vec2Schema.hash,
+        params,
+        nodes,
+        outputs,
+      });
     },
     unwrap<T>(value: T): T {
       return (provenance(value)?.real ?? value) as T;

@@ -2,7 +2,7 @@
 
 import { Html, Line } from '@react-three/drei';
 import { useMemo } from 'react';
-import type { LineLike2IntersectionResult } from '@dirty-geometry/vec2/operations/intersection/line2-like';
+import type { LineLike2IntersectionResult } from '@dirty-geometry/vec2/operations/intersection2';
 import { InfiniteLine2 } from '@dirty-geometry/vec2/geometry/primitives/infinite-line2';
 import { Line2 } from '@dirty-geometry/vec2/geometry/primitives/line2';
 import { Ray2 } from '@dirty-geometry/vec2/geometry/primitives/ray2';

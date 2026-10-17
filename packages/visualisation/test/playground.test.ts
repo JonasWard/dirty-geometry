@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { evaluateDefinition } from '@dirty-geometry/vec2/recording/replay';
-import { vec2Schema } from '@dirty-geometry/vec2-dense/definition-schema';
+import { operationOf } from '@dirty-geometry/vec2-dense/definition-schema';
 import { DEFAULT_VALUES } from '../src/playground/defaults';
 import {
   addNode,
@@ -19,7 +19,7 @@ import { defaultRegistry } from '@dirty-geometry/vec2/io/default-registry';
 describe('playground', () => {
   test('every hardcoded operation is a recordable vec2 operation', () => {
     for (const op of OPERATION_GROUPS.flatMap((group) => group.ops)) {
-      expect(vec2Schema.operations[op]?.recordable, op).toBe(true);
+      expect(operationOf(op)?.recordable, op).toBe(true);
     }
   });
 
@@ -64,7 +64,7 @@ describe('playground', () => {
       expect.stringContaining('removed node'),
     ]);
     expect(validateDefinition(setArg(definition, second, 0, { undefined: true })).get(second)).toEqual([
-      's is required',
+      'factor is required',
     ]);
   });
 });

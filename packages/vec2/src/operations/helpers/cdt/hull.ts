@@ -1,5 +1,5 @@
-import { orient } from '../../core/predicates';
-import type { Vec2 } from '../../core/vec2';
+import { orient } from '../../../core/predicates';
+import type { Vec2 } from '../../../core/vec2';
 
 /**
  * Indices of the convex hull of `points`, counter-clockwise, keeping points that lie on hull edges

@@ -1,9 +1,4 @@
-import {
-  Boolean2,
-  asBoolean2ClipList,
-  type Boolean2ClipInput,
-  type Boolean2Options,
-} from '../../src/operations/boolean2';
+import { Boolean2, type Boolean2ClipInput, type Boolean2Options } from '../../src/operations/boolean2';
 import { Aabb2 } from '../../src/bounds/aabb2';
 import { Epsilon } from '../../src/core/epsilon';
 import { InfiniteLine2 } from '../../src/geometry/primitives/infinite-line2';
@@ -353,7 +348,7 @@ export function evaluateBooleanScenario(scenario: Boolean2Scenario) {
 }
 
 export function scenarioClips(scenario: Boolean2Scenario) {
-  return scenario.clips ? asBoolean2ClipList(scenario.clips) : [];
+  return scenario.clips ? (Array.isArray(scenario.clips) ? scenario.clips : [scenario.clips]) : [];
 }
 
 export function removedHalfSamplePoint(scenario: Boolean2Scenario): Vec2 | null {

@@ -21,7 +21,7 @@ export type ArgJson =
 
 /**
  * A node of the definition:
- * - a schema operation (`Line2.new`, `Line2#evaluate`, `operations/…:fn`) with `self` for instance members;
+ * - a schema operation (`Line2.new`, `Line2#evaluate`, `ConstrainedDelaunay.triangulate`, `operations/helpers/…:fn`) with `self` for instance members;
  * - `param`: a named, editable input;
  * - `item` / `field`: an element of an array result or a field of a plain result object.
  */

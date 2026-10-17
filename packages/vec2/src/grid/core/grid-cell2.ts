@@ -23,8 +23,8 @@ export class GridCell2 {
     return this.i === other.i && this.j === other.j;
   }
 
-  add(delta: GridCell2): GridCell2 {
-    return new GridCell2(this.i + delta.i, this.j + delta.j);
+  add(other: GridCell2): GridCell2 {
+    return new GridCell2(this.i + other.i, this.j + other.j);
   }
 
   subtract(other: GridCell2): GridCell2 {

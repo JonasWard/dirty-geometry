@@ -1,5 +1,5 @@
-import { inCircle, orient } from '../../core/predicates';
-import type { Vec2 } from '../../core/vec2';
+import { inCircle, orient } from '../../../core/predicates';
+import type { Vec2 } from '../../../core/vec2';
 
 /** Work counters for a triangulation, for count-based (not wall-clock) performance budgets. */
 export type CdtStats = {

@@ -5,9 +5,8 @@
  * operand template.
  */
 import { schemaFromJson, type DenseField, type DenseSchema } from 'densing';
+import { operations, vec2Schema } from '@dirty-geometry/vec2/schema/operations';
 import type { OperationSchema, TypeRef } from '@dirty-geometry/vec2/schema/types';
-import schemaJson from '@dirty-geometry/vec2/schema/vec2.schema.json';
-import type { Vec2Schema } from '@dirty-geometry/vec2/schema/types';
 import { createNumerics, type NumericOptions } from './numerics';
 import { numericRole, type OperandRole } from './roles';
 import { NAME_CHARS, TEXT_CHARS, MAX_TEXT_LENGTH, textField } from './text';
@@ -26,7 +25,7 @@ import {
   type ValueType,
 } from './values';
 
-export const vec2Schema = schemaJson as unknown as Vec2Schema;
+export { operationOf, vec2Schema } from '@dirty-geometry/vec2/schema/operations';
 
 export const MAX_NODES = 1024;
 export const MAX_PARAMS = 64;
@@ -133,7 +132,7 @@ export function operandRef(table: TemplateTable, name: string, type: TypeRef, ro
 
 /** The recordable operations, in schema order. */
 export const recordableOperations = (): [string, OperationSchema][] =>
-  Object.entries(vec2Schema.operations).filter(([, op]) => op.recordable);
+  [...operations].filter(([, op]) => op.recordable);
 
 const needsSelf = (op: OperationSchema) => op.kind === 'method' || op.kind === 'field';
 

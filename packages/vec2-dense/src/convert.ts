@@ -14,6 +14,7 @@ import {
   literalShape,
   paramField,
   schemaStamp,
+  operationOf,
   vec2Schema,
   type DenseDefinitionSchema,
   type ParamKind,
@@ -28,7 +29,7 @@ export class DenseDefinitionError extends Error {
 const isOperation = (node: NodeJson): node is Extract<NodeJson, { args: ArgJson[] }> => 'args' in node;
 
 function operation(id: string): OperationSchema {
-  const op = vec2Schema.operations[id];
+  const op = operationOf(id);
   if (!op || !op.recordable) throw new DenseDefinitionError(`${id} is not a recordable vec2 operation`);
   return op;
 }
@@ -37,7 +38,7 @@ function operation(id: string): OperationSchema {
 export function paramRole(definition: Definition, paramNode: string): OperandRole {
   for (const node of definition.nodes) {
     if (!isOperation(node)) continue;
-    const op = vec2Schema.operations[node.op];
+    const op = operationOf(node.op);
     if (!op) continue;
     const role = node.args.findIndex((arg) => refersTo(arg, paramNode));
     if (role >= 0) {

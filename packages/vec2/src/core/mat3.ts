@@ -26,14 +26,14 @@ export class Mat3 {
     return new Mat3(1, 0, x, 0, 1, y, 0, 0, 1);
   }
 
-  static rotation(angle: number): Mat3 {
-    const c = Math.cos(angle);
-    const s = Math.sin(angle);
+  static rotation(radians: number): Mat3 {
+    const c = Math.cos(radians);
+    const s = Math.sin(radians);
     return new Mat3(c, -s, 0, s, c, 0, 0, 0, 1);
   }
 
-  static scale(sx: number, sy = sx): Mat3 {
-    return new Mat3(sx, 0, 0, 0, sy, 0, 0, 0, 1);
+  static scale(x: number, y = x): Mat3 {
+    return new Mat3(x, 0, 0, 0, y, 0, 0, 0, 1);
   }
 
   static fromValues(
@@ -67,9 +67,9 @@ export class Mat3 {
     );
   }
 
-  transformPoint(v: Vec2): Vec2 {
+  transformPoint(point: Vec2): Vec2 {
     const e = this.elements;
-    return new Vec2(e[0]! * v.x + e[3]! * v.y + e[6]!, e[1]! * v.x + e[4]! * v.y + e[7]!);
+    return new Vec2(e[0]! * point.x + e[3]! * point.y + e[6]!, e[1]! * point.x + e[4]! * point.y + e[7]!);
   }
 
   toJson(): Mat3Json {

@@ -3,7 +3,7 @@ import { pairwiseDifference, partialSum } from '../../../src/analysis/aggregatio
 import { Line2 } from '../../../src/geometry/primitives/line2';
 import { Vec2 } from '../../../src/core/vec2';
 import { Epsilon } from '../../../src/core/epsilon';
-import { buildGrid2FromWorldVertices } from '../../../src/operations/polygon-analysis/grid-from-world';
+import { RectilinearGrid2 } from '../../../src/operations/rectilinear-grid2';
 
 describe('partialSum', () => {
   test('empty input', () => {
@@ -48,9 +48,9 @@ describe('aggregation call sites', () => {
     expect(Line2.lengthTable([])).toEqual([0]);
   });
 
-  test('buildGrid2FromWorldVertices spans match pairwiseDifference of clustered coords', () => {
+  test('RectilinearGrid2.fromVertices spans match pairwiseDifference of clustered coords', () => {
     const epsilon = Epsilon.custom(1e-3);
-    const result = buildGrid2FromWorldVertices(
+    const result = RectilinearGrid2.fromVertices(
       [new Vec2(0, 0), new Vec2(2, 0), new Vec2(2, 5), new Vec2(0, 5)],
       epsilon,
     );

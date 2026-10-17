@@ -4,7 +4,7 @@ import { defaultRegistry } from '../io/default-registry';
 import type { ArgJson, Definition } from './definition';
 import { isOperationNode } from './definition';
 import { policy } from '../../schema/policy';
-import { callOperation, lookupOperation, matchesType, RecordingError, schema } from './runtime';
+import { callOperation, lookupOperation, matchesType, RecordingError, vec2Schema } from './runtime';
 
 export type EvaluateOptions = {
   /** New values for named params; each must match the param's recorded type. */
@@ -44,7 +44,7 @@ export function checkDefinition(
   if (definition.format !== 'vec2-definition' || definition.version !== 1) {
     return [`Unsupported definition format ${String(definition.format)} v${String(definition.version)}`];
   }
-  if (definition.schema === schema.hash) return [];
+  if (definition.schema === vec2Schema.hash) return [];
   const problems: string[] = [];
   for (const node of definition.nodes) {
     if (!isOperationNode(node)) continue;

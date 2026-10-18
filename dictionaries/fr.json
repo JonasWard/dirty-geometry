@@ -75,7 +75,7 @@
       "graph": "Graphes : recherche de chemin, sous-ensembles d’arêtes et maillages en demi-arêtes."
     },
     "playground": "Bac à sable",
-    "playgroundIntro": "Construisez une définition vec2 avec des listes déroulantes, en JSON ou en TypeScript. Chaque géométrie intermédiaire est dessinée, et toute la définition tient dans le lien sous forme de chaîne densing.",
+    "playgroundIntro": "Construisez une définition vec2 à partir d’entrées, de vos propres fonctions et de cellules, chaque cellule étant une expression modifiée sur place ou sous forme de code. La géométrie de chaque cellule est dessinée, et toute la définition tient dans le lien sous forme de chaîne densing.",
     "openPlayground": "Ouvrir le bac à sable"
   }
 }

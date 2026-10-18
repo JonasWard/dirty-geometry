@@ -1,56 +1,44 @@
-/** Picking presets for a definition: the cheapest ones that keep every literal exactly. */
-import type { ArgV3 as Arg, DefinitionV3 as Definition } from '@dirty-geometry/vec2/recording/v3';
+/** Picking presets for a definition: the cheapest ranges that keep every number literal exactly. */
+import type { Definition } from '@dirty-geometry/vec2/recording/definition';
 import { NUMBER_TYPES } from '@dirty-geometry/vec2/schema/schema';
 import {
   createDefinitionSchema,
-  decodeDefinition,
-  encodeDefinition,
+  numberLiterals,
+  resolvePreset,
+  snapTo,
   type ActivePresets,
+  type CustomPreset,
   type DenseDefinitionSchema,
 } from '@dirty-geometry/vec2/schema/dense/definition';
 
-/** Renumber node ids by position (`n0`, `n1`, …), as decoding does, so definitions can be compared. */
-export function normaliseDefinition(definition: Definition): Definition {
-  const ids = new Map(definition.nodes.map((node, i) => [node.id, `n${i}`]));
-  const id = <T>(source: T) => (typeof source === 'string' ? (ids.get(source) ?? source) : source);
-  const arg = (value: Arg): Arg =>
-    Array.isArray(value)
-      ? value.map(arg)
-      : value && typeof value === 'object' && 'ref' in value
-        ? { ref: id(value.ref) }
-        : value && typeof value === 'object' && 'object' in value
-          ? { object: Object.fromEntries(Object.entries(value.object).map(([key, item]) => [key, arg(item)])) }
-          : value;
-  const nodes = definition.nodes.map((node) => {
-    const renamed = { ...node, id: id(node.id) } as Record<string, any>;
-    if ('of' in node) renamed.of = id(node.of);
-    if ('self' in node && node.self !== undefined) renamed.self = id(node.self);
-    if ('args' in node && node.args) renamed.args = node.args.map(arg);
-    return renamed as Definition['nodes'][number];
-  });
-  const outputs = Object.fromEntries(Object.entries(definition.outputs).map(([name, source]) => [name, id(source)]));
-  return { ...definition, nodes, outputs };
-}
+const same = (a: number, b: number) => Math.abs(a - b) < 1e-12;
+/** Whether `value` packs exactly with `preset`. */
+const exact = (value: number, preset: CustomPreset) =>
+  value >= preset.min - 1e-12 && value <= preset.max + 1e-12 && same(snapTo(value, preset), value);
 
-/** Literal changes a round trip through `presets` makes, as `path: before → after`. */
+/** The literals packing with `presets` would change, as `Type: before → after` (out of range: `→ out of range`). */
 export function quantisationReport(
   definition: Definition,
   presets: ActivePresets = {},
   schema = createDefinitionSchema(),
-) {
-  const before = normaliseDefinition(definition);
-  const after = decodeDefinition(encodeDefinition(definition, presets, schema), schema).definition;
+): string[] {
+  let literals: Map<string, number[]>;
+  try {
+    literals = numberLiterals(definition, schema);
+  } catch {
+    return [];
+  }
   const changes: string[] = [];
-  const walk = (a: unknown, b: unknown, path: string) => {
-    if (typeof a === 'object' && a !== null && typeof b === 'object' && b !== null) {
-      for (const key of new Set([...Object.keys(a), ...Object.keys(b)]))
-        walk((a as any)[key], (b as any)[key], `${path}.${key}`);
-    } else if (a !== b && !(typeof a === 'number' && typeof b === 'number' && Math.abs(a - b) < 1e-12)) {
-      changes.push(`${path}: ${JSON.stringify(a)} → ${JSON.stringify(b)}`);
+  for (const [type, values] of literals) {
+    const preset = resolvePreset(schema.schema.definitions ?? [], type, presets);
+    for (const value of new Set(values)) {
+      if (exact(value, preset)) continue;
+      const inside = value >= preset.min && value <= preset.max;
+      changes.push(
+        `${type} ${value} → ${inside ? snapTo(value, preset) : `out of range [${preset.min}, ${preset.max}]`}`,
+      );
     }
-  };
-  walk(before.params, after.params, 'params');
-  walk(before.nodes, after.nodes, 'nodes');
+  }
   return changes;
 }
 
@@ -58,7 +46,7 @@ export function quantisationReport(
 export const presetBits = (preset: { min: number; max: number; precision?: number }) =>
   Math.ceil(Math.log2((preset.max - preset.min) / (preset.precision ?? 1) + 1));
 
-/** Preset names of a role, cheapest first. */
+/** Preset names of a number type, cheapest first. */
 export function presetsByCost(schema: DenseDefinitionSchema, role: string): string[] {
   const definition = schema.schema.definitions?.find((candidate) => candidate.name === role);
   if (!definition) return [];
@@ -67,17 +55,9 @@ export function presetsByCost(schema: DenseDefinitionSchema, role: string): stri
     .map(([name]) => name);
 }
 
-function fits(definition: Definition, presets: ActivePresets, schema: DenseDefinitionSchema): boolean {
-  try {
-    return quantisationReport(definition, presets, schema).length === 0;
-  } catch {
-    return false;
-  }
-}
-
 /**
- * For each role, the cheapest preset under which the definition round-trips unchanged (keeping the other
- * number types fixed). Types where no range is exact keep `current`.
+ * For each number type, the cheapest preset that keeps all its literals exactly. Types where no range is exact
+ * keep `current`; types without literals keep `current` or their default.
  */
 export function choosePresets(
   definition: Definition,
@@ -85,14 +65,21 @@ export function choosePresets(
   schema: DenseDefinitionSchema = createDefinitionSchema(),
   roles: readonly string[] = NUMBER_TYPES,
 ): ActivePresets {
+  let literals: Map<string, number[]>;
+  try {
+    literals = numberLiterals(definition, schema);
+  } catch {
+    return { ...current };
+  }
   const chosen: ActivePresets = { ...current };
+  const definitions = schema.schema.definitions ?? [];
   for (const role of roles) {
-    for (const name of presetsByCost(schema, role)) {
-      if (fits(definition, { ...chosen, [role]: name }, schema)) {
-        chosen[role] = name;
-        break;
-      }
-    }
+    const values = [...new Set(literals.get(role) ?? [])];
+    if (!values.length) continue;
+    const name = presetsByCost(schema, role).find((candidate) =>
+      values.every((v) => exact(v, resolvePreset(definitions, role, { [role]: candidate }))),
+    );
+    if (name) chosen[role] = name;
   }
   return chosen;
 }

@@ -3,11 +3,13 @@ import { densing, undensing } from 'densing';
 import { Vec2 } from '../../../src/core/vec2';
 import { Line2 } from '../../../src/geometry/primitives/line2';
 import { defaultRegistry } from '../../../src/io/default-registry';
-import type { DefinitionV3 as Definition } from '../../../src/recording/v3';
-import { createRecorder } from '../../../src/recording/recorder';
-import { evaluateDefinition } from '../../../src/recording/replay';
+import type { Definition } from '../../../src/recording/definition';
+import { evaluate } from '../../../src/recording/evaluate';
+import { fromV3 } from '../../../src/recording/migrate';
+import type { DefinitionV3 } from '../../../src/recording/v3';
 import { recordPlate } from '../../../examples/definitions/plate';
 import { operations, types } from '../../../schema/schema';
+import { groupKey } from '../../../schema/typing';
 import {
   createDefinitionSchema,
   createValueSchema,
@@ -17,101 +19,146 @@ import {
   encodeValue,
   resolvePreset,
 } from '../../../schema/dense/definition';
+import { arbitraryDefinition } from '../../recording/arbitrary';
+import v3Fixtures from './v3/fixtures.json';
 
-/** Node ids renumbered by position, as decoding does. */
-function normalise(definition: Definition) {
-  const ids = new Map(definition.nodes.map((node, i) => [node.id, `n${i}`]));
-  return JSON.parse(JSON.stringify(definition).replace(/"(n\d+)"/g, (_, id: string) => `"${ids.get(id) ?? id}"`));
-}
+const fixtures = v3Fixtures as unknown as { name: string; dense: string; definition: DefinitionV3 }[];
 const roundTrip = (definition: Definition, presets = {}) =>
   decodeDefinition(encodeDefinition(definition, presets)).definition;
-
-function recordMixed(): Definition {
-  const rec = createRecorder({ strict: true });
-  const { Vec2: V, Line2: L, Polygon2, Boolean2, Interval2, Epsilon, Circle2 } = rec.lib;
-  const size = rec.param('size', 4);
-  const a = new V(0, 0);
-  const b = new V(size, 0);
-  const square = new Polygon2([a, b, new V(size, size), new V(0, size)]);
-  const other = new Polygon2([new V(2, 2), new V(6, 2), new V(6, 6), new V(2, 6)]);
-  rec.output('union', Boolean2.union([square, other], { slack: Epsilon.custom(0.0005) }).polygons);
-  rec.output('mesh', rec.lib.ConstrainedDelaunay.triangulate([a, b, new V(1, 3)], [[0, 2], 1]));
-  rec.output('ray', new Interval2(-1, Infinity));
-  rec.output('point', new L(a, b).evaluate(0.25));
-  rec.output('rim', new Circle2(new V(1, 1), 0.5).evaluate(1.047));
-  rec.output('outside', V.center(new Vec2(2, 4), a));
-  rec.output('hull', rec.lib.helpers.convexHullLoop([a, b, new V(1, 3)]));
-  return rec.definition();
-}
+const def = (cells: Definition['cells'], inputs: Definition['inputs'] = []): Definition => ({
+  format: 'vec2-definition',
+  version: 4,
+  inputs,
+  functions: [],
+  cells,
+});
+const point = (x: number, y: number) => ({ op: 'Vec2.new', args: { x, y } });
 
 describe('definition schema', () => {
-  test('every schema operation has a node variant, nested along its schema path', () => {
-    const { schema } = createDefinitionSchema();
-    const root = (schema.fields.find((f) => f.name === 'nodes') as any).items;
-    // Each level is a union keyed `type`; a level with one entry is left out, so a path segment may be skipped.
-    const reaches = (union: any, path: string[]): boolean => {
-      const i = path.findIndex((part) => part in union.variants);
-      if (i < 0) return false;
-      const fields = union.variants[path[i]!];
-      const nested = fields.length === 1 && fields[0].type === 'union' && fields[0].name === path[i];
-      return i + 1 === path.length ? !nested : nested && reaches(fields[0], path.slice(i + 1));
+  const { schema } = createDefinitionSchema();
+  const templates = schema.templates as any[];
+
+  test('is well formed: references in range, unique template names, a variant for every option', () => {
+    const problems: string[] = [];
+    const names = new Set<string>();
+    const reached = new Set<number>();
+    const visit = (f: any, at: string): void => {
+      if (!f || typeof f !== 'object') return;
+      if (f.type === 'reference') {
+        if (!templates[f.ref]) problems.push(`${at}: no template ${f.ref}`);
+        else if (!reached.has(f.ref)) {
+          reached.add(f.ref);
+          visit(templates[f.ref], `templates[${f.ref}]`);
+        }
+      }
+      if (f.type === 'reference_numeric' && !schema.definitions!.some((d) => d.name === f.ref))
+        problems.push(`${at}: no number type ${f.ref}`);
+      if (f.type === 'union')
+        for (const option of f.discriminator.options)
+          if (!(option in f.variants)) problems.push(`${at}: ${f.name} has no variant ${option}`);
+      for (const [key, value] of Object.entries(f))
+        if (Array.isArray(value)) value.forEach((v, i) => visit(v, `${at}.${key}[${i}]`));
+        else if (typeof value === 'object') visit(value, `${at}.${key}`);
     };
-    expect(operations.filter((op) => !reaches(root, op.path)).map((op) => op.id)).toEqual([]);
-    expect(root.discriminator.options).toEqual(['result', 'bounds', 'core', 'geometry', 'grid', 'operations']);
-    expect([root.discriminator.name, root.variants.core[0].name]).toEqual(['type', 'core']);
+    schema.fields.forEach((f, i) => visit(f, `fields[${i}]`));
+    for (const t of templates) {
+      if (names.has(t.name)) problems.push(`template ${t.name} appears twice`);
+      names.add(t.name);
+    }
+    expect(problems).toEqual([]);
+    expect(templates.length - reached.size).toBe(0);
   });
 
-  test('names are densing names: no markers, no joined paths, no serialised type expressions', () => {
-    const { schema } = createDefinitionSchema();
+  test('every operation can be packed where its result type is expected', () => {
+    const missing = operations.filter((op) => {
+      const group = `${groupKey(op.returns)} call`;
+      const calls = templates.find((t) => t.name === group);
+      const own = templates.find((t) => t.name === (typeof op.returns === 'string' ? op.returns : ''));
+      return !calls?.variants[op.id] || (own && !own.variants[group]);
+    });
+    expect(missing.map((op) => op.id)).toEqual([]);
+  });
+
+  test('an expression only offers the operations whose result fits', () => {
+    const vec2 = templates.find((t) => t.name === 'Vec2');
+    const calls = Object.keys(vec2.variants).filter((key) => key.endsWith(' call'));
+    expect(calls).toEqual(['Vec2 call']);
+    const coordinate = templates.find((t) => t.name === 'Coordinate');
+    expect(Object.keys(coordinate.variants)).toEqual(expect.arrayContaining(['number', 'math', 'neg', 'number call']));
+  });
+
+  test('names are densing names: no markers, no joined paths', () => {
     const names: string[] = [];
     const visit = (f: any): void => {
       if (!f || typeof f !== 'object') return;
       if (typeof f.name === 'string') names.push(f.name);
-      if (f.type === 'union') names.push(...f.discriminator.options);
       Object.values(f).forEach((v) => (Array.isArray(v) ? v.forEach(visit) : typeof v === 'object' && visit(v)));
     };
-    [...schema.fields, ...(schema.templates ?? [])].forEach(visit);
+    [...schema.fields, ...templates].forEach(visit);
     expect(names.filter((name) => /[#$/"]|Arg</.test(name))).toEqual([]);
   });
+});
 
-  test('the plate definition round-trips and replays to the same result', () => {
-    const definition = recordPlate();
+describe('definitions', () => {
+  test.each(fixtures.filter((f) => f.dense).map((f) => [f.name, f] as const))(
+    '%s (migrated) round-trips, packs smaller than version 3 and evaluates the same',
+    (_, fixture) => {
+      const definition = fromV3(fixture.definition);
+      const encoded = encodeDefinition(definition);
+      expect(decodeDefinition(encoded).definition).toEqual(definition);
+      expect(encoded.length).toBeLessThan(fixture.dense.length);
+    },
+  );
+
+  test('the plate packs to a seventh of its JSON and replays', () => {
+    const definition = fromV3(recordPlate());
     const decoded = roundTrip(definition, { Radians: '±7@0.0001' });
-    expect(decoded.nodes).toHaveLength(definition.nodes.length);
-    expect(decoded.params).toEqual(definition.params);
-    expect(evaluateDefinition(decoded).outputs.area).toBe(24);
-    expect(encodeDefinition(definition).length).toBeLessThan(JSON.stringify(definition).length / 6);
+    expect(evaluate(decoded).outputs.area).toBe(24);
+    expect(encodeDefinition(definition).length).toBeLessThan(JSON.stringify(definition).length / 7);
   });
 
-  test('lists, tuples, options, helpers, infinities, angles and outside values round-trip', () => {
-    const definition = recordMixed();
-    expect(normalise(roundTrip(definition))).toEqual(normalise(definition));
-    const replayed = evaluateDefinition(roundTrip(definition)).outputs;
-    const original = evaluateDefinition(definition).outputs;
-    expect((replayed.mesh as { toJson(): unknown }).toJson()).toEqual(
-      (original.mesh as { toJson(): unknown }).toJson(),
-    );
+  test('random well-typed definitions round-trip', () => {
+    for (let seed = 1; seed <= 150; seed++) {
+      const definition = arbitraryDefinition(seed);
+      expect({ seed, definition: roundTrip(definition) }).toEqual({ seed, definition });
+    }
   });
 
   test('numbers off the range grid are snapped; out-of-range numbers throw', () => {
-    const rec = createRecorder();
-    rec.output('p', new rec.lib.Vec2(1.23456, 2));
-    const definition = rec.definition();
-    expect(roundTrip(definition).nodes[0]).toMatchObject({ args: [1.23, 2] });
-    expect(roundTrip(definition, { Coordinate: '±10@0.0001' }).nodes[0]).toMatchObject({ args: [1.2346, 2] });
+    const definition = def([{ name: 'p', expr: point(1.23456, 2) }]);
+    expect(roundTrip(definition).cells[0]!.expr).toEqual(point(1.23, 2));
+    expect(roundTrip(definition, { Coordinate: '±10@0.0001' }).cells[0]!.expr).toEqual(point(1.2346, 2));
     expect(() => encodeDefinition(definition, { Coordinate: '0..1@0.1' })).toThrow();
+  });
+
+  test('arithmetic literals pack as the number type of their slot', () => {
+    const angle = {
+      op: 'Circle2.evaluate',
+      self: { value: { type: 'Circle2', center: { type: 'Vec2', x: 0, y: 0 }, radius: 1 } },
+      args: { theta: { math: '*', args: [0.12345, 2] } },
+    };
+    const decoded = roundTrip(def([{ name: 'p', expr: angle as never }]));
+    expect((decoded.cells[0]!.expr as any).args.theta).toEqual({ math: '*', args: [0.123, 2] });
+  });
+
+  test('expressions that do not fit their slot cannot be packed', () => {
+    expect(() => encodeDefinition(def([{ name: 'p', expr: { op: 'Vec2.new', args: { x: point(1, 2) } } }]))).toThrow(
+      /Vec2.new \(it returns Vec2\)/,
+    );
+    expect(() => encodeDefinition(def([{ name: 'p', expr: { op: 'Vec2.nope' } }]))).toThrow(/not a vec2 operation/);
+    expect(() => encodeDefinition(def([{ name: 'p', expr: { ref: 'q' } }]))).toThrow(/not defined/);
+  });
+
+  test('declared cell types are kept', () => {
+    const definition = def([{ name: 'r', expr: 2, type: 'Length' }], [{ name: 'w', type: 'Coordinate', value: 3 }]);
+    expect(roundTrip(definition)).toEqual(definition);
   });
 
   test('payloads from another vec2 schema are rejected with a clear error', () => {
     const { schema } = createDefinitionSchema();
-    const data = undensing(schema, encodeDefinition(recordPlate())) as Record<string, unknown>;
+    const definition = fromV3(recordPlate());
+    const data = undensing(schema, encodeDefinition(definition)) as Record<string, unknown>;
     expect(() => decodeDefinition(densing(schema, { ...data, stamp: 1 }))).toThrow(/another version/);
-  });
-
-  test('operations outside the schema cannot be packed', () => {
-    const nodes = [{ id: 'n0', op: 'Vec2.nope' }];
-    const definition: Definition = { format: 'vec2-definition', version: 3, params: {}, nodes, outputs: {} };
-    expect(() => encodeDefinition(definition)).toThrow(/not in the vec2 schema/);
   });
 });
 

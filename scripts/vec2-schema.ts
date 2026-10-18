@@ -451,12 +451,21 @@ export async function renderSchemaFiles(): Promise<Record<keyof typeof schemaFil
     ...[...imports]
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([module, list]) => `import { ${list.sort().join(', ')} } from '../src/${module}';`),
+    "import { defaultRegistry } from '../src/io/default-registry';",
+    "import type { MathJson } from '../src/io/deserialise';",
     '',
     '/** The recordable vec2 classes by name. */',
     `export const classes = { ${names(tables.classes).join(', ')} } as const;`,
     '',
     '/** Helper functions by name. */',
     `export const helpers = { ${names(tables.helpers).join(', ')} } as const;`,
+    '',
+    '/** Every class and helper by name, for code that imports them (the playground prints such code). */',
+    `export { ${[...names(tables.classes), ...names(tables.helpers)].sort().join(', ')} };`,
+    `export type { ${Object.keys(NUMBERS).join(', ')} } from '../src/core/numbers';`,
+    '',
+    '/** A vec2 value from its JSON (`toJson()`): how printed code writes a stored value. */',
+    'export const value = (json: MathJson): any => defaultRegistry.decode(json);',
     '',
   ].join('\n');
   const config = (await prettier.resolveConfig(schemaFiles.bindings)) ?? {};

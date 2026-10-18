@@ -6,7 +6,11 @@ The react-three-fiber display layer for `@dirty-geometry/vec2` geometry. It has 
 - `core/`: a shared scenario-grid canvas;
 - `demos/vec2/`, `demos/graph/`: the interactive demos shown on the site under `/lab/vec2/<demo>/` and `/lab/graph/<demo>/`.
 
-- `playground/`: the `/lab/vec2/playground/` builder (`@dirty-geometry/visualisation/playground`), with a DOM builder, JSON mode, TypeScript editing, a canvas of every intermediate geometry and densing URL state.
+- `playground/`: the `/lab/vec2/playground/` editor (`@dirty-geometry/visualisation/playground`) for vec2 definitions (version 4: inputs, functions and cells of expressions):
+  - `model/`: pure edits (`ops.ts`: rename, remove a cell into its uses, extract an expression into a cell, change an operation keeping its arguments, function params), and the code view (`print.ts` writes a definition as a TypeScript module that runs against vec2, `parse.ts` reads it back; printing and parsing round-trip);
+  - `editor/`: the expression editor, one slot per argument, each with a picker that offers only what fits the slot's type (a name, a literal, an operation, a user function, arithmetic);
+  - `store.ts`: the state (zustand), with undo/redo, automatic number ranges and the densing URL (`#/4/<options>/<definition>`; older links are upgraded);
+  - a canvas of every input's and cell's geometry, and the encoding panel.
 
 The scenario data for the demos lives in `@dirty-geometry/vec2/examples` and `@dirty-geometry/graph/examples`. This package only fits frames and draws them.
 

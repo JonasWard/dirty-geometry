@@ -17,30 +17,21 @@ import {
   isRest,
   NUMBER_TYPES,
   operationById,
-  resolve,
   slotType,
+  types,
   type Operation,
   type Slot,
   type Type,
 } from './schema';
 
 export type { Type };
-const NUMERIC = new Set(['number', ...NUMBER_TYPES]);
 /** Classes that are values (they have a JSON form); the others only hold static operations. */
 export const VALUE_CLASSES: readonly string[] = Object.keys(classJson);
-const CLASS_SET = new Set(classes);
-export const isNumeric = (type: Type) => typeof type === 'string' && NUMERIC.has(type);
 const isObjectType = (type: Type): type is Record<string, Slot> =>
   !!type &&
   typeof type === 'object' &&
   !Array.isArray(type) &&
   !['or', 'enum', 'tuple', 'record'].some((kind) => isKind(type, kind));
-
-/** A named shape replaced by its body, and unions flattened: the members a value of `type` can be. */
-export function members(type: Type): Type[] {
-  const t = typeof type === 'string' && !CLASS_SET.has(type) && !NUMERIC.has(type) ? resolve(type) : type;
-  return isKind(t, 'or') ? (t as { or: Type[] }).or.flatMap(members) : [t];
-}
 
 /** `type` written like TypeScript: `Vec2[]`, `Aabb2 | Vec2`, `[Index, Index]`, `{ min: Coordinate }`. */
 export function typeName(type: Type): string {
@@ -152,60 +143,94 @@ export function parseTypeName(text: string): Type {
   return type;
 }
 
-/** Whether every value of `from` is a value of `to`. */
-export function assignable(from: Type, to: Type): boolean {
-  if (from === 'unknown' || to === 'unknown') return true;
-  const all = members(from);
-  const nonNull = all.filter((m) => m !== 'null');
-  const targets = members(to);
-  return (nonNull.length ? nonNull : all).every((m) => targets.some((t) => fits(m, t)));
-}
+/**
+ * The type operations for a schema's named types, classes and number types (the dense schema generator passes a
+ * schema it has just generated; everything else uses the committed one).
+ */
+export function typeSystem(env: { types: Record<string, Type>; classes: Iterable<string>; numbers: Iterable<string> }) {
+  const numeric = new Set(['number', ...env.numbers]);
+  const classSet = new Set(env.classes);
+  const resolveIn = (type: Type): Type =>
+    typeof type === 'string' && type in env.types ? resolveIn(env.types[type]!) : type;
+  const isNumeric = (type: Type) => typeof type === 'string' && numeric.has(type);
 
-function fits(m: Type, t: Type): boolean {
-  if (typeof m === 'string' && typeof t === 'string')
-    return m === t || (NUMERIC.has(m) && NUMERIC.has(t)) || (m === 'boolean' && t === 'boolean');
-  if (m === 'null') return isKind(t, 'enum') && (t as { enum: unknown[] }).enum.includes(null);
-  if (isKind(m, 'enum'))
-    return (m as { enum: unknown[] }).enum.every((v) =>
-      isKind(t, 'enum')
-        ? (t as { enum: unknown[] }).enum.includes(v)
-        : v === null
-          ? t === 'null'
-          : typeof v === 'number'
-            ? isNumeric(t)
-            : t === typeof v,
-    );
-  if (Array.isArray(m)) return Array.isArray(t) && assignable(m[0]!, t[0]!);
-  if (isKind(m, 'tuple')) {
-    const items = (m as { tuple: Type[] }).tuple;
-    if (Array.isArray(t)) return items.every((item) => assignable(item, t[0]!));
-    if (isKind(t, 'tuple')) {
-      const target = (t as { tuple: Type[] }).tuple;
-      return items.length === target.length && items.every((item, i) => assignable(item, target[i]!));
+  /** A named shape replaced by its body, and unions flattened: the members a value of `type` can be. */
+  function members(type: Type): Type[] {
+    const t = typeof type === 'string' && !classSet.has(type) && !numeric.has(type) ? resolveIn(type) : type;
+    return isKind(t, 'or') ? (t as { or: Type[] }).or.flatMap(members) : [t];
+  }
+
+  /** Whether every value of `from` is a value of `to`. */
+  function assignable(from: Type, to: Type): boolean {
+    if (from === 'unknown' || to === 'unknown') return true;
+    const all = members(from);
+    const nonNull = all.filter((m) => m !== 'null');
+    const targets = members(to);
+    return (nonNull.length ? nonNull : all).every((m) => targets.some((t) => fits(m, t)));
+  }
+
+  function fits(m: Type, t: Type): boolean {
+    if (m === 'unknown') return true;
+    if (typeof m === 'string' && typeof t === 'string') return m === t || (numeric.has(m) && numeric.has(t));
+    if (m === 'null') return isKind(t, 'enum') && (t as { enum: unknown[] }).enum.includes(null);
+    if (isKind(m, 'enum'))
+      return (m as { enum: unknown[] }).enum.every((v) =>
+        isKind(t, 'enum')
+          ? (t as { enum: unknown[] }).enum.includes(v)
+          : v === null
+            ? t === 'null'
+            : typeof v === 'number'
+              ? isNumeric(t)
+              : t === typeof v,
+      );
+    if (Array.isArray(m)) return Array.isArray(t) && assignable(m[0]!, t[0]!);
+    if (isKind(m, 'tuple')) {
+      const items = (m as { tuple: Type[] }).tuple;
+      if (Array.isArray(t)) return items.every((item) => assignable(item, t[0]!));
+      if (isKind(t, 'tuple')) {
+        const target = (t as { tuple: Type[] }).tuple;
+        return items.length === target.length && items.every((item, i) => assignable(item, target[i]!));
+      }
+      return false;
+    }
+    if (isKind(m, 'record')) return isKind(t, 'record') && assignable((m as any).record, (t as any).record);
+    if (isObjectType(m)) {
+      if (isKind(t, 'record')) return Object.values(m).every((slot) => assignable(slotType(slot), (t as any).record));
+      if (!isObjectType(t)) return false;
+      const target = t as Record<string, Slot>;
+      return (
+        Object.keys(m).every((key) => key in target) &&
+        Object.entries(target).every(([key, slot]) =>
+          key in m ? assignable(slotType(m[key]!), slotType(slot)) : isOptional(slot),
+        )
+      );
     }
     return false;
   }
-  if (isKind(m, 'record')) return isKind(t, 'record') && assignable((m as any).record, (t as any).record);
-  if (isObjectType(m)) {
-    if (isKind(t, 'record')) return Object.values(m).every((slot) => assignable(slotType(slot), (t as any).record));
-    if (!isObjectType(t)) return false;
-    const target = t as Record<string, Slot>;
-    return (
-      Object.keys(m).every((key) => key in target) &&
-      Object.entries(target).every(([key, slot]) =>
-        key in m ? assignable(slotType(m[key]!), slotType(slot)) : isOptional(slot),
-      )
-    );
+
+  /** The number type a literal in a slot of `type` is packed as (`Coordinate` when the slot says only `number`). */
+  function roleOf(type: Type): string | undefined {
+    const numbers = members(type).filter((m): m is string => typeof m === 'string' && numeric.has(m));
+    if (!numbers.length) return undefined;
+    return numbers.find((m) => m !== 'number') ?? 'Coordinate';
   }
-  return false;
+  /** Operations are grouped by result type, every number type as `number` (they all fit each other). */
+  const collapse = (type: Type): Type => {
+    if (typeof type === 'string') return isNumeric(type) ? 'number' : type;
+    if (Array.isArray(type)) return [collapse(type[0]!)];
+    if (isKind(type, 'or')) return { or: (type as { or: Type[] }).or.map(collapse) };
+    if (isKind(type, 'tuple')) return { tuple: (type as { tuple: Type[] }).tuple.map(collapse) };
+    return type;
+  };
+  const groupKey = (returns: Type) => typeName(collapse(returns));
+  return { members, assignable, roleOf, isNumeric, isClass: (name: string) => classSet.has(name), collapse, groupKey };
 }
 
-/** The number type a literal in a slot of `type` is packed as (`Coordinate` when the slot says only `number`). */
-export function roleOf(type: Type): string | undefined {
-  const numbers = members(type).filter((m): m is string => typeof m === 'string' && NUMERIC.has(m));
-  if (!numbers.length) return undefined;
-  return numbers.find((m) => m !== 'number') ?? 'Coordinate';
-}
+export const { members, assignable, roleOf, isNumeric, isClass, groupKey } = typeSystem({
+  types,
+  classes,
+  numbers: NUMBER_TYPES,
+});
 
 /** A literal's type widened to its kind (`{ enum: [2] }` → `number`), for a cell's own type. */
 export function widen(type: Type): Type {
@@ -213,12 +238,21 @@ export function widen(type: Type): Type {
     const kinds = [...new Set((type as { enum: unknown[] }).enum.map((v) => (v === null ? 'null' : typeof v)))];
     return kinds.length === 1 ? kinds[0]! : { or: kinds };
   }
+  if (isKind(type, 'or')) return unionOf((type as { or: Type[] }).or.map(widen));
   if (isKind(type, 'tuple')) {
-    const items = [...new Map((type as { tuple: Type[] }).tuple.map((t) => [typeName(widen(t)), widen(t)])).values()];
-    return items.length === 0 ? ['unknown'] : [items.length === 1 ? items[0]! : { or: items }];
+    const items = (type as { tuple: Type[] }).tuple.map(widen);
+    const known = items.filter((t) => !unknownish(t));
+    return [items.length === 0 ? 'unknown' : unionOf(known.length ? known : items)];
   }
   if (isObjectType(type)) return Object.fromEntries(Object.entries(type).map(([k, s]) => [k, widen(slotType(s))]));
   return type;
+}
+const unknownish = (t: Type): boolean => t === 'unknown' || (Array.isArray(t) && unknownish(t[0]!));
+/** One type for several: nested unions flattened, duplicates dropped. */
+function unionOf(list: Type[]): Type {
+  const flat = list.flatMap((t) => (isKind(t, 'or') ? (t as { or: Type[] }).or : [t]));
+  const unique = [...new Map(flat.map((t) => [typeName(t), t])).values()];
+  return unique.length === 1 ? unique[0]! : { or: unique };
 }
 
 /** Where a problem is: an input, a function or a cell, and the path inside its expression. */
@@ -240,8 +274,7 @@ export const RESERVED: ReadonlySet<string> = new Set(
 export function nameProblem(name: string): string | undefined {
   if (!IDENTIFIER.test(name)) return `"${name}" is not a name (letters, digits, _ and $; not starting with a digit)`;
   if (RESERVED.has(name)) return `"${name}" is a reserved word`;
-  if (CLASS_SET.has(name) || operationById.has(`helpers.${name}`) || NUMERIC.has(name))
-    return `"${name}" is a vec2 name`;
+  if (isClass(name) || operationById.has(`helpers.${name}`) || isNumeric(name)) return `"${name}" is a vec2 name`;
   return undefined;
 }
 

@@ -5,7 +5,7 @@ import { useMemo, useState } from 'react';
 import { Vec2 } from '@dirty-geometry/vec2/core/vec2';
 import type { Polygon2 } from '@dirty-geometry/vec2/geometry/regions/polygon2';
 import type { TriMesh2 } from '@dirty-geometry/vec2/geometry/regions/tri-mesh2';
-import { definitionGraph, type DefinitionGraph } from '../../../playground/graph';
+import { definitionGraph, type DefinitionGraph } from './graph';
 import { evaluateDefinition } from '@dirty-geometry/vec2/recording/replay';
 import { plateDefaults, recordPlate, type PlateParams } from '@dirty-geometry/vec2/examples/definitions/plate';
 import { fitPointsToFrame, frameCorners, labelPosition, vec2ToTuple } from '../../../core/frame';

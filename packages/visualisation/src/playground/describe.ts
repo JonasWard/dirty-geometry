@@ -25,3 +25,10 @@ export function describeValue(value: unknown): string {
   }
   return typeof value;
 }
+
+/** A stored value's JSON in short: `Vec2(1, 2)`, `Circle2`. */
+export function describeJson(json: unknown): string {
+  const value = json as { type?: string; x?: number; y?: number } | null;
+  if (value?.type === 'Vec2') return `Vec2(${value.x}, ${value.y})`;
+  return value?.type ? `${value.type} { … }` : 'value';
+}

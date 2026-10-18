@@ -1,7 +1,7 @@
 import { expect, test } from 'bun:test';
 import { createRecorder } from '@dirty-geometry/vec2/recording/recorder';
 import { recordPlate, PLATE_HOLE_SEGMENTS } from '@dirty-geometry/vec2/examples/definitions/plate';
-import { definitionGraph } from '../src/playground/graph';
+import { definitionGraph } from '../src/demos/vec2/definitions/graph';
 
 test('definitionGraph layers nodes by their longest input chain and keeps edge roles', () => {
   const rec = createRecorder();

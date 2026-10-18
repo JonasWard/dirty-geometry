@@ -75,7 +75,7 @@
       "graph": "Grafi: ricerca di percorsi, sottoinsiemi di archi e mesh a semispigoli."
     },
     "playground": "Playground",
-    "playgroundIntro": "Costruisci una definizione vec2 con menu a tendina, in JSON o in TypeScript. Ogni geometria intermedia viene disegnata e l’intera definizione sta nel link come stringa densing.",
+    "playgroundIntro": "Costruisci una definizione vec2 da input, funzioni tue e celle, ognuna un’espressione modificata sul posto o come codice. La geometria di ogni cella viene disegnata e l’intera definizione sta nel link come stringa densing.",
     "openPlayground": "Apri il playground"
   }
 }

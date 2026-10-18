@@ -11,16 +11,16 @@ import { ConstrainedDelaunay } from '@dirty-geometry/vec2/operations/constrained
 
 Folders are layered. A module may only import from its own layer or a lower one, and `test/architecture` enforces this along with a no-new-cycles rule.
 
-| Layer | Folders                              | What                                                                                                                                                                                                                     |
-| ----- | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 0     | `core/epsilon`, `hash/`, `analysis/` | tolerances, spatial hashing, clustering                                                                                                                                                                                  |
-| 1     | `core/`, `bounds/interval2`          | `Vec2`, `Angle`, `Mat3`, `Frame2`, exact predicates, intervals                                                                                                                                                           |
-| 2     | `bounds/aabb2`, `spatial/`           | boxes, vertex dedup                                                                                                                                                                                                      |
-| 3     | `geometry/`                          | primitives (`Line2`, `Ray2`, `InfiniteLine2`, `Hesse2`), curves, regions (`Polygon2`, `Circle2`, `TriMesh2`), type tags and guards in `geometry/kinds`                                                                   |
-| 4     | `grid/`                              | `Grid2`, axes, cells and grid regions                                                                                                                                                                                    |
-| 5     | `operations/`                        | static-only classes: `Boolean2`, `Contains2`, `Overlap2`, `Intersection2`, `DouglasPeucker`, `ConstrainedDelaunay`, `RectilinearGrid2`; their plumbing (CDT core, constraint edges, grid paths) in `operations/helpers/` |
-| 6     | `io/`                                | JSON codecs                                                                                                                                                                                                              |
-| 7     | `recording/`                         | record calls as JSON definitions by reflection, replay them (reads only the generated `schema/bindings.ts`; nothing else imports it)                                                                                     |
+| Layer | Folders | What |
+| --- | --- | --- |
+| 0 | `core/epsilon`, `hash/`, `analysis/` | tolerances, spatial hashing, clustering |
+| 1 | `core/`, `bounds/interval2` | `Vec2`, `Angle`, `Mat3`, `Frame2`, exact predicates, intervals |
+| 2 | `bounds/aabb2`, `spatial/` | boxes, vertex dedup |
+| 3 | `geometry/` | primitives (`Line2`, `Ray2`, `InfiniteLine2`, `Hesse2`), curves, regions (`Polygon2`, `Circle2`, `TriMesh2`), type tags and guards in `geometry/kinds` |
+| 4 | `grid/` | `Grid2`, axes, cells and grid regions |
+| 5 | `operations/` | static-only classes: `Boolean2`, `Contains2`, `Overlap2`, `Intersection2`, `DouglasPeucker`, `ConstrainedDelaunay`, `RectilinearGrid2`; their plumbing (CDT core, constraint edges, grid paths) in `operations/helpers/` |
+| 6 | `io/` | JSON codecs |
+| 7 | `recording/` | record calls as JSON definitions by reflection, replay them (reads only the generated `schema/bindings.ts`; nothing else imports it) |
 
 `examples/` holds the scenario data behind the `/lab` demos, plus a seeded RNG (`examples/random`). `src` never imports from it.
 
@@ -54,7 +54,7 @@ The core (`operations/helpers/cdt/`) is an adjacency mesh with walking point loc
 
 ## Recording definitions
 
-`recording/` stores _how_ a value was made, not just the value, without touching any class.
+`recording/` stores *how* a value was made, not just the value, without touching any class.
 
 ```ts
 import { createRecorder } from '@dirty-geometry/vec2/recording/recorder';

@@ -3,9 +3,9 @@ import { createRecorder } from '@dirty-geometry/vec2/recording/recorder';
 import { Vec2 } from '@dirty-geometry/vec2/core/vec2';
 import { recordPlate } from '@dirty-geometry/vec2/examples/definitions/plate';
 import type { Definition } from '@dirty-geometry/vec2/recording/definition';
-import { definitionToTypeScript } from '../src/codegen';
-import { normaliseDefinition } from '../src/convert';
-import { runTypeScript, TypeScriptRunError } from '../src/run';
+import { definitionToTypeScript } from '../src/playground/codegen';
+import { normaliseDefinition } from '../src/playground/presets';
+import { runTypeScript, TypeScriptRunError } from '../src/playground/run';
 
 function recordMixed(): Definition {
   const rec = createRecorder();
@@ -35,7 +35,7 @@ describe('TypeScript round trip', () => {
   test('editing the code changes the definition', async () => {
     const code = definitionToTypeScript(recordPlate()).replace("rec.param('width', 6)", "rec.param('width', 8)");
     const { definition } = await runTypeScript(code);
-    expect(definition.params.width?.value).toEqual({ lit: 8 });
+    expect(definition.params.width?.value).toBe(8);
   });
 
   test('loops, helpers and type annotations are allowed; loops are unrolled', async () => {

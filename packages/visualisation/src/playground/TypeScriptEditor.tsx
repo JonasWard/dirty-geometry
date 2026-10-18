@@ -2,8 +2,8 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import type { Definition } from '@dirty-geometry/vec2/recording/definition';
-import { definitionToTypeScript } from '@dirty-geometry/vec2-dense/codegen';
-import { runTypeScript } from '@dirty-geometry/vec2-dense/run';
+import { definitionToTypeScript } from './codegen';
+import { runTypeScript } from './run';
 
 const textarea =
   'h-80 w-full rounded-md border border-dg-border bg-[#0b0d12] p-2 font-mono text-[11px] leading-snug text-[#d7dde8] focus:border-dg-steel-600 focus:outline-none';

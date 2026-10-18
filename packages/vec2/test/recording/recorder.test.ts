@@ -1,7 +1,9 @@
 import { describe, expect, test } from 'bun:test';
-import { createRecorder, RecordingError } from '../../src/recording/recorder';
+import { RecordingError } from '../../src/recording/definition';
+import { createRecorder } from '../../src/recording/recorder';
 import { Scalar } from '../../src/recording/scalar';
-import { isOperationNode, type Definition } from '../../src/recording/definition';
+import type { Definition } from '../../src/recording/definition';
+import { evaluateDefinition } from '../../src/recording/replay';
 import { Line2 } from '../../src/geometry/primitives/line2';
 import { Vec2 } from '../../src/core/vec2';
 
@@ -20,10 +22,10 @@ describe('recorder', () => {
       'Vec2.new',
       'Vec2.new',
       'Line2.new',
-      'Line2#evaluate',
-      'Line2#from',
+      'Line2.evaluate',
+      'Line2.from',
     ]);
-    expect(nodeOf(definition, 'Line2#evaluate')).toMatchObject({ self: 'n2', args: [{ lit: 0.5 }] });
+    expect(nodeOf(definition, 'Line2.evaluate')).toMatchObject({ self: 'n2', args: [0.5] });
     expect(rec.unwrap(rec.lib.Vec2.origin()).toJson()).toEqual({ type: 'Vec2', x: 0, y: 0 });
   });
 
@@ -40,11 +42,8 @@ describe('recorder', () => {
     rec.output('doubled', doubled);
 
     const definition = rec.definition();
-    const scaleNodes = definition.nodes.filter((node) => node.op === 'Vec2#scale');
-    expect(scaleNodes.map((node) => (isOperationNode(node) ? node.args[0] : null))).toEqual([
-      { ref: 'n3' },
-      { lit: 10 },
-    ]);
+    const scaleNodes = definition.nodes.filter((node) => node.op === 'Vec2.scale');
+    expect(scaleNodes.map((node) => ('args' in node ? node.args?.[0] : null))).toEqual([{ ref: 'n3' }, 10]);
   });
 
   test('recorded objects stay the same object, pass instanceof and are immutable', () => {
@@ -82,9 +81,9 @@ describe('recorder', () => {
     expect(ops).toContain('item');
     expect(ops).toContain('field');
     expect(ops).toContain('ConstrainedDelaunay.triangulate');
-    expect(ops).toContain('operations/helpers/cdt/hull:convexHullLoop');
+    expect(ops).toContain('convexHullLoop');
     expect(nodeOf(definition, 'Vec2.center')).toMatchObject({ args: [{ ref: 'n0' }, { ref: 'n1' }, { ref: 'n2' }] });
-    expect(nodeOf(definition, 'Interval2.new')).toMatchObject({ args: [{ lit: 0 }, { number: 'Infinity' }] });
+    expect(nodeOf(definition, 'Interval2.new')).toMatchObject({ args: [0, { number: 'Infinity' }] });
   });
 
   test('vec2 values made outside the recorder are stored through their codec', () => {
@@ -94,14 +93,15 @@ describe('recorder', () => {
     expect(nodeOf(rec.definition(), 'Line2.definitionOf')).toMatchObject({ args: [{ value: outside.toJson() }] });
   });
 
-  test('params are nodes and stay in the definition even when unused', () => {
+  test('params stay in the definition even when unused, and are used as { param }', () => {
     const rec = createRecorder();
     const width = rec.param('width', 3);
     rec.param('unused', 1);
     rec.output('point', new rec.lib.Vec2(width, 0));
     const definition = rec.definition();
     expect(Object.keys(definition.params)).toEqual(['width', 'unused']);
-    expect(definition.params.width).toEqual({ node: 'n0', type: { kind: 'number' }, value: { lit: 3 } });
+    expect(definition.params.width).toEqual({ type: 'number', value: 3 });
+    expect(definition.nodes[0]).toEqual({ id: 'n0', op: 'Vec2.new', args: [{ param: 'width' }, 0] });
     expect(() => rec.param('width', 4)).toThrow(RecordingError);
   });
 
@@ -113,7 +113,7 @@ describe('recorder', () => {
       new loose.lib.Vec2(0, 1),
     ]);
     expect(polygon.toJson().type).toBe('Polygon2');
-    expect(loose.warnings[0]).toContain('Polygon2#toJson ran unrecorded');
+    expect(loose.warnings[0]).toContain('Polygon2.toJson ran unrecorded');
 
     const strict = createRecorder({ strict: true });
     const strictPolygon = new strict.lib.Polygon2([
@@ -130,5 +130,21 @@ describe('recorder', () => {
     rec.output('point', new rec.lib.Vec2(1, 1));
     const definition = rec.definition();
     expect(JSON.parse(JSON.stringify(definition))).toEqual(definition);
+  });
+
+  test('a static and an instance member with the same name are both recorded and replayed', () => {
+    const rec = createRecorder({ strict: true });
+    const { Vec2: V, Polygon2, Epsilon } = rec.lib;
+    const vertices = [new V(0, 0), new V(2, 0), new V(0, 2)];
+    rec.output('static', Polygon2.signedArea(vertices));
+    rec.output('instance', new Polygon2(vertices).signedArea());
+    rec.output('sq', Epsilon.custom(0.5).sq);
+    const definition = rec.definition();
+    expect(definition.nodes.filter((node) => node.op === 'Polygon2.signedArea').map((node) => 'self' in node)).toEqual([
+      false,
+      true,
+    ]);
+    const outputs = evaluateDefinition(JSON.parse(JSON.stringify(definition))).outputs;
+    expect([outputs.static, outputs.instance, outputs.sq]).toEqual([2, 2, 0.25]);
   });
 });

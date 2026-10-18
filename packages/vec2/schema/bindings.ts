@@ -22,14 +22,12 @@ import { GridLine2 } from '../src/grid/regions/grid-line2';
 import { GridPolygon2 } from '../src/grid/regions/grid-polygon2';
 import { GridPolyline2 } from '../src/grid/regions/grid-polyline2';
 import { GridRectangle2 } from '../src/grid/regions/grid-rectangle2';
-import { CodecRegistry } from '../src/io/codec';
-import { Deserialise } from '../src/io/deserialise';
 import { Boolean2 } from '../src/operations/boolean2';
 import { ConstrainedDelaunay } from '../src/operations/constrained-delaunay';
 import { Contains2 } from '../src/operations/contains2';
 import { DouglasPeucker } from '../src/operations/douglas-peucker';
 import { convexHullLoop } from '../src/operations/helpers/cdt/hull';
-import { CdtMesh, emptyCdtStats } from '../src/operations/helpers/cdt/mesh';
+import { emptyCdtStats } from '../src/operations/helpers/cdt/mesh';
 import { triangulateConstrained } from '../src/operations/helpers/cdt/triangulate';
 import { constraintEdge, constraintEdgeEndpoints } from '../src/operations/helpers/constraint-edge';
 import { resolveDouglasPeuckerTolerances } from '../src/operations/helpers/douglas-peucker-tolerances';
@@ -43,18 +41,15 @@ import { Intersection2 } from '../src/operations/intersection2';
 import { Overlap2 } from '../src/operations/overlap2';
 import { RectilinearGrid2 } from '../src/operations/rectilinear-grid2';
 
-/** Exported vec2 classes by name. */
+/** The recordable vec2 classes by name. */
 export const classes = {
   Aabb2,
   Angle,
   Axis,
   Boolean2,
-  CdtMesh,
   Circle2,
-  CodecRegistry,
   ConstrainedDelaunay,
   Contains2,
-  Deserialise,
   DouglasPeucker,
   Epsilon,
   Frame2,
@@ -80,16 +75,16 @@ export const classes = {
   Vec2,
 } as const;
 
-/** Helper functions by `<module>:<name>`. */
+/** Helper functions by name. */
 export const helpers = {
-  'operations/helpers/cdt/hull:convexHullLoop': convexHullLoop,
-  'operations/helpers/cdt/mesh:emptyCdtStats': emptyCdtStats,
-  'operations/helpers/cdt/triangulate:triangulateConstrained': triangulateConstrained,
-  'operations/helpers/constraint-edge:constraintEdge': constraintEdge,
-  'operations/helpers/constraint-edge:constraintEdgeEndpoints': constraintEdgeEndpoints,
-  'operations/helpers/douglas-peucker-tolerances:resolveDouglasPeuckerTolerances': resolveDouglasPeuckerTolerances,
-  'operations/helpers/grid-polygon-path:axisDirection': axisDirection,
-  'operations/helpers/grid-polygon-path:directionDelta': directionDelta,
-  'operations/helpers/grid-polygon-path:ensureAxisAlignedPolygonPath': ensureAxisAlignedPolygonPath,
-  'operations/helpers/grid-polygon-path:isAxisAlignedPolygonPath': isAxisAlignedPolygonPath,
+  axisDirection,
+  constraintEdge,
+  constraintEdgeEndpoints,
+  convexHullLoop,
+  directionDelta,
+  emptyCdtStats,
+  ensureAxisAlignedPolygonPath,
+  isAxisAlignedPolygonPath,
+  resolveDouglasPeuckerTolerances,
+  triangulateConstrained,
 } as const;

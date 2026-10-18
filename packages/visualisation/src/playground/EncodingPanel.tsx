@@ -1,15 +1,11 @@
 'use client';
 
 import { useState } from 'react';
-import {
-  NUMERIC_ROLES,
-  type ActivePresets,
-  type CustomPreset,
-  type NumericOptions,
-  type NumericRole,
-} from '@dirty-geometry/vec2-dense/numerics';
-import { presetBits } from '@dirty-geometry/vec2-dense/presets';
-import type { DenseDefinitionSchema } from '@dirty-geometry/vec2-dense/definition-schema';
+import { ROLES as NUMERIC_ROLES, type Role as NumericRole } from '@dirty-geometry/vec2/schema/schema';
+import type { DenseDefinitionSchema } from '@dirty-geometry/vec2/schema/dense/definition';
+import type { NumericPreset as CustomPreset } from 'densing';
+import type { ActivePresets, NumericOptions } from '@dirty-geometry/vec2/schema/dense/numerics';
+import { presetBits } from './presets';
 
 const panel = 'rounded-md border border-dg-border bg-white/60 p-3 text-xs';
 const button = 'rounded border border-dg-border px-2 py-0.5 text-xs hover:border-dg-steel-600 hover:text-dg-steel-600';

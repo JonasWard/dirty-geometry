@@ -1,65 +1,79 @@
 #!/usr/bin/env bun
 /**
- * Generates the vec2 operation schema from the TypeScript source.
+ * Generates the vec2 type schema from the TypeScript source, with the compiler API (TypeScript keeps no
+ * types at runtime). Recording and replay do not need it; dense packing and the playground do.
  *
- * TypeScript keeps no parameter names or types at runtime, so the schema is extracted at build time
- * with the compiler API and committed:
- * - packages/vec2/schema/vec2.schema.json: every exported class (constructor and public members) and
- *   every function in an `operations/**\/helpers/` folder, with parameter names and JSON type descriptions;
- * - packages/vec2/schema/bindings.ts: the runtime table from class / helper name to implementation;
- * - packages/vec2/schema/ids.ts: the operation ids as a string union, so policy.ts is type-checked.
- *
- * Rule: an operation is a class member or a helper. An exported function anywhere else in `operations/`
- * fails the build.
+ * - packages/vec2/schema/vec2.schema.json: the `src` folder tree. Each file lists its classes (`json` shape,
+ *   `new` parameters, `members`) and, under `operations/**\/helpers/`, its helper functions. Numbers are typed
+ *   by role (coordinate, angle, parameter, integer, epsilon); shared shapes are named once under `types`.
+ * - packages/vec2/schema/bindings.ts: the class and helper tables the recorder and replay call.
  *
  *   bun run schema          # regenerate
  *   bun run schema:check    # fail when the committed files are stale
  */
-import { createHash } from "node:crypto";
-import { readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
-import path from "node:path";
-import * as prettier from "prettier";
-import ts from "typescript";
-import { policy } from "../packages/vec2/schema/policy";
-import type {
-  CallableSchema,
-  ClassSchema,
-  MemberSchema,
-  ParamSchema,
-  TypeRef,
-  Vec2Schema,
-} from "../packages/vec2/schema/types";
+import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import path from 'node:path';
+import * as prettier from 'prettier';
+import ts from 'typescript';
+import { SKIP_CLASSES, SKIP_MEMBERS } from '../packages/vec2/schema/policy';
 
-const repoRoot = path.resolve(import.meta.dir, "..");
-const packageRoot = path.join(repoRoot, "packages/vec2");
-const srcRoot = path.join(packageRoot, "src");
-const schemaDir = path.join(packageRoot, "schema");
+const repoRoot = path.resolve(import.meta.dir, '..');
+const srcRoot = path.join(repoRoot, 'packages/vec2/src');
+const schemaDir = path.join(repoRoot, 'packages/vec2/schema');
 
-/** Never part of the schema: the recording layer itself. */
-const SKIPPED_FOLDERS = ["recording/"];
-const isOperationsModule = (module: string) => module.startsWith("operations/");
-const isHelperModule = (module: string) =>
-  isOperationsModule(module) && module.split("/").includes("helpers");
+/** Number roles by parameter or field name; any other number is a coordinate. */
+const ROLES: Record<string, string> = {
+  ...Object.fromEntries(['theta', 'radians', 'angle'].map((name) => [name, 'angle'])),
+  t: 'parameter',
+  ...Object.fromEntries(
+    ['i', 'j', 'index', 'count', 'hash', 'edge', 'a', 'b', 'constraints', 'triangles', 'direction'].map((name) => [
+      name,
+      'integer',
+    ]),
+  ),
+};
+/** Exceptions by `Class.member` (its parameters) or by class (its json fields). */
+const ROLE_EXCEPTIONS: Record<string, Record<string, string>> = {
+  'Epsilon.areEqual': { a: 'coordinate', b: 'coordinate' },
+  'Epsilon.custom': { input: 'epsilon' },
+  'Angle.new': { value: 'angle' },
+  Angle: { value: 'angle' },
+  Epsilon: { value: 'epsilon' },
+};
+/** Roles of the numbers inside named types. */
+const TYPE_ROLES: Record<string, string> = { ConstraintEdgeInput: 'integer' };
+const roleOf = (name: string, scope: string) => ROLE_EXCEPTIONS[scope]?.[name] ?? ROLES[name] ?? 'coordinate';
 
-function listSources(dir: string): string[] {
-  return readdirSync(dir).flatMap((name) => {
+type Type =
+  | string
+  | Type[]
+  | { enum: (string | number | boolean | null)[] }
+  | { or: Type[] }
+  | { tuple: Type[] }
+  | { object: Record<string, Slot> }
+  | { record: Type };
+type Slot = Type | { type: Type; optional?: true; rest?: true };
+type Entry = { static?: true | Entry; params?: Record<string, Slot>; returns?: Type; value?: Type } | null;
+
+class Unsupported extends Error {}
+
+const listSources = (dir: string): string[] =>
+  readdirSync(dir).flatMap((name) => {
     const full = path.join(dir, name);
-    if (statSync(full).isDirectory()) return listSources(full);
-    return name.endsWith(".ts") && !name.endsWith(".d.ts") ? [full] : [];
+    return statSync(full).isDirectory() ? listSources(full) : name.endsWith('.ts') ? [full] : [];
   });
-}
+const moduleOf = (file: string) => path.relative(srcRoot, file).replace(/\\/g, '/').replace(/\.ts$/, '');
+const modifiers = (node: ts.Node) => (ts.canHaveModifiers(node) ? (ts.getModifiers(node) ?? []) : []);
+const has = (node: ts.Node, kind: ts.SyntaxKind) => modifiers(node).some((modifier) => modifier.kind === kind);
+const isPublic = (node: ts.Node) =>
+  !has(node, ts.SyntaxKind.PrivateKeyword) && !has(node, ts.SyntaxKind.ProtectedKeyword);
+const slot = (type: Type, optional?: boolean, rest?: boolean): Slot =>
+  optional || rest ? { type, ...(optional ? { optional: true as const } : {}), ...(rest ? { rest: true as const } : {}) } : type;
+const sorted = <T>(record: Record<string, T>) =>
+  Object.fromEntries(Object.entries(record).sort(([a], [b]) => a.localeCompare(b)));
 
-const moduleOf = (file: string) =>
-  path.relative(srcRoot, file).replace(/\\/g, "/").replace(/\.ts$/, "");
-
-export function generateSchema(): {
-  schema: Vec2Schema;
-  bindings: string;
-  ids: string;
-} {
-  const files = listSources(srcRoot).filter(
-    (file) => !SKIPPED_FOLDERS.some((dir) => moduleOf(file).startsWith(dir)),
-  );
+export function generateSchema() {
+  const files = listSources(srcRoot).filter((file) => !moduleOf(file).startsWith('recording/'));
   const program = ts.createProgram(files, {
     target: ts.ScriptTarget.ES2022,
     module: ts.ModuleKind.Preserve,
@@ -67,589 +81,365 @@ export function generateSchema(): {
     strict: true,
     skipLibCheck: true,
     noEmit: true,
-    resolveJsonModule: true,
     types: [],
   });
   const checker = program.getTypeChecker();
-  const sources = files
-    .map((file) => ({
-      source: program.getSourceFile(file)!,
-      module: moduleOf(file),
-    }))
-    .sort((a, b) => a.module.localeCompare(b.module));
+  const sources = files.map((file) => ({ source: program.getSourceFile(file)!, module: moduleOf(file) }));
+  const exported = (node: ts.Node) => has(node, ts.SyntaxKind.ExportKeyword);
 
-  // Pass 1: every exported class, so a parameter of type `Vec2` is described as a class reference.
-  const classSymbols = new Map<ts.Symbol, string>();
+  const classes = new Map<ts.Symbol, string>();
+  const aliases = new Map<ts.Symbol, ts.TypeAliasDeclaration>();
   for (const { source } of sources) {
-    for (const statement of source.statements) {
-      if (
-        ts.isClassDeclaration(statement) &&
-        statement.name &&
-        isExported(statement)
-      ) {
-        classSymbols.set(
-          checker.getSymbolAtLocation(statement.name)!,
-          statement.name.text,
-        );
-      }
+    for (const st of source.statements) {
+      if (!exported(st)) continue;
+      if (ts.isClassDeclaration(st) && st.name) classes.set(checker.getSymbolAtLocation(st.name)!, st.name.text);
+      if (ts.isTypeAliasDeclaration(st) && !st.typeParameters) aliases.set(checker.getSymbolAtLocation(st.name)!, st);
     }
   }
-  const describe = (type: ts.Type): TypeRef =>
-    describeType(checker, type, classSymbols, new Set());
-
-  /** Parameters and return type of a signature, or why it cannot be recorded. */
-  function callable(
-    id: string,
-    owner: string | null,
-    signature: ts.Signature,
-    returns?: ts.Type,
-  ): CallableSchema {
-    const params: ParamSchema[] = signature.getParameters().map((symbol) => {
-      const declaration = symbol.valueDeclaration as ts.ParameterDeclaration;
-      const rest = !!declaration.dotDotDotToken;
-      let type = checker.getTypeOfSymbolAtLocation(symbol, declaration);
-      if (rest && checker.isArrayType(type))
-        type = checker.getTypeArguments(type as ts.TypeReference)[0]!;
-      const optional = !!declaration.questionToken || !!declaration.initializer;
-      return {
-        name: symbol.name,
-        type: describe(optional ? checker.getNonNullableType(type) : type),
-        ...(optional ? { optional: true as const } : {}),
-        ...(rest ? { rest: true as const } : {}),
-      };
-    });
-    return entry(
-      id,
-      owner,
-      params,
-      describe(returns ?? signature.getReturnType()),
+  /** `Vec2Json` → `Vec2`: a class's json type is written as the class name. */
+  const jsonOf = new Map<ts.TypeAliasDeclaration, string>();
+  for (const [symbol, name] of classes) {
+    const toJson = (symbol.valueDeclaration as ts.ClassDeclaration).members.find(
+      (m): m is ts.MethodDeclaration => ts.isMethodDeclaration(m) && m.name.getText() === 'toJson',
     );
+    const decl = toJson?.type && ts.isTypeReferenceNode(toJson.type) ? aliasDecl(toJson.type.typeName) : undefined;
+    if (decl) jsonOf.set(decl, name);
   }
 
-  function entry(
-    id: string,
-    owner: string | null,
-    params: ParamSchema[],
-    returns: TypeRef,
-  ): CallableSchema {
-    const reason =
-      policyReason(id, owner) ??
-      params
-        .map((param) => unsupportedIn(param.type, `parameter ${param.name}`))
-        .find(Boolean) ??
-      unsupportedIn(returns, "return value") ??
-      (returns.kind === "void" ? "returns nothing" : null);
-    if (reason) return { reason };
-    return { ...(params.length > 0 ? { params } : {}), returns };
+  function aliasDecl(name: ts.EntityName) {
+    let symbol = checker.getSymbolAtLocation(name);
+    if (symbol && symbol.flags & ts.SymbolFlags.Alias) symbol = checker.getAliasedSymbol(symbol);
+    return symbol && aliases.get(symbol);
   }
 
-  // Pass 2: describe classes and helpers.
-  const classes: Record<string, ClassSchema> = {};
-  const helpers: Record<string, Record<string, CallableSchema>> = {};
-  const helperNames = new Map<string, string>();
-  const misplaced: string[] = [];
+  const types: Record<string, Type | null | false> = {};
+  let jsonMode = false;
+  /** A named type, or `undefined` when its body is better written in place (a primitive, a class). */
+  function named(decl: ts.TypeAliasDeclaration): string | undefined {
+    if (jsonOf.has(decl)) return jsonOf.get(decl);
+    const name = decl.name.text;
+    if (name.endsWith('Json')) return undefined;
+    if (name in types) return types[name] ? name : undefined; // `null` while in progress: expand the body
+    types[name] = null;
+    try {
+      const body = fromNode(decl.type, TYPE_ROLES[name] ?? 'coordinate');
+      types[name] = typeof body === 'string' && !(body in types) ? false : body;
+    } catch (error) {
+      types[name] = false;
+      throw error;
+    }
+    return types[name] === false ? undefined : name;
+  }
 
-  for (const { source, module } of sources) {
-    for (const statement of source.statements) {
-      if (
-        ts.isClassDeclaration(statement) &&
-        statement.name &&
-        isExported(statement)
-      ) {
-        classes[statement.name.text] = describeClass(statement, module);
-      } else if (
-        ts.isFunctionDeclaration(statement) &&
-        statement.name &&
-        isExported(statement)
-      ) {
-        if (!isOperationsModule(module)) continue;
-        const name = statement.name.text;
-        if (!isHelperModule(module)) {
-          misplaced.push(`${module}:${name}`);
-          continue;
-        }
-        if (helperNames.has(name))
-          throw new Error(
-            `Helper ${name} is exported by both ${helperNames.get(name)} and ${module}`,
-          );
-        helperNames.set(name, module);
-        const signature = checker.getSignatureFromDeclaration(statement)!;
-        (helpers[module] ??= {})[name] = callable(
-          `${module}:${name}`,
-          null,
-          signature,
+  const union = (items: Type[]): Type => {
+    const flat = items.flatMap((item) => (typeof item === 'object' && 'or' in item ? item.or : [item]));
+    const literals = flat.every((item) => item === 'null' || (typeof item === 'object' && 'enum' in item));
+    if (literals) return { enum: flat.flatMap((item) => (item === 'null' ? [null] : (item as { enum: [] }).enum)) };
+    return flat.length === 1 ? flat[0]! : { or: flat };
+  };
+  const field = (name: string, type: Type, optional: boolean) => {
+    if (jsonMode && typeof type === 'object' && 'or' in type && type.or.includes('null')) {
+      return [name, slot(union(type.or.filter((item) => item !== 'null')), true)] as const;
+    }
+    if (jsonMode && typeof type === 'object' && 'enum' in type && type.enum.includes(null) && type.enum.length > 1) {
+      return [name, slot({ enum: type.enum.filter((item) => item !== null) }, true)] as const;
+    }
+    return [name, slot(type, optional)] as const;
+  };
+
+  /** From the declared type node where there is one, so source alias names survive. */
+  function fromNode(node: ts.TypeNode | undefined, role?: string, scope = ''): Type {
+    if (!node) throw new Unsupported('no type');
+    const typeOf = (n: ts.TypeNode) => checker.getTypeFromTypeNode(n);
+    if (ts.isParenthesizedTypeNode(node)) return fromNode(node.type, role, scope);
+    if (ts.isTypeOperatorNode(node) && node.operator === ts.SyntaxKind.ReadonlyKeyword) {
+      return fromNode(node.type, role, scope);
+    }
+    if (ts.isTypeReferenceNode(node)) {
+      const decl = node.typeArguments ? undefined : aliasDecl(node.typeName);
+      const name = decl && named(decl);
+      if (name) return name;
+      if (node.typeName.getText() === 'Readonly' && node.typeArguments?.length === 1) {
+        return fromNode(node.typeArguments[0], role, scope);
+      }
+    }
+    if (ts.isArrayTypeNode(node)) return [fromNode(node.elementType, role, scope)];
+    if (ts.isTupleTypeNode(node)) return { tuple: node.elements.map((element) => fromNode(element, role, scope)) };
+    if (ts.isUnionTypeNode(node)) {
+      return union(
+        node.types.filter((t) => t.kind !== ts.SyntaxKind.UndefinedKeyword).map((t) => fromNode(t, role, scope)),
+      );
+    }
+    if (ts.isTypeLiteralNode(node)) {
+      const fields = node.members.filter(ts.isPropertySignature).map((member) => {
+        const name = member.name.getText();
+        const fieldRole = role === undefined ? undefined : roleOf(name, scope);
+        return field(name, fromNode(member.type, fieldRole, scope), !!member.questionToken);
+      });
+      return { object: Object.fromEntries(fields) };
+    }
+    if (ts.isLiteralTypeNode(node) && node.literal.kind === ts.SyntaxKind.NullKeyword) return 'null';
+    if (ts.isFunctionTypeNode(node)) throw new Unsupported(`callback ${node.getText()}`);
+    return fromType(typeOf(node), role, scope);
+  }
+
+  /** From the checker's type, when no usable type node exists. */
+  function fromType(type: ts.Type, role?: string, scope = '', seen = new Set<ts.Type>()): Type {
+    const flags = type.getFlags();
+    const text = () => checker.typeToString(type);
+    const isBool = (t: ts.Type) => (t.getFlags() & ts.TypeFlags.BooleanLiteral) !== 0;
+    const alias = type.aliasSymbol && aliases.get(type.aliasSymbol);
+    const name = alias && named(alias);
+    if (name) return name;
+    if (flags & ts.TypeFlags.Number) return role ?? 'number';
+    if (flags & ts.TypeFlags.String) return 'string';
+    if (flags & ts.TypeFlags.Boolean) return 'boolean';
+    if (flags & ts.TypeFlags.Null) return 'null';
+    if (flags & (ts.TypeFlags.Void | ts.TypeFlags.Undefined)) return 'void';
+    if (type.isNumberLiteral() || type.isStringLiteral()) return { enum: [type.value] };
+    if (isBool(type)) return { enum: [text() === 'true'] };
+    if (type.aliasSymbol?.getName() === 'Readonly' && type.aliasTypeArguments?.length === 1) {
+      return fromType(type.aliasTypeArguments[0]!, role, scope, seen);
+    }
+    if (type.aliasSymbol?.getName() === 'Record' && type.aliasTypeArguments?.length === 2) {
+      return { record: fromType(type.aliasTypeArguments[1]!, role, scope, seen) };
+    }
+    if (flags & ts.TypeFlags.TypeParameter) {
+      const constraint = checker.getBaseConstraintOfType(type);
+      if (constraint && constraint !== type && !(constraint.getFlags() & ts.TypeFlags.Unknown)) {
+        return fromType(constraint, role, scope, seen);
+      }
+    }
+    if (type.isUnion()) {
+      const members = type.types.filter((t) => !(t.getFlags() & ts.TypeFlags.Undefined));
+      const fold = members.filter(isBool).length === 2; // `boolean` is stored as `true | false`
+      const rest = members.filter((t) => !(fold && isBool(t))).map((t) => fromType(t, role, scope, seen));
+      return union([...(fold ? ['boolean'] : []), ...rest]);
+    }
+    if (checker.isTupleType(type)) {
+      return { tuple: checker.getTypeArguments(type as ts.TypeReference).map((t) => fromType(t, role, scope, seen)) };
+    }
+    if (checker.isArrayType(type)) return [fromType(checker.getTypeArguments(type as ts.TypeReference)[0]!, role, scope, seen)];
+    const symbol = type.getSymbol() ?? type.aliasSymbol;
+    if (symbol && classes.has(symbol)) return classes.get(symbol)!;
+    if (flags & (ts.TypeFlags.Any | ts.TypeFlags.Unknown | ts.TypeFlags.Never | ts.TypeFlags.TypeParameter)) {
+      throw new Unsupported(text());
+    }
+    if (type.getCallSignatures().length > 0 || type.getConstructSignatures().length > 0) {
+      throw new Unsupported(`callback ${text()}`);
+    }
+    if (!(flags & ts.TypeFlags.Object) && !type.isIntersection()) throw new Unsupported(text());
+    if (symbol?.getName() === 'Iterable') return [fromType(checker.getTypeArguments(type as ts.TypeReference)[0]!, role, scope, seen)];
+    const builtIn = ['Map', 'Set', 'WeakMap', 'Generator', 'Iterator', 'IterableIterator', 'Promise'];
+    if (symbol && (builtIn.includes(symbol.getName()) || symbol.getDeclarations()?.some(ts.isClassDeclaration))) {
+      throw new Unsupported(text());
+    }
+    if (seen.has(type) || seen.size > 6) throw new Unsupported(`recursive ${text()}`);
+    const fields = checker.getPropertiesOfType(type).flatMap((property) => {
+      const decl = property.valueDeclaration ?? property.declarations?.[0];
+      if (!decl) return [];
+      const optional = (property.getFlags() & ts.SymbolFlags.Optional) !== 0;
+      let propertyType = checker.getTypeOfSymbolAtLocation(property, decl);
+      if (propertyType.getCallSignatures().length > 0) return []; // methods of a result object are not data
+      if (optional) propertyType = checker.getNonNullableType(propertyType);
+      const fieldRole = role === undefined ? undefined : roleOf(property.name, scope);
+      const declared = (decl as ts.PropertySignature).type;
+      const described = declared
+        ? fromNode(declared, fieldRole, scope)
+        : fromType(propertyType, fieldRole, scope, new Set(seen).add(type));
+      return [field(property.name, described, optional)];
+    });
+    return { object: Object.fromEntries(fields) };
+  }
+
+  const skipped: string[] = [];
+  /** Parameters and result of a signature; `null` when it cannot be recorded. */
+  function call(id: string, decl: ts.SignatureDeclaration, isStatic: boolean): Entry {
+    try {
+      const params = Object.fromEntries(
+        decl.parameters.map((p) => {
+          const rest = !!p.dotDotDotToken;
+          const role = roleOf(p.name.getText(), id);
+          let type = p.type ? fromNode(p.type, role, '') : fromType(checker.getTypeAtLocation(p), role);
+          if (rest && Array.isArray(type)) type = type[0]!;
+          return [p.name.getText(), slot(type, !!p.questionToken || !!p.initializer, rest)];
+        }),
+      );
+      const signature = checker.getSignatureFromDeclaration(decl)!;
+      const returns = decl.type ? fromNode(decl.type) : fromType(signature.getReturnType());
+      if (returns === 'void') throw new Unsupported('returns nothing');
+      return { ...(isStatic ? { static: true as const } : {}), ...(decl.parameters.length ? { params } : {}), returns };
+    } catch (error) {
+      if (!(error instanceof Unsupported)) throw error;
+      skipped.push(`${id}: ${error.message}`);
+      return null;
+    }
+  }
+  function read(id: string, node: ts.Node, typeNode: ts.TypeNode | undefined, isStatic: boolean): Entry {
+    try {
+      const value = typeNode ? fromNode(typeNode) : fromType(checker.getTypeAtLocation(node));
+      return { ...(isStatic ? { static: true as const } : {}), value };
+    } catch (error) {
+      if (!(error instanceof Unsupported)) throw error;
+      skipped.push(`${id}: ${error.message}`);
+      return null;
+    }
+  }
+
+  function describeClass(decl: ts.ClassDeclaration, name: string) {
+    const ctor = decl.members.find(ts.isConstructorDeclaration);
+    const instance: Record<string, Entry> = {};
+    const statics: Record<string, Entry> = {};
+    for (const member of decl.members) {
+      if (!member.name || !ts.isIdentifier(member.name) || !isPublic(member) || ts.isSetAccessor(member)) continue;
+      const key = member.name.text;
+      if (key.startsWith('_') || key === 'type') continue;
+      const isStatic = has(member, ts.SyntaxKind.StaticKeyword);
+      const target = isStatic ? statics : instance;
+      const id = `${name}.${key}`;
+      if (key in target) continue;
+      if (ts.isMethodDeclaration(member)) {
+        const overloaded = (checker.getSymbolAtLocation(member.name)?.getDeclarations() ?? []).some(
+          (d) => ts.isMethodDeclaration(d) && !d.body,
         );
+        const reason = SKIP_MEMBERS.has(key) ? 'policy' : member.asteriskToken ? 'generator' : overloaded ? 'overloaded' : null;
+        if (reason) skipped.push(`${id}: ${reason}`);
+        target[key] = reason ? null : call(id, member, isStatic);
+      } else if (ts.isPropertyDeclaration(member) || ts.isGetAccessorDeclaration(member)) {
+        if (checker.getTypeAtLocation(member).getCallSignatures().length > 0) continue;
+        target[key] = read(id, member, member.type, isStatic);
+      }
+    }
+    for (const p of ctor?.parameters ?? []) {
+      if (ts.isIdentifier(p.name) && isPublic(p) && modifiers(p).length > 0) {
+        instance[p.name.text] = read(`${name}.${p.name.text}`, p, p.type, false);
+      }
+    }
+    // A static and an instance member may share a name: the static one nests under `static`.
+    const members: Record<string, Entry> = { ...statics, ...instance };
+    for (const key of Object.keys(statics)) {
+      if (key in instance && instance[key] && statics[key]) {
+        const { static: _, ...staticEntry } = statics[key]!;
+        members[key] = { ...instance[key], static: staticEntry };
+      } else if (key in instance && !instance[key]) members[key] = statics[key]!;
+    }
+
+    const toJson = decl.members.find((m) => ts.isMethodDeclaration(m) && m.name.getText() === 'toJson') as
+      | ts.MethodDeclaration
+      | undefined;
+    const jsonDecl = toJson?.type && ts.isTypeReferenceNode(toJson.type) ? aliasDecl(toJson.type.typeName) : undefined;
+    jsonMode = true;
+    const json = jsonDecl ? fromNode(jsonDecl.type, 'coordinate', name) : undefined;
+    jsonMode = false;
+    const constructible = !ctor || isPublic(ctor);
+    return {
+      ...(json ? { json } : {}),
+      ...(constructible ? { new: ctor ? (call(`${name}.new`, ctor, false)?.params ?? {}) : {} } : {}),
+      members: sorted(members),
+    };
+  }
+
+  const modules: Record<string, any> = {};
+  const at = (module: string) => module.split('/').reduce((node, part) => (node[part] ??= {}), modules);
+  const tables = { classes: [] as [string, string][], helpers: [] as [string, string][] };
+  const misplaced: string[] = [];
+  const helperNames = new Set<string>();
+  for (const { source, module } of sources) {
+    for (const st of source.statements) {
+      const named = st as ts.Statement & { name?: ts.Node };
+      if (!exported(st) || !named.name || !ts.isIdentifier(named.name)) continue;
+      const name = named.name.text;
+      if (ts.isClassDeclaration(st) && !SKIP_CLASSES.has(name)) {
+        at(module)[name] = describeClass(st, name);
+        tables.classes.push([module, name]);
+      } else if (ts.isFunctionDeclaration(st) && module.startsWith('operations/')) {
+        if (!module.split('/').includes('helpers')) misplaced.push(`${module}:${name}`);
+        else if (helperNames.has(name)) throw new Error(`Helper ${name} is exported twice`);
+        else {
+          helperNames.add(name);
+          at(module)[name] = call(name, st, false);
+          tables.helpers.push([module, name]);
+        }
       }
     }
   }
   if (misplaced.length > 0) {
-    throw new Error(
-      `Operations must be class members or live in a helpers/ folder. Move or wrap: ${misplaced.join(", ")}`,
-    );
+    throw new Error(`Operations must be class members or live in a helpers/ folder: ${misplaced.join(', ')}`);
   }
-
-  function describeClass(
-    node: ts.ClassDeclaration,
-    module: string,
-  ): ClassSchema {
-    const owner = node.name!.text;
-    const classSymbol = checker.getSymbolAtLocation(node.name!)!;
-    const instanceType = checker.getDeclaredTypeOfSymbol(classSymbol);
-    const typeTag = staticTypeTag(node);
-    const members: Record<string, MemberSchema> = {};
-
-    let created: CallableSchema | undefined;
-    const constructorDecl = node.members.find(ts.isConstructorDeclaration);
-    if (!constructorDecl || isPublic(constructorDecl)) {
-      const [signature] = checker
-        .getTypeOfSymbolAtLocation(classSymbol, node)
-        .getConstructSignatures();
-      if (signature)
-        created = callable(`${owner}.new`, owner, signature, instanceType);
-    }
-
-    const add = (
-      name: string,
-      isStatic: boolean,
-      value: boolean,
-      schema: CallableSchema,
-    ) => {
-      members[name] = {
-        ...(isStatic ? { static: true as const } : {}),
-        ...(value ? { value: true as const } : {}),
-        ...schema,
-      };
-    };
-
-    for (const member of node.members) {
-      if (
-        !member.name ||
-        !isPublic(member) ||
-        ts.isConstructorDeclaration(member)
-      )
-        continue;
-      const name = member.name.getText();
-      if (name.startsWith("_") || name.startsWith("#") || members[name])
-        continue;
-      const isStatic = hasModifier(member, ts.SyntaxKind.StaticKeyword);
-      const id = `${owner}${isStatic ? "." : "#"}${name}`;
-
-      if (ts.isMethodDeclaration(member)) {
-        const overloaded = (
-          checker.getSymbolAtLocation(member.name)?.getDeclarations() ?? []
-        ).some(
-          (declaration) =>
-            ts.isMethodDeclaration(declaration) && !declaration.body,
-        );
-        if (member.asteriskToken || overloaded) {
-          add(name, isStatic, false, {
-            reason: member.asteriskToken
-              ? "generator method"
-              : "overloaded method",
-          });
-        } else {
-          add(
-            name,
-            isStatic,
-            false,
-            callable(id, owner, checker.getSignatureFromDeclaration(member)!),
-          );
-        }
-      } else if (
-        ts.isPropertyDeclaration(member) ||
-        ts.isGetAccessorDeclaration(member)
-      ) {
-        if (name === "type") continue; // the type tag is metadata, not an operation
-        const type = checker.getTypeAtLocation(member);
-        if (type.getCallSignatures().length > 0) continue;
-        add(name, isStatic, true, entry(id, owner, [], describe(type)));
-      }
-    }
-
-    // Constructor parameter properties (`constructor(public readonly from: Vec2)`) are fields too.
-    for (const parameter of constructorDecl?.parameters ?? []) {
-      if (
-        !ts.isIdentifier(parameter.name) ||
-        !isPublic(parameter) ||
-        !hasAnyModifier(parameter)
-      )
-        continue;
-      const name = parameter.name.text;
-      add(
-        name,
-        false,
-        true,
-        entry(
-          `${owner}#${name}`,
-          owner,
-          [],
-          describe(checker.getTypeAtLocation(parameter)),
-        ),
-      );
-    }
-
-    return {
-      module,
-      ...(typeTag ? { typeTag } : {}),
-      ...(created ? { new: created } : {}),
-      members: sortObject(members),
-    };
-  }
-
-  const body = {
-    classes: sortObject(classes),
-    helpers: sortObject(
-      Object.fromEntries(
-        Object.entries(helpers).map(([module, fns]) => [
-          module,
-          sortObject(fns),
-        ]),
-      ),
-    ),
-  };
-  const hash = `sha256:${createHash("sha256").update(JSON.stringify(body)).digest("hex").slice(0, 16)}`;
-  const schema: Vec2Schema = {
-    format: "vec2-schema",
-    version: 2,
-    hash,
-    ...body,
-  };
-  return {
-    schema,
-    bindings: renderBindings(schema),
-    ids: renderIds(operationIds(schema)),
-  };
+  const sortTree = (node: any): any =>
+    node === null || 'members' in node || 'returns' in node
+      ? node
+      : Object.fromEntries(Object.entries(sorted(node)).map(([key, child]) => [key, sortTree(child)]));
+  const namedTypes = sorted(Object.fromEntries(Object.entries(types).filter(([, body]) => body)) as Record<string, Type>);
+  return { types: namedTypes, modules: sortTree(modules), tables, skipped };
 }
 
-function policyReason(id: string, owner: string | null): string | null {
-  const member = id.replace(/^.*[.#:]/, "");
-  const reason =
-    (owner
-      ? (policy.excludeClasses as Record<string, string>)[owner]
-      : undefined) ??
-    (policy.excludeMembers as Record<string, string>)[member] ??
-    (policy.excludeOperations as Record<string, string>)[id];
-  return reason ? `policy: ${reason}` : null;
-}
-
-function unsupportedIn(type: TypeRef, label: string): string | null {
-  switch (type.kind) {
-    case "unsupported":
-      return `${label} has an unsupported type (${type.text})`;
-    case "array":
-      return unsupportedIn(type.of, label);
-    case "tuple":
-      return (
-        type.items.map((item) => unsupportedIn(item, label)).find(Boolean) ??
-        null
-      );
-    case "union":
-      return (
-        type.of.map((item) => unsupportedIn(item, label)).find(Boolean) ?? null
-      );
-    case "object":
-      return (
-        Object.values(type.fields)
-          .map((field) => unsupportedIn(field.type, label))
-          .find(Boolean) ?? null
-      );
-    default:
-      return null;
-  }
-}
-
-function describeType(
-  checker: ts.TypeChecker,
-  type: ts.Type,
-  classSymbols: ReadonlyMap<ts.Symbol, string>,
-  seen: Set<ts.Type>,
-): TypeRef {
-  const flags = type.getFlags();
-  const text = () => checker.typeToString(type).slice(0, 120);
-  const recurse = (inner: ts.Type, next = seen) =>
-    describeType(checker, inner, classSymbols, next);
-  const isBooleanLiteral = (member: ts.Type) =>
-    (member.getFlags() & ts.TypeFlags.BooleanLiteral) !== 0;
-
-  if (flags & ts.TypeFlags.Number) return { kind: "number" };
-  if (flags & ts.TypeFlags.String) return { kind: "string" };
-  if (flags & ts.TypeFlags.Boolean) return { kind: "boolean" };
-  if (flags & ts.TypeFlags.Null) return { kind: "null" };
-  if (flags & (ts.TypeFlags.Void | ts.TypeFlags.Undefined))
-    return { kind: "void" };
-  if (type.isNumberLiteral() || type.isStringLiteral())
-    return { kind: "literal", value: type.value };
-  if (isBooleanLiteral(type))
-    return { kind: "literal", value: text() === "true" };
-
-  // `Readonly<T>` (frozen constants) describes the same data as `T`.
-  if (
-    type.aliasSymbol?.getName() === "Readonly" &&
-    type.aliasTypeArguments?.length === 1
-  ) {
-    return recurse(type.aliasTypeArguments[0]!);
-  }
-  // A generic parameter is described by its constraint (`T extends Polyline2 | Polygon2`).
-  if (flags & ts.TypeFlags.TypeParameter) {
-    const constraint = checker.getBaseConstraintOfType(type);
-    if (
-      constraint &&
-      constraint !== type &&
-      !(constraint.getFlags() & ts.TypeFlags.Unknown)
-    )
-      return recurse(constraint);
-  }
-
-  if (type.isUnion()) {
-    const members = type.types.filter(
-      (member) => !(member.getFlags() & ts.TypeFlags.Undefined),
-    );
-    // TypeScript stores `boolean` as `true | false`; fold the pair back.
-    const booleans = members.filter(isBooleanLiteral);
-    const foldBoolean = booleans.length === 2;
-    const of: TypeRef[] = [
-      ...(foldBoolean ? [{ kind: "boolean" } as const] : []),
-      ...members
-        .filter((member) => !(foldBoolean && isBooleanLiteral(member)))
-        .map((member) => recurse(member)),
-    ];
-    return of.length === 1 ? of[0]! : { kind: "union", of };
-  }
-
-  if (checker.isTupleType(type)) {
-    return {
-      kind: "tuple",
-      items: checker
-        .getTypeArguments(type as ts.TypeReference)
-        .map((item) => recurse(item)),
-    };
-  }
-  if (checker.isArrayType(type)) {
-    return {
-      kind: "array",
-      of: recurse(checker.getTypeArguments(type as ts.TypeReference)[0]!),
-    };
-  }
-
-  const symbol = type.getSymbol() ?? type.aliasSymbol;
-  const className = symbol && classSymbols.get(symbol);
-  if (className) return { kind: "class", type: className };
-
-  if (
-    flags &
-    (ts.TypeFlags.Any |
-      ts.TypeFlags.Unknown |
-      ts.TypeFlags.Never |
-      ts.TypeFlags.TypeParameter)
-  ) {
-    return { kind: "unsupported", text: text() };
-  }
-  if (
-    type.getCallSignatures().length > 0 ||
-    type.getConstructSignatures().length > 0
-  ) {
-    return { kind: "unsupported", text: `function ${text()}` };
-  }
-  // Plain objects, and intersections of them (`Fit & { rectangles: ... }`), are described field by field.
-  if (flags & ts.TypeFlags.Object || type.isIntersection()) {
-    const name = symbol?.getName();
-    if (
-      name &&
-      [
-        "Map",
-        "Set",
-        "WeakMap",
-        "Generator",
-        "Iterator",
-        "IterableIterator",
-        "Promise",
-      ].includes(name)
-    ) {
-      return { kind: "unsupported", text: text() };
-    }
-    if (symbol && isNonExportedClass(symbol))
-      return { kind: "unsupported", text: text() };
-    if (seen.has(type) || seen.size > 6)
-      return { kind: "unsupported", text: `recursive ${text()}` };
-    const next = new Set(seen).add(type);
-    const fields: Record<string, { type: TypeRef; optional?: true }> = {};
-    for (const property of checker.getPropertiesOfType(type)) {
-      const declaration =
-        property.valueDeclaration ?? property.declarations?.[0];
-      if (!declaration) continue;
-      const propertyType = checker.getTypeOfSymbolAtLocation(
-        property,
-        declaration,
-      );
-      if (propertyType.getCallSignatures().length > 0) continue; // methods of a result object are not data
-      const optional = (property.getFlags() & ts.SymbolFlags.Optional) !== 0;
-      fields[property.name] = {
-        type: recurse(
-          optional ? checker.getNonNullableType(propertyType) : propertyType,
-          next,
-        ),
-        ...(optional ? { optional: true as const } : {}),
-      };
-    }
-    return { kind: "object", fields };
-  }
-  return { kind: "unsupported", text: text() };
-}
-
-/** A class that is not a vec2 export (e.g. a private helper class) cannot be described as data. */
-function isNonExportedClass(symbol: ts.Symbol): boolean {
-  return (symbol.getDeclarations() ?? []).some((declaration) =>
-    ts.isClassDeclaration(declaration),
-  );
-}
-
-const modifiersOf = (node: ts.Node) =>
-  ts.canHaveModifiers(node) ? (ts.getModifiers(node) ?? []) : [];
-const hasModifier = (node: ts.Node, kind: ts.SyntaxKind) =>
-  modifiersOf(node).some((modifier) => modifier.kind === kind);
-const hasAnyModifier = (node: ts.Node) => modifiersOf(node).length > 0;
-const isExported = (node: ts.Node) =>
-  hasModifier(node, ts.SyntaxKind.ExportKeyword);
-const isPublic = (node: ts.Node) =>
-  !hasModifier(node, ts.SyntaxKind.PrivateKeyword) &&
-  !hasModifier(node, ts.SyntaxKind.ProtectedKeyword);
-
-function staticTypeTag(node: ts.ClassDeclaration): string | null {
-  for (const member of node.members) {
-    if (
-      ts.isPropertyDeclaration(member) &&
-      hasModifier(member, ts.SyntaxKind.StaticKeyword) &&
-      member.name.getText() === "type" &&
-      member.initializer
-    ) {
-      const initializer = ts.isAsExpression(member.initializer)
-        ? member.initializer.expression
-        : member.initializer;
-      if (ts.isStringLiteral(initializer)) return initializer.text;
-    }
-  }
-  return null;
-}
-
-function sortObject<T>(record: Record<string, T>): Record<string, T> {
-  return Object.fromEntries(
-    Object.entries(record).sort(([a], [b]) => a.localeCompare(b)),
-  );
-}
-
-/** Operation ids in the same order as `schema/operations.ts` lists them. */
-function operationIds(schema: Vec2Schema): string[] {
-  return [
-    ...Object.entries(schema.classes).flatMap(([owner, cls]) => [
-      ...(cls.new ? [`${owner}.new`] : []),
-      ...Object.entries(cls.members).map(
-        ([name, member]) => `${owner}${member.static ? "." : "#"}${name}`,
-      ),
-    ]),
-    ...Object.entries(schema.helpers).flatMap(([module, fns]) =>
-      Object.keys(fns).map((name) => `${module}:${name}`),
-    ),
-  ];
-}
-
-function renderBindings(schema: Vec2Schema): string {
-  const imports = new Map<string, string[]>();
-  const importFrom = (module: string, name: string) =>
-    imports.set(module, [...(imports.get(module) ?? []), name]);
-  for (const [name, { module }] of Object.entries(schema.classes))
-    importFrom(module, name);
-  for (const [module, fns] of Object.entries(schema.helpers))
-    Object.keys(fns).forEach((name) => importFrom(module, name));
-
-  return [
-    "// Generated by scripts/vec2-schema.ts; do not edit. Regenerate with `bun run schema`.",
-    ...[...imports.keys()]
-      .sort()
-      .map(
-        (module) =>
-          `import { ${[...imports.get(module)!].sort().join(", ")} } from '../src/${module}';`,
-      ),
-    "",
-    "/** Exported vec2 classes by name. */",
-    "export const classes = {",
-    ...Object.keys(schema.classes).map((name) => `  ${name},`),
-    "} as const;",
-    "",
-    "/** Helper functions by `<module>:<name>`. */",
-    "export const helpers = {",
-    ...Object.entries(schema.helpers).flatMap(([module, fns]) =>
-      Object.keys(fns).map((name) => `  '${module}:${name}': ${name},`),
-    ),
-    "} as const;",
-    "",
-  ].join("\n");
-}
-
-function renderIds(ids: readonly string[]): string {
-  return [
-    "// Generated by scripts/vec2-schema.ts; do not edit. Regenerate with `bun run schema`.",
-    "/** Every operation id in vec2.schema.json. */",
-    "export type OperationId =",
-    ...ids.map(
-      (id, index) => `  | '${id}'${index === ids.length - 1 ? ";" : ""}`,
-    ),
-    "",
-  ].join("\n");
-}
-
-export const schemaFiles = {
-  schema: path.join(schemaDir, "vec2.schema.json"),
-  bindings: path.join(schemaDir, "bindings.ts"),
-  ids: path.join(schemaDir, "ids.ts"),
+// ---- writing: folders, files, classes and `members` expanded; every entry on one line ----
+const one = (value: unknown): string =>
+  value === null || typeof value !== 'object'
+    ? JSON.stringify(value)
+    : Array.isArray(value)
+      ? `[${value.map(one).join(', ')}]`
+      : Object.keys(value).length === 0
+        ? '{}'
+        : `{ ${Object.entries(value).map(([key, item]) => `${JSON.stringify(key)}: ${one(item)}`).join(', ')} }`;
+const block = (entries: [string, string][], indent: number) =>
+  `{\n${entries.map(([key, text]) => `${'  '.repeat(indent + 1)}${JSON.stringify(key)}: ${text}`).join(',\n')}\n${'  '.repeat(indent)}}`;
+const writeNode = (node: any, indent: number): string => {
+  if (node === null || 'returns' in node) return one(node);
+  if (!('members' in node)) return block(Object.entries(node).map(([key, child]) => [key, writeNode(child, indent + 1)]), indent);
+  const head = Object.entries(node).filter(([key]) => key !== 'members').map(([key, v]) => [key, one(v)] as [string, string]);
+  const members = Object.entries(node.members).map(([key, entry]) => [key, one(entry)] as [string, string]);
+  return block([...head, ['members', block(members, indent + 1)]], indent);
 };
 
-/** The generated files, formatted like the rest of `packages/` so `format:check` accepts them. */
-export async function renderSchemaFiles(): Promise<
-  Record<keyof typeof schemaFiles, string>
-> {
-  const { schema, bindings, ids } = generateSchema();
+export const schemaFiles = {
+  schema: path.join(schemaDir, 'vec2.schema.json'),
+  bindings: path.join(schemaDir, 'bindings.ts'),
+};
+
+export async function renderSchemaFiles(): Promise<Record<keyof typeof schemaFiles, string> & { skipped: string[] }> {
+  const { types, modules, tables, skipped } = generateSchema();
+  const schema = [
+    '{',
+    '  "format": "vec2-schema",',
+    '  "version": 2,',
+    `  "types": ${block(Object.entries(types).map(([key, body]) => [key, one(body)]), 1)},`,
+    `  "modules": ${writeNode(modules, 1)}`,
+    '}',
+    '',
+  ].join('\n');
+  const imports = new Map<string, string[]>();
+  for (const [module, name] of [...tables.classes, ...tables.helpers]) imports.set(module, [...(imports.get(module) ?? []), name]);
+  const names = (list: [string, string][]) => list.map(([, name]) => name).sort();
+  const bindings = [
+    '// Generated by scripts/vec2-schema.ts; do not edit. Regenerate with `bun run schema`.',
+    ...[...imports].sort(([a], [b]) => a.localeCompare(b)).map(([module, list]) => `import { ${list.sort().join(', ')} } from '../src/${module}';`),
+    '',
+    '/** The recordable vec2 classes by name. */',
+    `export const classes = { ${names(tables.classes).join(', ')} } as const;`,
+    '',
+    '/** Helper functions by name. */',
+    `export const helpers = { ${names(tables.helpers).join(', ')} } as const;`,
+    '',
+  ].join('\n');
   const config = (await prettier.resolveConfig(schemaFiles.bindings)) ?? {};
-  const format = (text: string, filepath: string) =>
-    prettier.format(text, { ...config, filepath });
-  return {
-    schema: await format(JSON.stringify(schema), schemaFiles.schema),
-    bindings: await format(bindings, schemaFiles.bindings),
-    ids: await format(ids, schemaFiles.ids),
-  };
+  return { schema, bindings: await prettier.format(bindings, { ...config, filepath: schemaFiles.bindings }), skipped };
 }
 
 if (import.meta.main) {
-  const rendered = await renderSchemaFiles();
-  const check = process.argv.includes("--check");
-  const stale = (
-    Object.keys(schemaFiles) as (keyof typeof schemaFiles)[]
-  ).filter((key) => {
-    let current = "";
-    try {
-      current = readFileSync(schemaFiles[key], "utf8");
-    } catch {}
-    return current !== rendered[key];
-  });
-  if (check) {
+  const { skipped, ...rendered } = await renderSchemaFiles();
+  const keys = Object.keys(schemaFiles) as (keyof typeof schemaFiles)[];
+  const read = (file: string) => (existsSync(file) ? readFileSync(file, 'utf8') : '');
+  const stale = keys.filter((key) => read(schemaFiles[key]) !== rendered[key]);
+  if (process.argv.includes('--check')) {
     if (stale.length > 0) {
-      console.error(
-        `Stale schema files: ${stale.map((key) => path.relative(repoRoot, schemaFiles[key])).join(", ")}. Run \`bun run schema\`.`,
-      );
+      console.error(`Stale: ${stale.map((key) => path.relative(repoRoot, schemaFiles[key])).join(', ')}. Run \`bun run schema\`.`);
       process.exit(1);
     }
-    console.log("vec2 schema is up to date.");
+    console.log('vec2 schema is up to date.');
   } else {
     for (const key of stale) writeFileSync(schemaFiles[key], rendered[key]);
-    const parsed = JSON.parse(rendered.schema) as Vec2Schema;
-    const entries = [
-      ...Object.values(parsed.classes).flatMap((cls) => [
-        ...(cls.new ? [cls.new] : []),
-        ...Object.values(cls.members),
-      ]),
-      ...Object.values(parsed.helpers).flatMap((fns) => Object.values(fns)),
-    ];
-    console.log(
-      `vec2 schema: ${entries.length} operations, ${entries.filter((op) => !op.reason).length} recordable (${parsed.hash}).`,
-    );
+    console.log(`vec2 schema written (${rendered.schema.split('\n').length} lines). Not recordable:\n  ${skipped.join('\n  ')}`);
   }
 }

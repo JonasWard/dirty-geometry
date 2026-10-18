@@ -2,48 +2,51 @@
  * The playground URL: `<options>/<definition>`, both densing strings. Options carry the custom presets;
  * the large definition schema is rebuilt from them, so it never travels in the URL.
  */
-import { densing, schemaFromJson, undensing } from 'densing';
+import { array, densing, enumArray, enumeration, int, object, optional, schema, undensing } from 'densing';
 import type { Definition } from '@dirty-geometry/vec2/recording/definition';
-import { createDefinitionSchema } from './definition-schema';
-import { decodeDefinition, encodeDefinition } from './convert';
+import { ROLES, type Role } from '@dirty-geometry/vec2/schema/schema';
 import {
-  NUMERIC_ROLES,
-  type ActivePresets,
-  type CustomPreset,
-  type NumericOptions,
-  type NumericRole,
-} from './numerics';
-import { fromChars, NAME_CHARS, textField, toChars } from './text';
-import { arr, enumField, intField, obj, opt } from './values';
+  createDefinitionSchema,
+  decodeDefinition,
+  encodeDefinition,
+} from '@dirty-geometry/vec2/schema/dense/definition';
+import type { NumericPreset as CustomPreset } from 'densing';
+import type { ActivePresets, NumericOptions } from '@dirty-geometry/vec2/schema/dense/numerics';
 
+const NAME_CHARS = [...'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_$-.@±'];
 const NUMBER_CHARS = [...'0123456789.-e'];
+const text = (name: string, chars: string[]) => enumArray(name, enumeration('char', chars), 0, 24);
+const toChars = (value: string, chars: string[], label: string) => {
+  const bad = [...value].find((char) => !chars.includes(char));
+  if (bad) throw new Error(`${label}: "${bad}" cannot be stored`);
+  return [...value];
+};
+const fromChars = (chars: string[]) => chars.join('');
 
-const optionsSchema = schemaFromJson({
-  fields: [
-    intField('version', 0, 15),
-    arr(
-      'custom',
-      0,
-      32,
-      obj(
-        'preset',
-        enumField('role', NUMERIC_ROLES),
-        textField('name', [...NAME_CHARS, '.', '@', '±']),
-        textField('min', NUMBER_CHARS, 24),
-        textField('max', NUMBER_CHARS, 24),
-        opt('precision', textField('precision', NUMBER_CHARS, 24)),
-      ),
+const optionsSchema = schema(
+  int('version', 0, 15),
+  array(
+    'custom',
+    0,
+    32,
+    object(
+      'preset',
+      enumeration('role', ROLES),
+      text('name', NAME_CHARS),
+      text('min', NUMBER_CHARS),
+      text('max', NUMBER_CHARS),
+      optional('precision', text('precision', NUMBER_CHARS)),
     ),
-  ],
-});
+  ),
+);
 
-const numberChars = (value: number, label: string) => toChars(String(value), NUMBER_CHARS, label, 24);
+const numberChars = (value: number, label: string) => toChars(String(value), NUMBER_CHARS, label);
 
 export function encodeOptions(options: NumericOptions): string {
-  const custom = NUMERIC_ROLES.flatMap((role) =>
+  const custom = ROLES.flatMap((role) =>
     Object.entries(options.custom?.[role] ?? {}).map(([name, preset]) => ({
       role,
-      name: toChars(name, [...NAME_CHARS, '.', '@', '±'], `preset ${name}`),
+      name: toChars(name, NAME_CHARS, `preset ${name}`),
       min: numberChars(preset.min, `preset ${name}.min`),
       max: numberChars(preset.max, `preset ${name}.max`),
       precision: preset.precision === undefined ? null : numberChars(preset.precision, `preset ${name}.precision`),
@@ -54,9 +57,9 @@ export function encodeOptions(options: NumericOptions): string {
 
 export function decodeOptions(text: string): NumericOptions {
   const data = undensing(optionsSchema, text) as { custom: Record<string, any>[] };
-  const custom: Partial<Record<NumericRole, Record<string, CustomPreset>>> = {};
+  const custom: Partial<Record<Role, Record<string, CustomPreset>>> = {};
   for (const preset of data.custom) {
-    const role = preset.role as NumericRole;
+    const role = preset.role as Role;
     custom[role] = {
       ...(custom[role] ?? {}),
       [fromChars(preset.name)]: {

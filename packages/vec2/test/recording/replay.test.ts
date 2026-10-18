@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import { createRecorder } from '../../src/recording/recorder';
-import { checkDefinition, DefinitionError, evaluateDefinition } from '../../src/recording/replay';
+import { DefinitionError } from '../../src/recording/definition';
+import { evaluateDefinition } from '../../src/recording/replay';
 import type { Definition } from '../../src/recording/definition';
 import { ConstrainedDelaunay } from '../../src/operations/constrained-delaunay';
 import { Vec2 } from '../../src/core/vec2';
@@ -101,42 +102,18 @@ describe('replay', () => {
     expect(() => evaluateDefinition(definition, { params: { width: 'wide' } })).toThrow(DefinitionError);
   });
 
-  test('a definition from an older schema replays when its operations still exist', () => {
-    const { rec } = recordLine();
-    const old = { ...rec.definition(), schema: 'sha256:older' };
-    expect(checkDefinition(old)).toEqual([]);
-    expect(evaluateDefinition(old).outputs.length).toBe(5);
+  test('version 1 definitions are rejected with a clear error', () => {
+    const old = { ...recordLine().rec.definition(), version: 1 } as unknown as Definition;
+    expect(() => evaluateDefinition(old)).toThrow(/re-record/);
   });
 
-  test('renamed operations need an alias; missing ones are reported', () => {
-    const { rec } = recordLine();
-    const definition = rec.definition();
+  test('a call that no longer exists fails clearly', () => {
+    const definition = recordLine().rec.definition();
     const renamed: Definition = {
       ...definition,
-      schema: 'sha256:older',
-      nodes: definition.nodes.map((node) => (node.op === 'Line2#length' ? { ...node, op: 'Line2#len' } : node)),
+      nodes: definition.nodes.map((node) => (node.op === 'Line2.length' ? { ...node, op: 'Line2.len' } : node)),
     };
-    expect(checkDefinition(renamed)).toEqual([expect.stringContaining('Line2#len no longer exists')]);
-    expect(() => evaluateDefinition(renamed)).toThrow(DefinitionError);
-    expect(evaluateDefinition(renamed, { aliases: { 'Line2#len': 'Line2#length' } }).outputs.length).toBe(5);
-  });
-
-  test('operations that moved onto static classes replay through the policy aliases', () => {
-    const rec = createRecorder({ strict: true });
-    const { Vec2: V, ConstrainedDelaunay: CD } = rec.lib;
-    rec.output('mesh', CD.triangulate([new V(0, 0), new V(1, 0), new V(0, 1)]));
-    const definition = rec.definition();
-    const old: Definition = {
-      ...definition,
-      schema: 'sha256:older',
-      nodes: definition.nodes.map((node) =>
-        node.op === 'ConstrainedDelaunay.triangulate'
-          ? { ...node, op: 'operations/constrained-delaunay:constrainedDelaunay' }
-          : node,
-      ),
-    };
-    expect(checkDefinition(old)).toEqual([]);
-    expect(toJson(evaluateDefinition(old).outputs.mesh)).toEqual(toJson(evaluateDefinition(definition).outputs.mesh));
+    expect(() => evaluateDefinition(renamed)).toThrow(/Line2.len does not exist/);
   });
 });
 

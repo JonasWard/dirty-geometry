@@ -1,46 +1,31 @@
-/** The JSON form of a recorded definition: a DAG of vec2 operations, its named inputs and outputs. */
-import type { TypeRef } from '../../schema/types';
-
-export type JsonPrimitive = string | number | boolean | null;
-
-/** One argument of a recorded call. */
-export type ArgJson =
-  /** A JSON-safe literal (string, finite number, boolean, null). */
-  | { lit: JsonPrimitive }
-  /** A number JSON cannot hold. */
-  | { number: 'Infinity' | '-Infinity' | 'NaN' }
-  /** An omitted optional argument. */
-  | { undefined: true }
-  /** The result of another node. */
-  | { ref: string }
-  /** A vec2 value created outside the recorder, stored through the codec registry (`toJson()`). */
-  | { value: unknown }
-  | { array: ArgJson[] }
-  /** A plain options object. */
-  | { object: Record<string, ArgJson> };
-
-/**
- * A node of the definition:
- * - a schema operation (`Line2.new`, `Line2#evaluate`, `ConstrainedDelaunay.triangulate`, `operations/helpers/…:fn`) with `self` for instance members;
- * - `param`: a named, editable input;
- * - `item` / `field`: an element of an array result or a field of a plain result object.
- */
-export type NodeJson =
-  | { id: string; op: string; self?: string; args: ArgJson[] }
-  | { id: string; op: 'param'; name: string }
-  | { id: string; op: 'item'; of: string; index: number }
-  | { id: string; op: 'field'; of: string; name: string };
-
-export type ParamJson = { node: string; type: TypeRef; value: ArgJson };
-
+/** A recorded definition (version 2): named params, the calls in recording order, named outputs. */
+export type Literal = string | number | boolean | null;
+/** Where a value comes from: a node id, or a param. */
+export type Source = string | { param: string };
+/** `value`: a vec2 value made outside the recorder, as its `toJson()`. */
+type Special = { value: unknown } | { number: 'Infinity' | '-Infinity' | 'NaN' } | { omit: true };
+export type Arg = Literal | Arg[] | { ref: string } | { param: string } | { object: Record<string, Arg> } | Special;
+/** A call (`Vec2.new`, `Vec2.add` with `self`, a helper by name), or an element / field of a result. */
+export type CallNode = { id: string; op: string; self?: Source; args?: Arg[] };
+export type Node =
+  | CallNode
+  | ({ id: string; of: string } & ({ op: 'item'; index: number } | { op: 'field'; name: string }));
+export type Param = { type: string; value: Arg };
 export type Definition = {
   format: 'vec2-definition';
-  version: 1;
-  /** Hash of the vec2 schema the definition was recorded against. */
-  schema: string;
-  params: Record<string, ParamJson>;
-  nodes: NodeJson[];
-  outputs: Record<string, string>;
+  version: 2;
+  params: Record<string, Param>;
+  nodes: Node[];
+  outputs: Record<string, Source>;
 };
 
-export const isOperationNode = (node: NodeJson): node is Extract<NodeJson, { args: ArgJson[] }> => 'args' in node;
+export class RecordingError extends Error {
+  override name = 'RecordingError';
+}
+export class DefinitionError extends RecordingError {
+  override name = 'DefinitionError';
+}
+/** `throw` as an expression. */
+export const fail = (message: string, E: new (message: string) => Error = RecordingError): never => {
+  throw new E(message);
+};

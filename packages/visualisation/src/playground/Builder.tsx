@@ -1,26 +1,29 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import type { ArgJson, Definition, NodeJson } from '@dirty-geometry/vec2/recording/definition';
-import type { TypeRef } from '@dirty-geometry/vec2/schema/types';
-import { recordableOperations } from '@dirty-geometry/vec2-dense/definition-schema';
-import { numericRole, type OperandRole } from '@dirty-geometry/vec2-dense/roles';
+import type { Arg, Definition, Node } from '@dirty-geometry/vec2/recording/definition';
+import { isOptional, isRest, operations, slotType, type Role } from '@dirty-geometry/vec2/schema/schema';
 import { DEFAULT_VALUES } from './defaults';
 import { describeValue } from './describe';
 import {
   addNode,
   addParam,
-  isOperationNode,
+  argOf,
+  isCallNode,
+  keyOf,
   moveNode,
-  needsSelf,
   operationOf,
+  ownerOf,
   removeArg,
   removeNode,
+  removeParam,
   replaceOperation,
   setArg,
   setOutput,
   setParamValue,
   setSelf,
+  sourceKey,
+  sourceOf,
 } from './editing';
 import { OPERATION_GROUPS, operationLabel } from './operations';
 import { NumberInput, OperandEditor, ValueEditor, type NodeChoice } from './OperandEditor';
@@ -31,7 +34,7 @@ const selectClass =
   'rounded border border-dg-border bg-white px-1.5 py-0.5 font-mono text-xs text-dg-ink focus:border-dg-steel-600 focus:outline-none';
 
 /** Every recordable operation, for the "all operations" group. */
-const ALL_OPERATIONS = recordableOperations().map(([id]) => id);
+const ALL_OPERATIONS = operations.map(keyOf);
 const CURATED = new Set(OPERATION_GROUPS.flatMap((group) => group.ops));
 
 export function OperationSelect({
@@ -77,41 +80,29 @@ type BuilderProps = {
   issues: ReadonlyMap<string, string[]>;
   failure?: { node: string; message: string };
   selected: string | null;
-  step: (role: OperandRole) => number | undefined;
+  step: (role: Role) => number | undefined;
   onSelect: (node: string | null) => void;
   onChange: (definition: Definition) => void;
 };
 
-function nodeLabel(node: NodeJson, definition: Definition, values: ReadonlyMap<string, unknown>): string {
-  const param = Object.entries(definition.params).find(([, entry]) => entry.node === node.id)?.[0];
+function nodeLabel(node: Node, definition: Definition, values: ReadonlyMap<string, unknown>): string {
   const output = Object.entries(definition.outputs).find(([, id]) => id === node.id)?.[0];
-  const name = param ?? output;
-  return `${node.id}${name ? ` ${name}` : ''} · ${describeValue(values.get(node.id))}`;
+  return `${node.id}${output ? ` ${output}` : ''} · ${describeValue(values.get(node.id))}`;
 }
 
 /** `n3[2]` for array items, `n4.polygons` for result fields. */
-function structuralLabel(node: NodeJson): string {
-  if ('index' in node && 'of' in node) return `${node.of}[${node.index}]`;
-  if ('of' in node && 'name' in node) return `${node.of}.${node.name}`;
-  return node.op;
-}
+const structuralLabel = (node: Node) =>
+  'index' in node ? `${node.of}[${node.index}]` : 'name' in node ? `${node.of}.${node.name}` : node.op;
 
-function ParamsPanel({
-  definition,
-  values,
-  step,
-  onChange,
-}: Pick<BuilderProps, 'definition' | 'values' | 'step' | 'onChange'>) {
+function ParamsPanel({ definition, step, onChange }: Pick<BuilderProps, 'definition' | 'step' | 'onChange'>) {
   const [name, setName] = useState('');
   const [kind, setKind] = useState<'number' | 'Vec2' | 'boolean'>('number');
   const [error, setError] = useState<string | null>(null);
 
   const add = () => {
     try {
-      const value: ArgJson =
-        kind === 'number' ? { lit: 1 } : kind === 'boolean' ? { lit: false } : { value: DEFAULT_VALUES.Vec2 };
-      const type: TypeRef = kind === 'Vec2' ? { kind: 'class', type: 'Vec2' } : { kind };
-      onChange(addParam(definition, name.trim(), value, type));
+      const value: Arg = kind === 'number' ? 1 : kind === 'boolean' ? false : { value: DEFAULT_VALUES.Vec2 };
+      onChange(addParam(definition, name.trim(), value, kind));
       setName('');
       setError(null);
     } catch (failure) {
@@ -128,21 +119,21 @@ function ParamsPanel({
             <span className='w-24 truncate font-mono font-semibold' title={paramName}>
               {paramName}
             </span>
-            {'lit' in param.value && typeof param.value.lit === 'number' ? (
+            {typeof param.value === 'number' ? (
               <NumberInput
                 label={`param ${paramName}`}
-                value={param.value.lit}
+                value={param.value}
                 step={step('coordinate')}
-                onChange={(value) => onChange(setParamValue(definition, paramName, { lit: value }))}
+                onChange={(value) => onChange(setParamValue(definition, paramName, value))}
               />
-            ) : 'lit' in param.value && typeof param.value.lit === 'boolean' ? (
+            ) : typeof param.value === 'boolean' ? (
               <input
                 aria-label={`param ${paramName}`}
                 type='checkbox'
-                checked={param.value.lit}
-                onChange={(event) => onChange(setParamValue(definition, paramName, { lit: event.target.checked }))}
+                checked={param.value}
+                onChange={(event) => onChange(setParamValue(definition, paramName, event.target.checked))}
               />
-            ) : 'value' in param.value ? (
+            ) : param.value && typeof param.value === 'object' && 'value' in param.value ? (
               <ValueEditor
                 label={`param ${paramName}`}
                 value={param.value.value as Record<string, any>}
@@ -151,11 +142,10 @@ function ParamsPanel({
             ) : (
               <span className='font-mono'>{JSON.stringify(param.value)}</span>
             )}
-            <span className='text-dg-subtle'>{describeValue(values.get(param.node))}</span>
             <button
               type='button'
               className={`${button} ml-auto`}
-              onClick={() => onChange(removeNode(definition, param.node))}
+              onClick={() => onChange(removeParam(definition, paramName))}
             >
               remove
             </button>
@@ -206,13 +196,15 @@ function NodeRow({
   step,
   onSelect,
   onChange,
-}: BuilderProps & { node: Extract<NodeJson, { args: ArgJson[] }> | NodeJson; position: number }) {
-  const op = isOperationNode(node) ? operationOf(node.op) : undefined;
+}: BuilderProps & { node: Node; position: number }) {
+  const op = isCallNode(node) ? operationOf(node) : undefined;
   const earlier: NodeChoice[] = useMemo(
-    () =>
-      definition.nodes
+    () => [
+      ...Object.keys(definition.params).map((param) => ({ id: `param:${param}`, label: `${param} (param)` })),
+      ...definition.nodes
         .slice(0, position)
         .map((candidate) => ({ id: candidate.id, label: nodeLabel(candidate, definition, values) })),
+    ],
     [definition, position, values],
   );
   const output = Object.entries(definition.outputs).find(([, id]) => id === node.id)?.[0];
@@ -229,26 +221,26 @@ function NodeRow({
     >
       <div className='flex flex-wrap items-center gap-1.5'>
         <span className='w-7 font-mono text-dg-subtle'>{node.id}</span>
-        {isOperationNode(node) ? (
+        {isCallNode(node) ? (
           <OperationSelect
             label={`${node.id} operation`}
-            value={node.op}
+            value={op ? keyOf(op) : node.op}
             onChange={(next) => onChange(replaceOperation(definition, node.id, next, values))}
           />
         ) : (
           <span className='font-mono'>{structuralLabel(node)}</span>
         )}
-        {op && needsSelf(op) && isOperationNode(node) && (
+        {op && !op.static && isCallNode(node) && (
           <>
             <span className='text-dg-subtle'>on</span>
             <select
               aria-label={`${node.id} self`}
               className={selectClass}
-              value={node.self ?? ''}
-              onChange={(event) => onChange(setSelf(definition, node.id, event.target.value))}
+              value={sourceKey(node.self)}
+              onChange={(event) => onChange(setSelf(definition, node.id, sourceOf(event.target.value)))}
             >
-              {!earlier.some((choice) => choice.id === node.self) && (
-                <option value={node.self ?? ''}>pick a {op.owner}</option>
+              {!earlier.some((choice) => choice.id === sourceKey(node.self)) && (
+                <option value={sourceKey(node.self)}>pick a {ownerOf(op)}</option>
               )}
               {earlier.map((choice) => (
                 <option key={choice.id} value={choice.id}>
@@ -298,22 +290,21 @@ function NodeRow({
         </span>
       </div>
 
-      {op && isOperationNode(node) && op.params.length > 0 && (
+      {op && isCallNode(node) && op.params.length > 0 && (
         <div className='mt-1.5 space-y-1 pl-8'>
-          {op.params.map((param, index) => {
-            const role = numericRole(node.op, param.name);
-            if (param.rest) {
-              const rest = node.args.slice(index);
+          {op.params.map(([paramName, slot], index) => {
+            const args = node.args ?? [];
+            if (isRest(slot)) {
+              const rest = args.slice(index);
               return (
-                <div key={param.name} className='flex flex-wrap items-start gap-1'>
-                  <span className='w-24 font-mono text-dg-subtle'>...{param.name}</span>
+                <div key={paramName} className='flex flex-wrap items-start gap-1'>
+                  <span className='w-24 font-mono text-dg-subtle'>...{paramName}</span>
                   <div className='space-y-1'>
                     {rest.map((arg, offset) => (
                       <div key={offset} className='flex items-start gap-1'>
                         <OperandEditor
-                          name={`${param.name}[${offset}]`}
-                          type={param.type}
-                          role={role}
+                          name={`${paramName}[${offset}]`}
+                          type={slotType(slot)}
                           optional={false}
                           arg={arg}
                           nodes={earlier}
@@ -333,27 +324,26 @@ function NodeRow({
                       type='button'
                       className='text-dg-steel-600 hover:underline'
                       onClick={() =>
-                        onChange(setArg(definition, node.id, node.args.length, { ref: earlier.at(-1)?.id ?? '' }))
+                        onChange(setArg(definition, node.id, args.length, argOf(earlier.at(-1)?.id ?? '')))
                       }
                     >
-                      + {param.name}
+                      + {paramName}
                     </button>
                   </div>
                 </div>
               );
             }
             return (
-              <div key={param.name} className='flex flex-wrap items-start gap-1'>
-                <span className='w-24 font-mono text-dg-subtle' title={JSON.stringify(param.type)}>
-                  {param.name}
-                  {param.optional ? '?' : ''}
+              <div key={paramName} className='flex flex-wrap items-start gap-1'>
+                <span className='w-24 font-mono text-dg-subtle' title={JSON.stringify(slotType(slot))}>
+                  {paramName}
+                  {isOptional(slot) ? '?' : ''}
                 </span>
                 <OperandEditor
-                  name={param.name}
-                  type={param.type}
-                  role={role}
-                  optional={!!param.optional}
-                  arg={node.args[index]}
+                  name={paramName}
+                  type={slotType(slot)}
+                  optional={isOptional(slot)}
+                  arg={args[index]}
                   nodes={earlier}
                   step={step}
                   onChange={(next) => onChange(setArg(definition, node.id, index, next))}
@@ -379,13 +369,13 @@ export function Builder(props: BuilderProps) {
   const { definition, values, onChange } = props;
   return (
     <div className='space-y-3'>
-      <ParamsPanel definition={definition} values={values} step={props.step} onChange={onChange} />
+      <ParamsPanel definition={definition} step={props.step} onChange={onChange} />
       <section className={panel} aria-label='Operations'>
         <h3 className='mb-2 text-xs font-bold tracking-widest text-dg-subtle uppercase'>Operations</h3>
         <ol className='max-h-[70vh] space-y-1.5 overflow-y-auto pr-1'>
-          {definition.nodes.map((node, position) =>
-            node.op === 'param' ? null : <NodeRow key={node.id} {...props} node={node} position={position} />,
-          )}
+          {definition.nodes.map((node, position) => (
+            <NodeRow key={node.id} {...props} node={node} position={position} />
+          ))}
         </ol>
         <div className='mt-2'>
           <OperationSelect

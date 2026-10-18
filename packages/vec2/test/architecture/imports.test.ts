@@ -64,6 +64,19 @@ describe('vec2 import architecture', () => {
     expect(users).toEqual([]);
   });
 
+  test('the schema and dense packing use only the history types from recording/, never the recorder or replay', () => {
+    const SCHEMA = 'packages/vec2/schema';
+    const uses: string[] = [];
+    for (const [file, targets] of buildImportGraph([SCHEMA])) {
+      for (const target of targets) {
+        const to = relativeModule(SRC, target);
+        if (to.startsWith('recording/')) uses.push(`${relativeModule(SCHEMA, file)} -> ${to}`);
+      }
+    }
+    expect(uses.filter((use) => !use.endsWith('-> recording/definition'))).toEqual([]);
+    expect(uses).toContain('dense/definition -> recording/definition');
+  });
+
   test('examples only import vec2 itself', () => {
     const outside: string[] = [];
     for (const [file, targets] of buildImportGraph([EXAMPLES])) {

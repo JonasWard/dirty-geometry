@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import type { Definition } from '@dirty-geometry/vec2/recording/definition';
-import { checkDefinition } from '@dirty-geometry/vec2/recording/replay';
+import { validateDefinition } from './editing';
 
 const textarea =
   'h-[28rem] w-full rounded-md border border-dg-border bg-white p-2 font-mono text-[11px] leading-snug text-dg-ink focus:border-dg-steel-600 focus:outline-none';
@@ -15,7 +15,7 @@ export function parseDefinitionJson(text: string): Definition {
   if (!Array.isArray(parsed.nodes) || typeof parsed.params !== 'object' || typeof parsed.outputs !== 'object') {
     throw new Error('a definition needs params, nodes and outputs');
   }
-  const problems = checkDefinition(parsed);
+  const problems = [...validateDefinition(parsed)].flatMap(([node, messages]) => messages.map((m) => `${node}: ${m}`));
   if (problems.length > 0) throw new Error(problems.join('\n'));
   return parsed;
 }

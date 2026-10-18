@@ -40,16 +40,8 @@
       "name": "@dirty-geometry/vec2",
       "version": "0.1.0",
       "dependencies": {
-        "robust-predicates": "3.0.2",
-      },
-    },
-    "packages/vec2-dense": {
-      "name": "@dirty-geometry/vec2-dense",
-      "version": "0.1.0",
-      "dependencies": {
-        "@dirty-geometry/vec2": "workspace:*",
         "densing": "0.4.4",
-        "sucrase": "3.35.0",
+        "robust-predicates": "3.0.2",
       },
     },
     "packages/visualisation": {
@@ -58,7 +50,8 @@
       "dependencies": {
         "@dirty-geometry/graph": "workspace:*",
         "@dirty-geometry/vec2": "workspace:*",
-        "@dirty-geometry/vec2-dense": "workspace:*",
+        "densing": "0.4.4",
+        "sucrase": "3.35.0",
       },
       "peerDependencies": {
         "@react-three/drei": "^10.7.8",
@@ -110,8 +103,6 @@
     "@dirty-geometry/graph": ["@dirty-geometry/graph@workspace:packages/graph"],
 
     "@dirty-geometry/vec2": ["@dirty-geometry/vec2@workspace:packages/vec2"],
-
-    "@dirty-geometry/vec2-dense": ["@dirty-geometry/vec2-dense@workspace:packages/vec2-dense"],
 
     "@dirty-geometry/visualisation": ["@dirty-geometry/visualisation@workspace:packages/visualisation"],
 

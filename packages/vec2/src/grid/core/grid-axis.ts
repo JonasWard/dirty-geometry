@@ -256,21 +256,20 @@ export class Axis {
         return {
           type: Axis.type,
           kind: 'custom',
-          defaultSize: this._defaultSize,
-          sizes: { ...this._customSizes! } as Record<number, number>,
+          size: this._defaultSize,
+          sizes: Object.entries(this._customSizes!).map(([index, size]) => ({ index: Number(index), size })),
           ...(domain ? { domain } : {}),
         };
     }
   }
 }
 
-type AxisJsonBase = {
-  /** Optional when reading, for JSON written before axes carried their type tag. */
-  type?: typeof Axis.type;
+export type AxisJson = {
+  type: typeof Axis.type;
+  kind: AxisKind;
+  /** The cell size of a uniform axis, the default cell size of a custom one. */
+  size?: number;
+  /** A custom axis's sizes that differ from `size`. */
+  sizes?: { index: number; size: number }[];
   domain?: Interval2Json;
 };
-
-export type AxisJson =
-  | ({ kind: 'unit' } & AxisJsonBase)
-  | ({ kind: 'uniform'; size: number } & AxisJsonBase)
-  | ({ kind: 'custom'; defaultSize: number; sizes: Record<number, number> } & AxisJsonBase);

@@ -1,6 +1,6 @@
-import type { LineLike2IntersectionResult } from '../../src/operations/intersection/line2-like';
+import type { LineLike2IntersectionResult } from '../../src/operations/intersection2';
 import type { LineLike2 } from '../../src/geometry/kinds';
-import { intersectionLines } from '../../src/operations/intersection/line2-like';
+import { Intersection2 } from '../../src/operations/intersection2';
 import { InfiniteLine2 } from '../../src/geometry/primitives/infinite-line2';
 import { Line2 } from '../../src/geometry/primitives/line2';
 import { Ray2 } from '../../src/geometry/primitives/ray2';
@@ -184,5 +184,5 @@ export const intersectionLines2Scenarios: IntersectionScenario[] = [
 ];
 
 export function evaluateIntersectionScenario(scenario: IntersectionScenario): LineLike2IntersectionResult {
-  return intersectionLines(scenario.a, scenario.b);
+  return Intersection2.lines(scenario.a, scenario.b);
 }

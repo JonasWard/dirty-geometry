@@ -65,6 +65,7 @@ export type MathJson =
   | Circle2Json
   | GridCell2Json
   | Frame2Json
+  | AxisJson
   | Grid2Json
   | GridLine2Json
   | GridPolyline2Json
@@ -89,6 +90,7 @@ export type MathValue =
   | Circle2
   | GridCell2
   | Frame2
+  | Axis
   | Grid2
   | GridLine2
   | GridPolyline2

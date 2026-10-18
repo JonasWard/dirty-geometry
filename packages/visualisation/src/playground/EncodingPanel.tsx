@@ -1,15 +1,11 @@
 'use client';
 
 import { useState } from 'react';
-import {
-  NUMERIC_ROLES,
-  type ActivePresets,
-  type CustomPreset,
-  type NumericOptions,
-  type NumericRole,
-} from '@dirty-geometry/vec2-dense/numerics';
-import { presetBits } from '@dirty-geometry/vec2-dense/presets';
-import type { DenseDefinitionSchema } from '@dirty-geometry/vec2-dense/definition-schema';
+import { NUMBER_TYPES } from '@dirty-geometry/vec2/schema/schema';
+import type { DenseDefinitionSchema } from '@dirty-geometry/vec2/schema/dense/definition';
+import type { NumericPreset as CustomPreset } from 'densing';
+import type { ActivePresets, NumericOptions } from '@dirty-geometry/vec2/schema/dense/definition';
+import { presetBits } from './presets';
 
 const panel = 'rounded-md border border-dg-border bg-white/60 p-3 text-xs';
 const button = 'rounded border border-dg-border px-2 py-0.5 text-xs hover:border-dg-steel-600 hover:text-dg-steel-600';
@@ -45,7 +41,7 @@ export function EncodingPanel({
   onOptions: (options: NumericOptions) => void;
   onSnap: () => void;
 }) {
-  const [role, setRole] = useState<NumericRole>('coordinate');
+  const [role, setRole] = useState<string>('Coordinate');
   const [draft, setDraft] = useState({ name: '', min: '', max: '', precision: '' });
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -74,7 +70,7 @@ export function EncodingPanel({
     setDraft({ name: '', min: '', max: '', precision: '' });
   };
 
-  const removeCustom = (customRole: NumericRole, name: string) => {
+  const removeCustom = (customRole: string, name: string) => {
     const rest = { ...(options.custom?.[customRole] ?? {}) };
     delete rest[name];
     onOptions({ custom: { ...(options.custom ?? {}), [customRole]: rest } });
@@ -117,7 +113,7 @@ export function EncodingPanel({
       </div>
 
       <div className='grid grid-cols-[auto_1fr] items-center gap-x-2 gap-y-1'>
-        {NUMERIC_ROLES.map((numericRole) => {
+        {NUMBER_TYPES.map((numericRole) => {
           const definition = definitions.find((candidate) => candidate.name === numericRole);
           const active = presets[numericRole] ?? definition?.defaultPreset ?? '';
           return (
@@ -180,9 +176,9 @@ export function EncodingPanel({
           aria-label='custom preset role'
           className={input}
           value={role}
-          onChange={(event) => setRole(event.target.value as NumericRole)}
+          onChange={(event) => setRole(event.target.value as string)}
         >
-          {NUMERIC_ROLES.map((option) => (
+          {NUMBER_TYPES.map((option) => (
             <option key={option}>{option}</option>
           ))}
         </select>
@@ -201,7 +197,7 @@ export function EncodingPanel({
         </button>
         {error && <span className='text-red-600'>{error}</span>}
       </form>
-      {NUMERIC_ROLES.flatMap((customRole) =>
+      {NUMBER_TYPES.flatMap((customRole) =>
         Object.entries(options.custom?.[customRole] ?? {}).map(([name, preset]) => (
           <div key={`${customRole}:${name}`} className='mt-1 flex items-center gap-2 font-mono'>
             <span>

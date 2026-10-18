@@ -2,7 +2,7 @@
  * A recorded definition: a rectangular plate with a round hole, triangulated.
  *
  * Every dimension is a named param and flows through vec2 operations only (the hole's vertices come from
- * `Circle2#evaluate`, its centre from `Vec2#scale`), so replaying with new params moves everything.
+ * `Circle2.evaluate`, its centre from `Vec2.scale`), so replaying with new params moves everything.
  */
 import { createRecorder } from '../../src/recording/recorder';
 import type { Definition } from '../../src/recording/definition';

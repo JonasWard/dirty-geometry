@@ -10,9 +10,8 @@ The site is a Bun workspace. The geometry code lives in `packages/` and is moved
 
 | Package | What |
 | --- | --- |
-| [`@dirty-geometry/vec2`](../packages/vec2) | 2D math library |
+| [`@dirty-geometry/vec2`](../packages/vec2) | 2D math library; recording, its schema and dense packing |
 | [`@dirty-geometry/graph`](../packages/graph) | undirected and half-edge graphs |
-| [`@dirty-geometry/vec2-dense`](../packages/vec2-dense) | densing schemas for vec2 values and recorded definitions |
 | [`@dirty-geometry/visualisation`](../packages/visualisation) | react-three-fiber demos, shown under `/lab` |
 
 ```bash

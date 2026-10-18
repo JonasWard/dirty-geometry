@@ -15,6 +15,7 @@
     "typecheck": "tsc --noEmit -p ."
   },
   "dependencies": {
-    "robust-predicates": "3.0.2"
+    "robust-predicates": "3.0.2",
+    "densing": "0.4.4"
   }
 }

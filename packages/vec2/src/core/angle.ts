@@ -1,3 +1,4 @@
+import type { Coordinate, Integer, Radians } from './numbers';
 import { Interval2 } from '../bounds/interval2';
 import type { Vec2 } from './vec2';
 
@@ -49,7 +50,7 @@ export class Angle {
   static readonly ThreePiOver2 = frozen(new Angle((3 * Math.PI) / 2, 'tau', DEFAULT_ANGLE_PRECISION));
 
   constructor(
-    private readonly value: number,
+    private readonly value: Radians,
     private readonly domainKind: AngleDomainKind,
     private readonly precision: AnglePrecisions,
   ) {}
@@ -102,16 +103,16 @@ export class Angle {
   /** Restore an angle from a hash; pass the same shape to `hash`.
    * Default shape is `{ domainKind: 'tau', precision: DEFAULT_ANGLE_PRECISION (.1) }`.
    */
-  static fromHash(hash: number, shape: AngleHashShape = DefaultAngleShape): Angle {
+  static fromHash(hash: Integer, shape: AngleHashShape = DefaultAngleShape): Angle {
     const radians = Angle.dehashAngle(hash, shape);
     return new Angle(radians, shape.domainKind, shape.precision);
   }
 
-  static fromRadians(radians: number, precision: AnglePrecisions = DEFAULT_ANGLE_PRECISION): Angle {
+  static fromRadians(radians: Radians, precision: AnglePrecisions = DEFAULT_ANGLE_PRECISION): Angle {
     return new Angle(Angle.wrapToTau(radians), 'tau', precision);
   }
 
-  static fromDegrees(degrees: number, precision: AnglePrecisions = DEFAULT_ANGLE_PRECISION): Angle {
+  static fromDegrees(degrees: Coordinate, precision: AnglePrecisions = DEFAULT_ANGLE_PRECISION): Angle {
     return Angle.fromRadians(degrees / Angle.degreeScale, precision);
   }
 
@@ -124,13 +125,13 @@ export class Angle {
     return Angle.fromDirected(Math.atan2(to.y, to.x) - Math.atan2(from.y, from.x), ignoreSens, precision);
   }
 
-  /** Same as `fromTwoVectors(Vec2.baseX(), v, options)`. */
-  static vectorWithX(v: Vec2, options: AngleOptions = DefaultAngleShape): Angle {
+  /** Same as `fromTwoVectors(Vec2.baseX(), vector, options)`. */
+  static vectorWithX(vector: Vec2, options: AngleOptions = DefaultAngleShape): Angle {
     const { ignoreSens = false, precision = DEFAULT_ANGLE_PRECISION } = options;
-    if (v.isZeroLength()) {
+    if (vector.isZeroLength()) {
       throw new Error('Angle.vectorWithX cannot be used with a zero-length vector');
     }
-    return Angle.fromDirected(Math.atan2(v.y, v.x), ignoreSens, precision);
+    return Angle.fromDirected(Math.atan2(vector.y, vector.x), ignoreSens, precision);
   }
 
   private static fromDirected(radians: number, ignoreSens: boolean, precision: AnglePrecisions): Angle {
@@ -142,15 +143,15 @@ export class Angle {
     return Angle.fromTwoVectors(a.subtract(b), c.subtract(b), options);
   }
 
-  static wrapToTau(radians: number): number {
+  static wrapToTau(radians: Radians): number {
     const r = radians % TAU;
     const wrapped = r < 0 ? r + TAU : r;
     // A tiny negative remainder rounds up to exactly TAU when shifted.
     return wrapped >= TAU ? 0 : wrapped;
   }
 
-  static foldToPi(thetaInTau: number): number {
-    return thetaInTau > Math.PI ? TAU - thetaInTau : thetaInTau;
+  static foldToPi(radians: Radians): number {
+    return radians > Math.PI ? TAU - radians : radians;
   }
 
   static domainSpan(domain: AngleDomainKind): number {
@@ -167,26 +168,26 @@ export class Angle {
   }
 
   /**
-   * Quantize `angle` into a bucket. Half-bucket shift so values near common angles
+   * Quantize `radians` into a bucket. Half-bucket shift so values near common angles
    * share a bucket. Domain/precision are not encoded — pass the same shape to dehash.
    */
   static getAngleHash(
-    angle: number,
+    radians: Radians,
     precision: AnglePrecisions = DEFAULT_HASH_PRECISION,
     domain: AngleDomainKind = 'tau',
   ): number {
     const buckets = Angle.getAngleBuckets(precision, domain);
     const span = Angle.domainSpan(domain);
-    const wrapped = domain === 'tau' ? ((angle % span) + span) % span : Math.min(Math.max(angle, 0), span);
+    const wrapped = domain === 'tau' ? ((radians % span) + span) % span : Math.min(Math.max(radians, 0), span);
     const bucket = Math.floor((wrapped / span) * buckets + 0.5);
     // τ is periodic, so the half-bucket shift past the last bucket wraps to 0; π clamps.
     return domain === 'tau' ? bucket % buckets : Math.min(bucket, buckets - 1);
   }
 
-  static dehashAngle(hashValue: number, angleShape: AngleHashShape): number {
-    const buckets = Angle.getAngleBuckets(angleShape.precision, angleShape.domainKind);
-    const span = Angle.domainSpan(angleShape.domainKind);
-    return (hashValue / buckets) * span;
+  static dehashAngle(hash: Integer, shape: AngleHashShape): number {
+    const buckets = Angle.getAngleBuckets(shape.precision, shape.domainKind);
+    const span = Angle.domainSpan(shape.domainKind);
+    return (hash / buckets) * span;
   }
 
   toJson(): AngleJson {
@@ -201,7 +202,7 @@ export class Angle {
 
 export type AngleJson = {
   type: typeof Angle.type;
-  value: number;
+  value: Radians;
   domainKind: AngleDomainKind;
   precision: AnglePrecisions;
 };

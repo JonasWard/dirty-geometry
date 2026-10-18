@@ -4,11 +4,8 @@ import { Html, Line } from '@react-three/drei';
 import { useMemo } from 'react';
 import { Epsilon } from '@dirty-geometry/vec2/core/epsilon';
 import { Vec2 } from '@dirty-geometry/vec2/core/vec2';
-import {
-  detectRectilinearGridFromPolygons,
-  DOUGLAS_PEUCKER_GRID_DEFAULTS,
-} from '@dirty-geometry/vec2/operations/polygon-analysis/rectilinear-detection';
-import type { RectilinearGridDetection } from '@dirty-geometry/vec2/operations/polygon-analysis/rectilinear-detection';
+import { DouglasPeucker } from '@dirty-geometry/vec2/operations/douglas-peucker';
+import { RectilinearGrid2, type RectilinearGridDetection } from '@dirty-geometry/vec2/operations/rectilinear-grid2';
 import { rectangleDetectionExamples } from '@dirty-geometry/vec2/examples/grid/rectangle-detection-examples';
 import type { Polygon2 } from '@dirty-geometry/vec2/geometry/regions/polygon2';
 import { GRID2_COLORS, earthToneAt } from '../../../geometry/display/grid/colors';
@@ -26,8 +23,8 @@ export type RectangleDetectionScenario = {
 export const rectangleDetectionScenarios: RectangleDetectionScenario[] = rectangleDetectionExamples.map((example) => ({
   name: example.name,
   polygons: [...example.polygons],
-  detection: detectRectilinearGridFromPolygons([...example.polygons], Epsilon.preferIn, {
-    simplify: DOUGLAS_PEUCKER_GRID_DEFAULTS,
+  detection: RectilinearGrid2.detect([...example.polygons], Epsilon.preferIn, {
+    simplify: DouglasPeucker.gridDefaults,
   }),
 }));
 

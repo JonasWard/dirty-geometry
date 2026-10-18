@@ -74,7 +74,7 @@ describe('CellCollection', () => {
 
     expect(a.intersect(b).size()).toBe(1);
     expect(a.subtract(b).size()).toBe(1);
-    expect(a.xor(b).size()).toBe(2);
+    expect(a.toggle(b).size()).toBe(2);
   });
 
   test('is a GridGeometry2 via toCellCollection', () => {

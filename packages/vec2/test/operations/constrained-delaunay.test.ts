@@ -1,9 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import {
-  collectConstraintSources,
-  constrainedDelaunay,
-  triangulateSources,
-} from '../../src/operations/constrained-delaunay';
+import { ConstrainedDelaunay } from '../../src/operations/constrained-delaunay';
 import { Epsilon } from '../../src/core/epsilon';
 import { Polygon2 } from '../../src/geometry/regions/polygon2';
 import { Polyline2 } from '../../src/geometry/curves/polyline2';
@@ -59,7 +55,7 @@ function meshHasSegment(mesh: TriMesh2, from: Vec2, to: Vec2): boolean {
 type ShapeInput = { kind: 'polyline'; shape: Polyline2 } | { kind: 'polygon'; shape: Polygon2 };
 
 /**
- * Packs polylines/polygons into sources for {@link triangulateSources}.
+ * Packs polylines/polygons into sources for {@link ConstrainedDelaunay.fromGeometries}.
  * Optional Steiner points are appended without constraints.
  */
 function constrainedDelaunayFromShapes(
@@ -67,10 +63,10 @@ function constrainedDelaunayFromShapes(
   steiner: Vec2[] = [],
 ): { mesh: TriMesh2; segments: { from: Vec2; to: Vec2 }[] } {
   const geometries = [...shapes.map((entry) => entry.shape), ...steiner];
-  const { constraintSegments } = collectConstraintSources(geometries);
+  const { constraintSegments } = ConstrainedDelaunay.collectSources(geometries);
 
   return {
-    mesh: triangulateSources(geometries),
+    mesh: ConstrainedDelaunay.fromGeometries(geometries),
     segments: constraintSegments,
   };
 }
@@ -158,45 +154,45 @@ function expectConstraintsPresent(
   }
 }
 
-describe('constrainedDelaunay', () => {
+describe('ConstrainedDelaunay', () => {
   test('empty input', () => {
-    const mesh = constrainedDelaunay([]);
+    const mesh = ConstrainedDelaunay.triangulate([]);
     expect(mesh.vertices).toHaveLength(0);
     expect(mesh.triangles).toHaveLength(0);
   });
 
   test('single point yields no triangles', () => {
-    const mesh = constrainedDelaunay([new Vec2(1, 2)]);
+    const mesh = ConstrainedDelaunay.triangulate([new Vec2(1, 2)]);
     expect(mesh.vertices).toHaveLength(1);
     expect(mesh.triangles).toHaveLength(0);
   });
 
   test('two points yield no triangles', () => {
-    const mesh = constrainedDelaunay([new Vec2(0, 0), new Vec2(1, 0)]);
+    const mesh = ConstrainedDelaunay.triangulate([new Vec2(0, 0), new Vec2(1, 0)]);
     expect(mesh.vertices).toHaveLength(2);
     expect(mesh.triangles).toHaveLength(0);
   });
 
   test('three collinear points yield no triangles', () => {
-    const mesh = constrainedDelaunay([new Vec2(0, 0), new Vec2(1, 0), new Vec2(2, 0)]);
+    const mesh = ConstrainedDelaunay.triangulate([new Vec2(0, 0), new Vec2(1, 0), new Vec2(2, 0)]);
     expect(mesh.triangles).toHaveLength(0);
   });
 
   test('three points yield one triangle', () => {
-    const mesh = constrainedDelaunay([new Vec2(0, 0), new Vec2(1, 0), new Vec2(0, 1)]);
+    const mesh = ConstrainedDelaunay.triangulate([new Vec2(0, 0), new Vec2(1, 0), new Vec2(0, 1)]);
     expect(mesh.triangles).toHaveLength(1);
     expectClose(triangleArea(mesh.vertices[0]!, mesh.vertices[1]!, mesh.vertices[2]!), 0.5);
     expectValidMesh(mesh);
   });
 
   test('thin triangle stays valid', () => {
-    const mesh = constrainedDelaunay([new Vec2(0, 0), new Vec2(10, 0), new Vec2(5, 0.01)]);
+    const mesh = ConstrainedDelaunay.triangulate([new Vec2(0, 0), new Vec2(10, 0), new Vec2(5, 0.01)]);
     expect(mesh.triangles).toHaveLength(1);
     expectValidMesh(mesh);
   });
 
   test('square without constraints uses one diagonal', () => {
-    const mesh = constrainedDelaunay([new Vec2(0, 0), new Vec2(1, 0), new Vec2(1, 1), new Vec2(0, 1)]);
+    const mesh = ConstrainedDelaunay.triangulate([new Vec2(0, 0), new Vec2(1, 0), new Vec2(1, 1), new Vec2(0, 1)]);
 
     expect(mesh.triangles).toHaveLength(2);
     const edges = edgeSet(mesh.triangles);
@@ -209,7 +205,7 @@ describe('constrainedDelaunay', () => {
   test('square with constrained opposite diagonal keeps that edge', () => {
     const points = [new Vec2(0, 0), new Vec2(1, 0), new Vec2(1, 1), new Vec2(0, 1)];
 
-    const mesh = constrainedDelaunay(points, [[1, 3]]);
+    const mesh = ConstrainedDelaunay.triangulate(points, [[1, 3]]);
     const edges = edgeSet(mesh.triangles);
 
     expect(edges.has(key(1, 3))).toBe(true);
@@ -219,14 +215,14 @@ describe('constrainedDelaunay', () => {
 
   test('square with reversed constraint indices still forces the edge', () => {
     const points = [new Vec2(0, 0), new Vec2(2, 0), new Vec2(2, 2), new Vec2(0, 2)];
-    const mesh = constrainedDelaunay(points, [[3, 1]]);
+    const mesh = ConstrainedDelaunay.triangulate(points, [[3, 1]]);
     expect(edgeSet(mesh.triangles).has(key(1, 3))).toBe(true);
     expectValidMesh(mesh);
   });
 
   test('duplicate constraints are ignored', () => {
     const points = [new Vec2(0, 0), new Vec2(3, 0), new Vec2(3, 3), new Vec2(0, 3)];
-    const mesh = constrainedDelaunay(points, [
+    const mesh = ConstrainedDelaunay.triangulate(points, [
       [0, 2],
       [2, 0],
       [0, 2],
@@ -237,23 +233,31 @@ describe('constrainedDelaunay', () => {
   });
 
   test('self-loop constraint is ignored', () => {
-    const mesh = constrainedDelaunay([new Vec2(0, 0), new Vec2(1, 0), new Vec2(0, 1)], [[1, 1]]);
+    const mesh = ConstrainedDelaunay.triangulate([new Vec2(0, 0), new Vec2(1, 0), new Vec2(0, 1)], [[1, 1]]);
     expect(mesh.triangles).toHaveLength(1);
     expectValidMesh(mesh);
   });
 
   test('constraint index out of range throws', () => {
-    expect(() => constrainedDelaunay([new Vec2(0, 0), new Vec2(1, 0), new Vec2(0, 1)], [[0, 5]])).toThrow();
-    expect(() => constrainedDelaunay([new Vec2(0, 0), new Vec2(1, 0), new Vec2(0, 1)], [[-1, 1]])).toThrow();
+    expect(() => ConstrainedDelaunay.triangulate([new Vec2(0, 0), new Vec2(1, 0), new Vec2(0, 1)], [[0, 5]])).toThrow();
+    expect(() =>
+      ConstrainedDelaunay.triangulate([new Vec2(0, 0), new Vec2(1, 0), new Vec2(0, 1)], [[-1, 1]]),
+    ).toThrow();
   });
 
   test('constraint that is already a hull edge stays present', () => {
-    const mesh = constrainedDelaunay([new Vec2(0, 0), new Vec2(2, 0), new Vec2(1, 1)], [[0, 1]]);
+    const mesh = ConstrainedDelaunay.triangulate([new Vec2(0, 0), new Vec2(2, 0), new Vec2(1, 1)], [[0, 1]]);
     expect(edgeSet(mesh.triangles).has(key(0, 1))).toBe(true);
   });
 
   test('interior point is connected', () => {
-    const mesh = constrainedDelaunay([new Vec2(0, 0), new Vec2(4, 0), new Vec2(4, 4), new Vec2(0, 4), new Vec2(2, 2)]);
+    const mesh = ConstrainedDelaunay.triangulate([
+      new Vec2(0, 0),
+      new Vec2(4, 0),
+      new Vec2(4, 4),
+      new Vec2(0, 4),
+      new Vec2(2, 2),
+    ]);
 
     expect(mesh.triangles.length).toBeGreaterThanOrEqual(4);
     const touched = new Set<number>();
@@ -277,7 +281,7 @@ describe('constrainedDelaunay', () => {
       new Vec2(3, 4),
       new Vec2(1, 3),
     ];
-    const mesh = constrainedDelaunay(points);
+    const mesh = ConstrainedDelaunay.triangulate(points);
     expect(mesh.triangles.length).toBeGreaterThanOrEqual(6);
     expectValidMesh(mesh);
   });
@@ -292,7 +296,7 @@ describe('constrainedDelaunay', () => {
       [4, 0],
     ];
 
-    const mesh = constrainedDelaunay(points, constraints);
+    const mesh = ConstrainedDelaunay.triangulate(points, constraints);
     const edges = edgeSet(mesh.triangles);
 
     for (const [a, b] of constraints) {
@@ -302,7 +306,10 @@ describe('constrainedDelaunay', () => {
   });
 
   test('dedupes coincident vertices and remaps constraints', () => {
-    const mesh = constrainedDelaunay([new Vec2(0, 0), new Vec2(1, 0), new Vec2(0, 1), new Vec2(0, 0)], [[3, 1]]);
+    const mesh = ConstrainedDelaunay.triangulate(
+      [new Vec2(0, 0), new Vec2(1, 0), new Vec2(0, 1), new Vec2(0, 0)],
+      [[3, 1]],
+    );
 
     expect(mesh.vertices).toHaveLength(3);
     expect(edgeSet(mesh.triangles).has(key(0, 1))).toBe(true);
@@ -310,7 +317,7 @@ describe('constrainedDelaunay', () => {
   });
 
   test('dedupes near-coincident vertices within epsilon', () => {
-    const mesh = constrainedDelaunay(
+    const mesh = ConstrainedDelaunay.triangulate(
       [new Vec2(0, 0), new Vec2(2, 0), new Vec2(1, 2), new Vec2(Epsilon.value / 2, 0)],
       [[3, 1]],
     );
@@ -319,7 +326,10 @@ describe('constrainedDelaunay', () => {
   });
 
   test('dedupes near-coincident vertices across grid cells', () => {
-    const mesh = constrainedDelaunay([new Vec2(0, 0), new Vec2(1, 0), new Vec2(1, 1e-7), new Vec2(0, 1)], []);
+    const mesh = ConstrainedDelaunay.triangulate(
+      [new Vec2(0, 0), new Vec2(1, 0), new Vec2(1, 1e-7), new Vec2(0, 1)],
+      [],
+    );
 
     expect(mesh.vertices).toHaveLength(3);
     expect(mesh.triangles).toHaveLength(1);
@@ -327,7 +337,7 @@ describe('constrainedDelaunay', () => {
   });
 
   test('topology cleanup compacts deduped input into minimal mesh', () => {
-    const mesh = constrainedDelaunay([new Vec2(0, 0), new Vec2(1, 0), new Vec2(0, 1), new Vec2(0, 0)], []);
+    const mesh = ConstrainedDelaunay.triangulate([new Vec2(0, 0), new Vec2(1, 0), new Vec2(0, 1), new Vec2(0, 0)], []);
 
     expect(mesh.vertices).toHaveLength(3);
     expect(mesh.triangles).toHaveLength(1);
@@ -335,7 +345,7 @@ describe('constrainedDelaunay', () => {
   });
 
   test('output mesh has no degenerate triangles', () => {
-    const mesh = constrainedDelaunay(
+    const mesh = ConstrainedDelaunay.triangulate(
       [new Vec2(0, 0), new Vec2(1, 0), new Vec2(2, 0), new Vec2(0, 1), new Vec2(0, 0)],
       [[0, 1]],
     );
@@ -347,7 +357,10 @@ describe('constrainedDelaunay', () => {
   });
 
   test('splits constraint through intermediate vertex on segment', () => {
-    const mesh = constrainedDelaunay([new Vec2(0, 0), new Vec2(2, 0), new Vec2(1, 0), new Vec2(1, 1)], [[0, 1]]);
+    const mesh = ConstrainedDelaunay.triangulate(
+      [new Vec2(0, 0), new Vec2(2, 0), new Vec2(1, 0), new Vec2(1, 1)],
+      [[0, 1]],
+    );
     const edges = edgeSet(mesh.triangles);
 
     expect(edges.has(key(0, 2))).toBe(true);
@@ -357,7 +370,7 @@ describe('constrainedDelaunay', () => {
 
   test('splits constraint through several collinear vertices', () => {
     const points = [new Vec2(0, 0), new Vec2(4, 0), new Vec2(1, 0), new Vec2(2, 0), new Vec2(3, 0), new Vec2(2, 2)];
-    const mesh = constrainedDelaunay(points, [[0, 1]]);
+    const mesh = ConstrainedDelaunay.triangulate(points, [[0, 1]]);
     const edges = edgeSet(mesh.triangles);
 
     expect(edges.has(key(0, 2))).toBe(true);
@@ -368,7 +381,7 @@ describe('constrainedDelaunay', () => {
   });
 
   test('produces a planar mesh without crossing edges', () => {
-    const mesh = constrainedDelaunay(
+    const mesh = ConstrainedDelaunay.triangulate(
       [
         new Vec2(0, 0),
         new Vec2(4, 0),
@@ -416,7 +429,7 @@ describe('constrainedDelaunay', () => {
         points.push(new Vec2(x, y));
       }
     }
-    const mesh = constrainedDelaunay(points);
+    const mesh = ConstrainedDelaunay.triangulate(points);
     expect(mesh.triangles.length).toBeGreaterThanOrEqual(18);
     expectValidMesh(mesh);
   });
@@ -434,7 +447,7 @@ describe('constrainedDelaunay', () => {
     ];
     const points = [hub, ...rim];
     const constraints: [number, number][] = rim.map((_, i) => [0, i + 1]);
-    const mesh = constrainedDelaunay(points, constraints);
+    const mesh = ConstrainedDelaunay.triangulate(points, constraints);
 
     expectConstraintsPresent(mesh, points, constraints);
     expectValidMesh(mesh);
@@ -452,14 +465,14 @@ describe('constrainedDelaunay', () => {
       new Vec2(1, 3),
       new Vec2(2.5, 2),
     ];
-    const mesh = constrainedDelaunay(points, [[0, 2]]);
+    const mesh = ConstrainedDelaunay.triangulate(points, [[0, 2]]);
     // (2.5, 2) lies on the diagonal, so the constraint is split into pieces.
     expect(meshHasSplitConstraint(mesh, points[0]!, points[2]!)).toBe(true);
     expectValidMesh(mesh);
   });
 });
 
-describe('constrainedDelaunay from polylines and polygons', () => {
+describe('ConstrainedDelaunay from polylines and polygons', () => {
   test('L-polyline edges are forced', () => {
     const polyline = new Polyline2([new Vec2(0, 0), new Vec2(6, 0), new Vec2(6, 4)]);
     const { mesh, segments } = constrainedDelaunayFromShapes([{ kind: 'polyline', shape: polyline }]);
@@ -681,7 +694,7 @@ describe('constrainedDelaunay from polylines and polygons', () => {
   });
 });
 
-describe('constrainedDelaunay complex and self-intersecting shapes', () => {
+describe('ConstrainedDelaunay complex and self-intersecting shapes', () => {
   test('long wavy polyline stays planar and keeps chain', () => {
     const vertices = Array.from({ length: 24 }, (_, i) => {
       const t = i / 23;
@@ -825,7 +838,7 @@ describe('constrainedDelaunay complex and self-intersecting shapes', () => {
   });
 
   test('crossing constraints add Steiner vertices at intersections', () => {
-    const mesh = constrainedDelaunay(
+    const mesh = ConstrainedDelaunay.triangulate(
       [new Vec2(0, 0), new Vec2(4, 4), new Vec2(0, 4), new Vec2(4, 0)],
       [
         [0, 1],
@@ -840,10 +853,10 @@ describe('constrainedDelaunay complex and self-intersecting shapes', () => {
   });
 });
 
-describe('constrainedDelaunay visualisation scenarios', () => {
+describe('ConstrainedDelaunay visualisation scenarios', () => {
   test('every basic scenario is planar and keeps constraints', () => {
     for (const scenario of cdtBasicScenarios) {
-      const mesh = constrainedDelaunay(scenario.points, scenario.constraints);
+      const mesh = ConstrainedDelaunay.triangulate(scenario.points, scenario.constraints);
       expectValidMesh(mesh);
       for (const segment of scenario.constraintSegments) {
         expect(meshHasSegment(mesh, segment.from, segment.to)).toBe(true);
@@ -853,7 +866,7 @@ describe('constrainedDelaunay visualisation scenarios', () => {
 
   test('every shape scenario is planar and keeps constraints', () => {
     for (const scenario of cdtShapeScenarios) {
-      const mesh = constrainedDelaunay(scenario.points, scenario.constraints);
+      const mesh = ConstrainedDelaunay.triangulate(scenario.points, scenario.constraints);
       expectValidMesh(mesh);
 
       for (const segment of scenario.constraintSegments) {
@@ -866,7 +879,7 @@ describe('constrainedDelaunay visualisation scenarios', () => {
 
   test('every complex scenario is planar and keeps constraints', () => {
     for (const scenario of cdtComplexScenarios) {
-      const mesh = constrainedDelaunay(scenario.points, scenario.constraints);
+      const mesh = ConstrainedDelaunay.triangulate(scenario.points, scenario.constraints);
       expectValidMesh(mesh);
 
       for (const segment of scenario.constraintSegments) {

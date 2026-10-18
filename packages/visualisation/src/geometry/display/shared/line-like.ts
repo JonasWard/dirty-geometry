@@ -5,7 +5,7 @@ import { Ray2 } from '@dirty-geometry/vec2/geometry/primitives/ray2';
 import { Vec2 } from '@dirty-geometry/vec2/core/vec2';
 import { Epsilon } from '@dirty-geometry/vec2/core/epsilon';
 import type { LineLike2 } from '@dirty-geometry/vec2/geometry/kinds';
-import { intersectionLines } from '@dirty-geometry/vec2/operations/intersection/line2-like';
+import { Intersection2 } from '@dirty-geometry/vec2/operations/intersection2';
 import { clipInfiniteLineToDisplayFrame, clipRayToDisplayFrame, FRAME_MAX, FRAME_MIN } from '../../../core/frame';
 import { INFINITE_DISPLAY_SCALE } from '../../frame/constants';
 import type { GeometryDisplayContext } from '../context';
@@ -97,7 +97,7 @@ export function halfPlaneFrameClippedPolygon(line: InfiniteLine2, fit: (point: V
     }
 
     if (currentInside !== nextInside) {
-      const hit = intersectionLines(new Line2(current, next), fittedLine);
+      const hit = Intersection2.lines(new Line2(current, next), fittedLine);
       if (hit?.type === 'Vec2') {
         clipped.push(hit.clone());
       }

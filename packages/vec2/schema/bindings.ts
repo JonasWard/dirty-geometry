@@ -22,105 +22,69 @@ import { GridLine2 } from '../src/grid/regions/grid-line2';
 import { GridPolygon2 } from '../src/grid/regions/grid-polygon2';
 import { GridPolyline2 } from '../src/grid/regions/grid-polyline2';
 import { GridRectangle2 } from '../src/grid/regions/grid-rectangle2';
-import { CodecRegistry } from '../src/io/codec';
-import { Deserialise } from '../src/io/deserialise';
-import { Boolean2, asBoolean2ClipList } from '../src/operations/boolean2';
-import { convexHullLoop } from '../src/operations/cdt/hull';
-import { CdtMesh, emptyCdtStats } from '../src/operations/cdt/mesh';
-import { triangulateConstrained } from '../src/operations/cdt/triangulate';
-import {
-  collectConstraintSources,
-  constrainedDelaunay,
-  constrainedDelaunayReport,
-  constraintEdge,
-  constraintEdgeEndpoints,
-  triangulateSources,
-} from '../src/operations/constrained-delaunay';
+import { Boolean2 } from '../src/operations/boolean2';
+import { ConstrainedDelaunay } from '../src/operations/constrained-delaunay';
 import { Contains2 } from '../src/operations/contains2';
-import {
-  douglasPeucker,
-  douglasPeuckerVertices,
-  resolveDouglasPeuckerTolerances,
-} from '../src/operations/douglas-peucker';
-import { intersectionLines } from '../src/operations/intersection/line2-like';
-import { findSegmentCrossings } from '../src/operations/intersection/segment-sweep';
-import { Overlap2 } from '../src/operations/overlap2';
-import {
-  buildGrid2FromWorldPolygons,
-  buildGrid2FromWorldVertices,
-} from '../src/operations/polygon-analysis/grid-from-world';
+import { DouglasPeucker } from '../src/operations/douglas-peucker';
+import { convexHullLoop } from '../src/operations/helpers/cdt/hull';
+import { emptyCdtStats } from '../src/operations/helpers/cdt/mesh';
+import { triangulateConstrained } from '../src/operations/helpers/cdt/triangulate';
+import { constraintEdge, constraintEdgeEndpoints } from '../src/operations/helpers/constraint-edge';
+import { resolveDouglasPeuckerTolerances } from '../src/operations/helpers/douglas-peucker-tolerances';
 import {
   axisDirection,
   directionDelta,
   ensureAxisAlignedPolygonPath,
   isAxisAlignedPolygonPath,
-} from '../src/operations/polygon-analysis/grid-polygon-path';
-import { decomposeOccupancyIntoRectangles } from '../src/operations/polygon-analysis/rectangle-decomposition';
-import {
-  detectRectilinearGridFromPolygon,
-  detectRectilinearGridFromPolygons,
-} from '../src/operations/polygon-analysis/rectilinear-detection';
+} from '../src/operations/helpers/grid-polygon-path';
+import { Intersection2 } from '../src/operations/intersection2';
+import { Overlap2 } from '../src/operations/overlap2';
+import { RectilinearGrid2 } from '../src/operations/rectilinear-grid2';
 
-/** Exported vec2 classes by name. */
+/** The recordable vec2 classes by name. */
 export const classes = {
   Aabb2,
-  Interval2,
   Angle,
+  Axis,
+  Boolean2,
+  Circle2,
+  ConstrainedDelaunay,
+  Contains2,
+  DouglasPeucker,
   Epsilon,
   Frame2,
-  Mat3,
-  Vec2,
-  Polyline2,
-  Hesse2,
-  InfiniteLine2,
-  Line2,
-  Ray2,
-  Circle2,
-  Polygon2,
-  TriMesh2,
-  Axis,
-  GridCell2,
   Grid2,
+  GridCell2,
   GridCell2Collection,
   GridLine2,
   GridPolygon2,
   GridPolyline2,
   GridRectangle2,
-  CodecRegistry,
-  Deserialise,
-  Boolean2,
-  CdtMesh,
-  Contains2,
+  Hesse2,
+  InfiniteLine2,
+  Intersection2,
+  Interval2,
+  Line2,
+  Mat3,
   Overlap2,
+  Polygon2,
+  Polyline2,
+  Ray2,
+  RectilinearGrid2,
+  TriMesh2,
+  Vec2,
 } as const;
 
-/** Operation functions by `<module>:<name>`. */
-export const functions = {
-  'operations/boolean2:asBoolean2ClipList': asBoolean2ClipList,
-  'operations/cdt/hull:convexHullLoop': convexHullLoop,
-  'operations/cdt/mesh:emptyCdtStats': emptyCdtStats,
-  'operations/cdt/triangulate:triangulateConstrained': triangulateConstrained,
-  'operations/constrained-delaunay:collectConstraintSources': collectConstraintSources,
-  'operations/constrained-delaunay:constrainedDelaunay': constrainedDelaunay,
-  'operations/constrained-delaunay:constrainedDelaunayReport': constrainedDelaunayReport,
-  'operations/constrained-delaunay:constraintEdge': constraintEdge,
-  'operations/constrained-delaunay:constraintEdgeEndpoints': constraintEdgeEndpoints,
-  'operations/constrained-delaunay:triangulateSources': triangulateSources,
-  'operations/douglas-peucker:douglasPeucker': douglasPeucker,
-  'operations/douglas-peucker:douglasPeuckerVertices': douglasPeuckerVertices,
-  'operations/douglas-peucker:resolveDouglasPeuckerTolerances': resolveDouglasPeuckerTolerances,
-  'operations/intersection/line2-like:intersectionLines': intersectionLines,
-  'operations/intersection/segment-sweep:findSegmentCrossings': findSegmentCrossings,
-  'operations/polygon-analysis/grid-from-world:buildGrid2FromWorldPolygons': buildGrid2FromWorldPolygons,
-  'operations/polygon-analysis/grid-from-world:buildGrid2FromWorldVertices': buildGrid2FromWorldVertices,
-  'operations/polygon-analysis/grid-polygon-path:axisDirection': axisDirection,
-  'operations/polygon-analysis/grid-polygon-path:directionDelta': directionDelta,
-  'operations/polygon-analysis/grid-polygon-path:ensureAxisAlignedPolygonPath': ensureAxisAlignedPolygonPath,
-  'operations/polygon-analysis/grid-polygon-path:isAxisAlignedPolygonPath': isAxisAlignedPolygonPath,
-  'operations/polygon-analysis/rectangle-decomposition:decomposeOccupancyIntoRectangles':
-    decomposeOccupancyIntoRectangles,
-  'operations/polygon-analysis/rectilinear-detection:detectRectilinearGridFromPolygon':
-    detectRectilinearGridFromPolygon,
-  'operations/polygon-analysis/rectilinear-detection:detectRectilinearGridFromPolygons':
-    detectRectilinearGridFromPolygons,
+/** Helper functions by name. */
+export const helpers = {
+  axisDirection,
+  constraintEdge,
+  constraintEdgeEndpoints,
+  convexHullLoop,
+  directionDelta,
+  emptyCdtStats,
+  ensureAxisAlignedPolygonPath,
+  isAxisAlignedPolygonPath,
+  resolveDouglasPeuckerTolerances,
+  triangulateConstrained,
 } as const;

@@ -1,3 +1,4 @@
+import type { Index, Length } from '../../core/numbers';
 import { Aabb2 } from '../../bounds/aabb2';
 import { Epsilon } from '../../core/epsilon';
 import { dehash2, hash2 } from '../../hash/core';
@@ -36,9 +37,9 @@ export class TriMesh2 {
    */
   constructor(
     vertices: readonly Vec2[],
-    triangles: readonly (readonly [number, number, number])[],
+    triangles: readonly (readonly [Index, Index, Index])[],
     slack: Epsilon = Epsilon.preferIn,
-    gridSize?: number,
+    gridSize?: Length,
   ) {
     slack.isPositive(TriMesh2.type, 'constructor');
     const reducedResult = TriMesh2.reduceVertices(vertices, triangles, slack, gridSize);
@@ -255,7 +256,7 @@ export class TriMesh2 {
       if (to !== start || indices.length < 3) continue;
 
       const vertices = indices.map((index) => this.vertices[index]!.clone());
-      const signedArea = Polygon2.signedArea(vertices);
+      const signedArea = Polygon2.computeSignedArea(vertices);
       loops.push({ polygon: new Polygon2(vertices), signedArea });
     }
 
@@ -356,10 +357,7 @@ export class TriMesh2 {
    * Create a mesh from vertices and triangles without dedupe, degenerate, or unused-vertex cleanup.
    * Use when the caller already provides a consistent mesh (e.g. after CDT).
    */
-  static withoutCleanup(
-    vertices: readonly Vec2[],
-    triangles: readonly (readonly [number, number, number])[],
-  ): TriMesh2 {
+  static withoutCleanup(vertices: readonly Vec2[], triangles: readonly (readonly [Index, Index, Index])[]): TriMesh2 {
     return Object.assign(Object.create(TriMesh2.prototype) as TriMesh2, {
       vertices: Object.freeze([...vertices]),
       triangles: Object.freeze(triangles.map(([a, b, c]) => Object.freeze([a, b, c] as const))),
@@ -380,7 +378,7 @@ export class TriMesh2 {
 export type TriMesh2Json = {
   type: typeof TriMesh2.type;
   vertices: Vec2Json[];
-  triangles: [number, number, number][];
+  triangles: [Index, Index, Index][];
 };
 
 function triangleContainsPoint(a: Vec2, b: Vec2, c: Vec2, point: Vec2, slack: Epsilon): boolean {

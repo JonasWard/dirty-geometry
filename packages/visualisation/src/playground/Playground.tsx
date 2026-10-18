@@ -3,12 +3,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Definition } from '@dirty-geometry/vec2/recording/definition';
 import { evaluateDefinition } from '@dirty-geometry/vec2/recording/replay';
-import { createDefinitionSchema } from '@dirty-geometry/vec2-dense/definition-schema';
-import { decodeDefinition, encodeDefinition, quantisationReport } from '@dirty-geometry/vec2-dense/convert';
-import { resolvePreset, type ActivePresets, type NumericOptions } from '@dirty-geometry/vec2-dense/numerics';
-import { choosePresets } from '@dirty-geometry/vec2-dense/presets';
-import type { OperandRole } from '@dirty-geometry/vec2-dense/roles';
-import { decodePlaygroundHash, encodePlaygroundHash } from '@dirty-geometry/vec2-dense/url';
+import {
+  createDefinitionSchema,
+  decodeDefinition,
+  encodeDefinition,
+} from '@dirty-geometry/vec2/schema/dense/definition';
+import { resolvePreset, type ActivePresets, type NumericOptions } from '@dirty-geometry/vec2/schema/dense/definition';
+import { choosePresets, quantisationReport } from './presets';
+import { decodePlaygroundHash, encodePlaygroundHash } from './url';
 import { VisualisationLegend } from '../core/VisualisationLegend';
 import { Builder } from './Builder';
 import { validateDefinition } from './editing';
@@ -112,7 +114,7 @@ export function Playground() {
     return () => window.removeEventListener('hashchange', onHashChange);
   }, []);
 
-  const step = (role: OperandRole) => {
+  const step = (role: string) => {
     if (role === 'epsilon') return undefined;
     try {
       return resolvePreset(schema.schema.definitions ?? [], role, presets).precision ?? 1;

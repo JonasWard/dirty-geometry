@@ -23,8 +23,6 @@ import { GridRectangle2, type GridRectangle2Json } from '../grid/regions/grid-re
 import { GridCell2Collection, type CellCollectionJson } from '../grid/regions/grid-cell2-collection';
 import { Epsilon, type EpsilonJson } from '../core/epsilon';
 
-import { decodeJsonNumber } from '../core/json-number';
-
 export function isVec2Json(data: unknown): data is Vec2Json {
   return (
     typeof data === 'object' &&
@@ -96,13 +94,15 @@ export function isPolygon2Json(data: unknown): data is Polygon2Json {
   );
 }
 
-/** Endpoints are numbers or `"Infinity"` / `"-Infinity"`; `null` (older JSON of an infinite endpoint) is accepted too. */
+/** Endpoints are numbers or `null` (unbounded); older `"Infinity"` / `"-Infinity"` strings are accepted too. */
 export function isInterval2Json(data: unknown): data is Interval2Json {
   if (typeof data !== 'object' || data === null || (data as Interval2Json).type !== Interval2.type) {
     return false;
   }
   const { min, max } = data as { min: unknown; max: unknown };
-  return (min === null || decodeJsonNumber(min) !== undefined) && (max === null || decodeJsonNumber(max) !== undefined);
+  const end = (value: unknown) =>
+    value === null || typeof value === 'number' || value === 'Infinity' || value === '-Infinity';
+  return end(min) && end(max);
 }
 
 export function isAabb2Json(data: unknown): data is Aabb2Json {
@@ -161,22 +161,19 @@ export function isAxisJson(data: unknown): data is AxisJson {
     return false;
   }
 
-  const axis = data as AxisJson;
-  if (axis.type !== undefined && axis.type !== Axis.type) {
+  // Older JSON may lack the type tag, name a custom axis's size `defaultSize` and store sizes as a record.
+  const axis = data as AxisJson & { defaultSize?: unknown };
+  const size = axis.size ?? axis.defaultSize;
+  if ((axis.type != null && axis.type !== Axis.type) || !(axis.domain == null || isInterval2Json(axis.domain))) {
     return false;
   }
   switch (axis.kind) {
     case 'unit':
-      return axis.domain === undefined || isInterval2Json(axis.domain);
+      return true;
     case 'uniform':
-      return typeof axis.size === 'number' && (axis.domain === undefined || isInterval2Json(axis.domain));
+      return typeof size === 'number';
     case 'custom':
-      return (
-        typeof axis.defaultSize === 'number' &&
-        typeof axis.sizes === 'object' &&
-        axis.sizes !== null &&
-        (axis.domain === undefined || isInterval2Json(axis.domain))
-      );
+      return typeof size === 'number' && typeof axis.sizes === 'object' && axis.sizes !== null;
     default:
       return false;
   }

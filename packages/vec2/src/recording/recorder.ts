@@ -1,294 +1,133 @@
-/**
- * Records vec2 calls as a JSON definition without touching the vec2 classes.
- *
- *   const rec = createRecorder();
- *   const { Vec2, Line2 } = rec.lib;
- *   const width = rec.param('width', 3);
- *   const line = new Line2(new Vec2(0, 0), new Vec2(width, 1));
- *   rec.output('end', line.evaluate(line.length()));
- *   const definition = rec.definition(); // JSON-serialisable; replay with evaluateDefinition
- *
- * `rec.lib` mirrors the vec2 classes (and `rec.lib.ops` the operation functions) through Proxies. Every
- * call is looked up in the generated schema, run on the real values, and its result is handed back
- * wrapped: objects as Proxies of the real object, numbers / strings as {@link Scalar}s. Calls the library
- * makes internally run on real values and are not recorded.
- */
-import { defaultRegistry } from '../io/default-registry';
-import type { ArgJson, Definition, NodeJson, ParamJson } from './definition';
-import { isOperationNode } from './definition';
+/** Records vec2 calls as a {@link Definition} by reflection: `rec.lib` mirrors the classes and helpers through Proxies,
+ * so every call and field read runs on the real value and becomes a node. Results come back wrapped. */
+import type { classes, helpers } from '../../schema/bindings';
+import { SKIP_MEMBERS } from '../../schema/policy';
+import { type Arg, type Definition, type Node, type Source, fail } from './definition';
+import { classNameOf, classTable, helperTable, isPlain, mapValues, typeOf } from './runtime';
 import { Scalar } from './scalar';
-import {
-  callOperation,
-  classNameOf,
-  describeValue,
-  functionsByName,
-  lookupOperation,
-  RecordingError,
-  schema,
-} from './runtime';
-import { classes, functions } from '../../schema/bindings';
 
-export { RecordingError } from './runtime';
+/** `strict`: throw on calls that cannot be recorded (callbacks, `toJson`, no or unsupported result). */
+export type RecorderOptions = { strict?: boolean };
+export type Recorder = ReturnType<typeof createRecorder>;
 
-export type RecorderOptions = {
-  /**
-   * Throw when an operation that cannot be recorded (callbacks, generators, policy exclusions) is called.
-   * By default it runs unrecorded and is listed in `rec.warnings`; its object results are then stored as
-   * literal values.
-   */
-  strict?: boolean;
-};
+/** A vec2 member: not private, `constructor` or `type`, and not inherited from Object or Function. */
+const isMember = (target: object, key: string | symbol): key is string =>
+  typeof key === 'string' &&
+  !/^(_|constructor$|type$)/.test(key) &&
+  !(typeof target === 'function' && /^(prototype|name|length)$/.test(key)) &&
+  key in target &&
+  Reflect.get(target, key) !== Reflect.get(typeof target === 'function' ? Function.prototype : Object.prototype, key);
 
-type ClassTable = typeof classes;
-/** A node without its id (distributes over the node kinds). */
-type NodeBody = NodeJson extends infer N ? (N extends NodeJson ? Omit<N, 'id'> : never) : never;
-/** Operation functions by plain name (`constrainedDelaunay`), typed like the originals. */
-type OperationFunctions = {
-  readonly [K in keyof typeof functions as K extends `${string}:${infer Name}` ? Name : never]: (typeof functions)[K];
-};
-
-export type Recorder = {
-  /** The vec2 classes, recording every call. */
-  readonly lib: ClassTable & { readonly ops: OperationFunctions };
-  /** A named, editable input. Numbers and strings come back as {@link Scalar}s, vec2 objects as recorded objects. */
-  param<T extends number | string | boolean | object>(name: string, value: T): T;
-  /** Name a recorded value as an output of the definition. */
-  output(name: string, value: unknown): void;
-  /** The definition of the named outputs, pruned to the nodes they depend on. */
-  definition(): Definition;
-  /** Real value behind a recorded object or scalar. */
-  unwrap<T>(value: T): T;
-  /** Unrecorded calls made in non-strict mode. */
-  readonly warnings: readonly string[];
-};
-
-export function createRecorder(options: RecorderOptions = {}): Recorder {
-  const nodes: NodeJson[] = [];
-  const params: Record<string, ParamJson> = {};
-  const outputs: Record<string, string> = {};
+export function createRecorder(options: RecorderOptions = {}) {
+  const nodes: Node[] = [];
+  const params: Definition['params'] = {};
+  const outputs: Definition['outputs'] = {};
   const warnings: string[] = [];
-  /** Recorded wrapper (Proxy, array, result object) → its node and real value. */
-  const recorded = new WeakMap<object, { node: string; real: unknown }>();
-  /** Node → wrapper, so reading the same field or constant twice gives the same object. */
+  const traced = new WeakMap<object, { source: Source; real: unknown }>();
   const memo = new Map<string, unknown>();
+  const add = (node: object) => (nodes.push({ id: `n${nodes.length}`, ...node } as Node), `n${nodes.length - 1}`);
+  const trace = (value: unknown) =>
+    value instanceof Scalar ? { source: value.node, real: value.value } : traced.get(Object(value));
+  const real = (v: unknown): unknown =>
+    trace(v)?.real ?? (Array.isArray(v) ? v.map(real) : isPlain(v) ? mapValues(v, real) : v);
 
-  const nextId = () => `n${nodes.length}`;
-  const addNode = (node: NodeBody): string => {
-    const id = nextId();
-    nodes.push({ id, ...node } as NodeJson);
-    return id;
-  };
-
-  function provenance(value: unknown): { node: string; real: unknown } | null {
-    if (value instanceof Scalar) return { node: value.node, real: value.value };
-    if (typeof value === 'object' && value !== null) return recorded.get(value) ?? null;
-    return null;
+  function encode(value: unknown): Arg {
+    const t = trace(value);
+    if (t) return typeof t.source === 'string' ? { ref: t.source } : t.source;
+    if (value === undefined) return { omit: true };
+    if (typeof value === 'number' && !Number.isFinite(value)) return { number: `${value}` as 'NaN' };
+    if (value === null || typeof value !== 'object') return value as Arg;
+    if (classNameOf(value)) return { value: (value as { toJson(): unknown }).toJson() };
+    if (Array.isArray(value)) return value.map(encode);
+    return isPlain(value) ? { object: mapValues(value, encode) } : fail('Cannot record a non-plain object argument');
   }
 
-  /** Argument → JSON form plus the real value to pass on. */
-  function encode(value: unknown): { json: ArgJson; real: unknown } {
-    const traced = provenance(value);
-    if (traced) return { json: { ref: traced.node }, real: traced.real };
-    if (value === undefined) return { json: { undefined: true }, real: undefined };
-    if (value === null || typeof value === 'string' || typeof value === 'boolean')
-      return { json: { lit: value }, real: value };
-    if (typeof value === 'number') {
-      if (Number.isFinite(value)) return { json: { lit: value }, real: value };
-      return { json: { number: Number.isNaN(value) ? 'NaN' : value > 0 ? 'Infinity' : '-Infinity' }, real: value };
-    }
-    if (Array.isArray(value)) {
-      const items = value.map(encode);
-      return { json: { array: items.map((item) => item.json) }, real: items.map((item) => item.real) };
-    }
-    if (typeof value === 'object') {
-      const type = (value as { type?: unknown }).type;
-      if (typeof type === 'string' && defaultRegistry.has(type) && typeof (value as any).toJson === 'function') {
-        return { json: { value: (value as { toJson(): unknown }).toJson() }, real: value };
-      }
-      if (Object.getPrototypeOf(value) === Object.prototype) {
-        const entries = Object.entries(value).map(([key, field]) => [key, encode(field)] as const);
-        return {
-          json: { object: Object.fromEntries(entries.map(([key, field]) => [key, field.json])) },
-          real: Object.fromEntries(entries.map(([key, field]) => [key, field.real])),
-        };
-      }
-    }
-    throw new RecordingError(
-      `Cannot record an argument of type ${describeValue(value).kind === 'unsupported' ? typeof value : describeValue(value).kind}`,
-    );
-  }
-
-  /** Real result of `node` → what the caller gets back. */
-  function wrap(real: unknown, node: string): unknown {
-    if (memo.has(node)) return memo.get(node);
-    let result: unknown = real;
-    if (typeof real === 'number' || typeof real === 'string') {
-      result = new Scalar(node, real);
-    } else if (Array.isArray(real)) {
-      const items = real.map((item, index) => wrap(item, addNode({ op: 'item', of: node, index })));
-      recorded.set(items, { node, real });
-      result = items;
-    } else if (typeof real === 'object' && real !== null) {
-      if (classNameOf(real)) {
-        result = instanceProxy(real, node);
-      } else if (Object.getPrototypeOf(real) === Object.prototype) {
-        const fields = Object.fromEntries(
-          Object.entries(real).map(([name, field]) => [name, wrap(field, addNode({ op: 'field', of: node, name }))]),
-        );
-        recorded.set(fields, { node, real });
-        result = fields;
-      }
-    }
-    memo.set(node, result);
+  function wrap(value: unknown, source: Source): unknown {
+    const id = typeof source === 'string' ? source : '';
+    let result = value;
+    if (['number', 'string'].includes(typeof value) || (typeof value === 'boolean' && !id)) {
+      result = new Scalar(source, value as number);
+    } else if (Array.isArray(value) && id) {
+      result = value.map((item, index) => wrap(item, add({ op: 'result.item', of: id, index })));
+    } else if (isPlain(value) && id) {
+      result = mapValues(value, (field, name) => wrap(field, add({ op: 'result.field', of: id, name })));
+    } else if (classNameOf(value)) result = reflect(value, classNameOf(value)!, true);
+    if (typeof result === 'object' && result) traced.set(result, { source, real: value });
     return result;
   }
 
-  function invoke(id: string, self: unknown, args: readonly unknown[]): unknown {
-    const found = lookupOperation(id);
-    if (!found) throw new RecordingError(`${id} is not a vec2 operation`);
-    const { op } = found;
-    if (!op.recordable) {
-      if (options.strict) throw new RecordingError(`${id} cannot be recorded: ${op.reason}`);
-      warnings.push(`${id} ran unrecorded: ${op.reason}`);
-      const real = callOperation(
-        found.id,
-        op,
-        provenance(self)?.real ?? self,
-        args.map((arg) => encode(arg).real),
-      );
-      return real;
-    }
-
-    const selfTrace = self === undefined ? null : provenance(self);
-    if (self !== undefined && !selfTrace) throw new RecordingError(`${id} called on an unrecorded value`);
-    const encoded = args.map(encode);
-    const realResult = callOperation(
-      found.id,
-      op,
-      selfTrace?.real,
-      encoded.map((arg) => arg.real),
-    );
-
-    // Fields and constants are values: reading them twice gives the same node.
-    const memoKey = op.kind === 'field' || op.kind === 'constant' ? `${found.id}@${selfTrace?.node ?? ''}` : null;
-    if (memoKey && memo.has(memoKey)) return memo.get(memoKey);
-
-    const node = addNode({
-      op: found.id,
-      ...(selfTrace ? { self: selfTrace.node } : {}),
-      args: encoded.map((arg) => arg.json),
-    });
-    const result = wrap(realResult, node);
-    if (memoKey) memo.set(memoKey, result);
-    return result;
-  }
-
-  function instanceProxy(real: object, node: string): object {
-    const owner = classNameOf(real)!;
-    const proxy: object = new Proxy(real, {
-      get(target, key) {
-        if (typeof key !== 'string' || key === 'constructor' || key === 'type') return Reflect.get(target, key, target);
-        const id = `${owner}#${key}`;
-        const op = schema.operations[id];
-        if (!op) {
-          const value = Reflect.get(target, key, target);
-          return typeof value === 'function' ? value.bind(target) : value;
-        }
-        if (op.kind === 'field') return invoke(id, proxy, []);
-        return (...args: unknown[]) => invoke(id, proxy, args);
+  /** A Proxy recording a class's statics and `new`, a helper's calls, or (`instance`) a recorded value's members. */
+  function reflect(target: any, owner: string, instance: boolean): object {
+    const proxy: object = new Proxy(target, {
+      construct: (_, args) => invoke(`${owner}.new`, undefined, (a) => new target(...a), args) as object,
+      apply: (_, __, args) => invoke(owner, undefined, (a) => target(...a), args),
+      get(_, key) {
+        const member = Reflect.get(target, key, target);
+        const self = instance ? proxy : undefined;
+        if (!isMember(target, key)) return typeof member === 'function' ? member.bind(target) : member;
+        // A static value (`Epsilon.preferIn`) is a constant, not an operation: it is used as it is.
+        if (typeof member !== 'function')
+          return instance ? invoke(`${owner}.${key}`, self, () => member, null) : member;
+        return (...args: unknown[]) => invoke(`${owner}.${key}`, self, (a) => member.apply(target, a), args);
       },
-      set() {
-        throw new RecordingError(`Recorded ${owner} values are immutable`);
-      },
+      set: () => fail(`Recorded ${owner} values are immutable`),
     });
-    recorded.set(proxy, { node, real });
     return proxy;
   }
 
-  function classFacade(name: string, cls: any): unknown {
-    return new Proxy(cls, {
-      construct(_target, args) {
-        return invoke(`${name}.new`, undefined, args) as object;
-      },
-      get(target, key) {
-        if (typeof key !== 'string' || key === 'prototype' || key === 'type' || key === 'name') {
-          return Reflect.get(target, key, target);
-        }
-        const id = `${name}.${key}`;
-        const op = schema.operations[id];
-        if (!op) return Reflect.get(target, key, target);
-        if (op.kind === 'constant') return invoke(id, undefined, []);
-        return (...args: unknown[]) => invoke(id, undefined, args);
-      },
-    });
+  function invoke(op: string, self: object | undefined, run: (args: unknown[]) => unknown, args: unknown[] | null) {
+    const unrecorded = (reason: string, result: unknown) => {
+      if (options.strict) fail(`${op} cannot be recorded (${reason})`);
+      warnings.push(`${op} ran unrecorded (${reason})`);
+      return result;
+    };
+    if (SKIP_MEMBERS.has(op.split('.').at(-1)!)) return unrecorded('serialisation', run((args ?? []).map(real)));
+    if (args?.some((a) => typeof a === 'function')) return unrecorded('callback', run(args.map(real)));
+    const from = self && trace(self)!.source;
+    const memoKey = args ? '' : `${op}@${JSON.stringify(from)}`;
+    if (memo.has(memoKey)) return memo.get(memoKey);
+    const result = run((args ?? []).map(real));
+    if (result === undefined) return unrecorded('no result', result);
+    if (Object(result) === result && !Array.isArray(result) && !isPlain(result) && !classNameOf(result))
+      return unrecorded('unsupported result', result);
+    const json = (args ?? []).map(encode);
+    while (json.length && JSON.stringify(json.at(-1)) === '{"omit":true}') json.pop();
+    const wrapped = wrap(result, add({ op, ...(from && { self: from }), ...(json.length && { args: json }) }));
+    if (memoKey) memo.set(memoKey, wrapped);
+    return wrapped;
   }
 
-  const ops = Object.fromEntries(
-    Object.entries(functionsByName).map(([name, id]) => [name, (...args: unknown[]) => invoke(id, undefined, args)]),
-  );
-  const lib = Object.freeze({
-    ...Object.fromEntries(Object.entries(classes).map(([name, cls]) => [name, classFacade(name, cls)])),
-    ops: Object.freeze(ops) as unknown as OperationFunctions,
-  }) as unknown as Recorder['lib'];
-
+  const lib = mapValues(classTable, (cls, name) => reflect(cls, name, false));
+  lib.helpers = mapValues(helperTable, (fn, name) => reflect(fn, `helpers.${name}`, false));
   return {
-    lib,
-    warnings,
-    param(name, value) {
-      if (params[name]) throw new RecordingError(`Param ${name} already exists`);
-      const type = describeValue(value);
-      if (type.kind === 'unsupported' || type.kind === 'null') {
-        throw new RecordingError(`Param ${name} must be a number, string, boolean or vec2 value`);
-      }
-      const node = addNode({ op: 'param', name });
-      params[name] = { node, type, value: encode(value).json };
-      if (typeof value === 'boolean') {
-        const scalar = new Scalar(node, value);
-        memo.set(node, scalar);
-        return scalar as unknown as typeof value;
-      }
-      return wrap(provenance(value)?.real ?? value, node) as typeof value;
+    lib: Object.freeze(lib) as unknown as typeof classes & { readonly helpers: typeof helpers },
+    warnings: warnings as readonly string[],
+    /** A named, editable input; numbers, strings and booleans come back as {@link Scalar}s. */
+    param<T extends number | string | boolean | object>(name: string, value: T): T {
+      const type = typeOf(real(value));
+      if (params[name]) fail(`Param ${name} already exists`);
+      if (!type || type === 'object') fail(`Param ${name} must be a number, string, boolean or vec2 value`);
+      params[name] = { type: type!, value: encode(value) };
+      return wrap(real(value), { param: name }) as T;
     },
-    output(name, value) {
-      const traced = provenance(value);
-      if (!traced) throw new RecordingError(`Output ${name} is not a recorded value`);
-      outputs[name] = traced.node;
+    output(name: string, value: unknown) {
+      outputs[name] = trace(value)?.source ?? fail(`Output ${name} is not a recorded value`);
     },
-    definition() {
-      return pruneDefinition({ format: 'vec2-definition', version: 1, schema: schema.hash, params, nodes, outputs });
-    },
-    unwrap<T>(value: T): T {
-      return (provenance(value)?.real ?? value) as T;
-    },
+    /** The definition of the outputs, pruned to the nodes they use (all params are kept). */
+    definition: (): Definition =>
+      pruneDefinition({ format: 'vec2-definition', version: 3, params: { ...params }, nodes, outputs: { ...outputs } }),
+    /** The real value behind a recorded one. */
+    unwrap: <T>(value: T) => real(value) as T,
   };
 }
 
-/** Keep only the nodes the outputs depend on (and every param, so inputs stay editable). */
+/** Keep the nodes the outputs depend on (nodes are in recording order, so one backwards pass). */
 export function pruneDefinition(definition: Definition): Definition {
-  const byId = new Map(definition.nodes.map((node) => [node.id, node]));
-  const keep = new Set<string>(Object.values(definition.params).map((param) => param.node));
-  const visit = (id: string) => {
-    if (keep.has(id)) return;
-    keep.add(id);
-    const node = byId.get(id);
-    if (!node) return;
-    if (isOperationNode(node)) {
-      if (node.self) visit(node.self);
-      node.args.forEach(visitArg);
-    } else if (node.op === 'item' || node.op === 'field') {
-      visit(node.of);
-    }
-  };
-  const visitArg = (arg: ArgJson): void => {
-    if ('ref' in arg) visit(arg.ref);
-    else if ('array' in arg) arg.array.forEach(visitArg);
-    else if ('object' in arg) Object.values(arg.object).forEach(visitArg);
-  };
-  Object.values(definition.outputs).forEach(visit);
-  return {
-    ...definition,
-    params: { ...definition.params },
-    nodes: definition.nodes.filter((node) => keep.has(node.id)),
-    outputs: { ...definition.outputs },
-  };
+  const keep = new Set(Object.values(definition.outputs).filter((s) => typeof s === 'string'));
+  for (const node of [...definition.nodes].reverse()) {
+    if (!keep.has(node.id)) continue;
+    const uses = JSON.stringify(['of' in node ? { ref: node.of } : { ref: node.self }, 'args' in node && node.args]);
+    for (const [, id] of uses.matchAll(/"ref":"([^"]+)"/g)) keep.add(id!);
+  }
+  return { ...definition, nodes: definition.nodes.filter((node) => keep.has(node.id)) };
 }

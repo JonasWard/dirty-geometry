@@ -1,8 +1,9 @@
 import { describe, expect, test } from 'bun:test';
 import { createRecorder } from '../../src/recording/recorder';
-import { checkDefinition, DefinitionError, evaluateDefinition } from '../../src/recording/replay';
+import { DefinitionError } from '../../src/recording/definition';
+import { evaluateDefinition } from '../../src/recording/replay';
 import type { Definition } from '../../src/recording/definition';
-import { constrainedDelaunay } from '../../src/operations/constrained-delaunay';
+import { ConstrainedDelaunay } from '../../src/operations/constrained-delaunay';
 import { Vec2 } from '../../src/core/vec2';
 import { recordPlate } from '../../examples/definitions/plate';
 
@@ -52,7 +53,7 @@ describe('replay', () => {
     const points = [new V(0, 0), new V(4, 0), new V(4, 3), new V(0, 3), new V(2, 1)];
     const square = new Polygon2(points.slice(0, 4));
     const recorded = {
-      mesh: rec.lib.ops.constrainedDelaunay(points, [[0, 2]]),
+      mesh: rec.lib.ConstrainedDelaunay.triangulate(points, [[0, 2]]),
       union: Boolean2.union([square]).polygons,
       segment: square.segments()[2],
       center: V.center(...points),
@@ -67,7 +68,7 @@ describe('replay', () => {
     const replayed = evaluateDefinition(viaText(rec.definition())).outputs;
     for (const [name, json] of Object.entries(original)) expect(toJson(replayed[name])).toEqual(json);
     expect(toJson(replayed.mesh)).toEqual(
-      constrainedDelaunay(
+      ConstrainedDelaunay.triangulate(
         points.map((p) => rec.unwrap(p)),
         [[0, 2]],
       ).toJson(),
@@ -101,24 +102,18 @@ describe('replay', () => {
     expect(() => evaluateDefinition(definition, { params: { width: 'wide' } })).toThrow(DefinitionError);
   });
 
-  test('a definition from an older schema replays when its operations still exist', () => {
-    const { rec } = recordLine();
-    const old = { ...rec.definition(), schema: 'sha256:older' };
-    expect(checkDefinition(old)).toEqual([]);
-    expect(evaluateDefinition(old).outputs.length).toBe(5);
+  test('older definition versions are rejected with a clear error', () => {
+    const old = { ...recordLine().rec.definition(), version: 2 } as unknown as Definition;
+    expect(() => evaluateDefinition(old)).toThrow(/re-record/);
   });
 
-  test('renamed operations need an alias; missing ones are reported', () => {
-    const { rec } = recordLine();
-    const definition = rec.definition();
+  test('a call that no longer exists fails clearly', () => {
+    const definition = recordLine().rec.definition();
     const renamed: Definition = {
       ...definition,
-      schema: 'sha256:older',
-      nodes: definition.nodes.map((node) => (node.op === 'Line2#length' ? { ...node, op: 'Line2#len' } : node)),
+      nodes: definition.nodes.map((node) => (node.op === 'Line2.length' ? { ...node, op: 'Line2.len' } : node)),
     };
-    expect(checkDefinition(renamed)).toEqual([expect.stringContaining('Line2#len no longer exists')]);
-    expect(() => evaluateDefinition(renamed)).toThrow(DefinitionError);
-    expect(evaluateDefinition(renamed, { aliases: { 'Line2#len': 'Line2#length' } }).outputs.length).toBe(5);
+    expect(() => evaluateDefinition(renamed)).toThrow(/Line2.len does not exist/);
   });
 });
 

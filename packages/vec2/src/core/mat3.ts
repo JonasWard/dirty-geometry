@@ -1,3 +1,4 @@
+import type { Coordinate, Radians } from './numbers';
 import { Vec2 } from './vec2';
 
 /**
@@ -14,7 +15,17 @@ export class Mat3 {
 
   readonly elements: readonly [number, number, number, number, number, number, number, number, number];
 
-  constructor(m00 = 1, m01 = 0, m02 = 0, m10 = 0, m11 = 1, m12 = 0, m20 = 0, m21 = 0, m22 = 1) {
+  constructor(
+    m00: Coordinate = 1,
+    m01: Coordinate = 0,
+    m02: Coordinate = 0,
+    m10: Coordinate = 0,
+    m11: Coordinate = 1,
+    m12: Coordinate = 0,
+    m20: Coordinate = 0,
+    m21: Coordinate = 0,
+    m22: Coordinate = 1,
+  ) {
     this.elements = [m00, m10, m20, m01, m11, m21, m02, m12, m22];
   }
 
@@ -22,30 +33,30 @@ export class Mat3 {
     return new Mat3();
   }
 
-  static translation(x: number, y: number): Mat3 {
+  static translation(x: Coordinate, y: Coordinate): Mat3 {
     return new Mat3(1, 0, x, 0, 1, y, 0, 0, 1);
   }
 
-  static rotation(angle: number): Mat3 {
-    const c = Math.cos(angle);
-    const s = Math.sin(angle);
+  static rotation(radians: Radians): Mat3 {
+    const c = Math.cos(radians);
+    const s = Math.sin(radians);
     return new Mat3(c, -s, 0, s, c, 0, 0, 0, 1);
   }
 
-  static scale(sx: number, sy = sx): Mat3 {
-    return new Mat3(sx, 0, 0, 0, sy, 0, 0, 0, 1);
+  static scale(x: Coordinate, y: Coordinate = x): Mat3 {
+    return new Mat3(x, 0, 0, 0, y, 0, 0, 0, 1);
   }
 
   static fromValues(
-    m00: number,
-    m01: number,
-    m02: number,
-    m10: number,
-    m11: number,
-    m12: number,
-    m20: number,
-    m21: number,
-    m22: number,
+    m00: Coordinate,
+    m01: Coordinate,
+    m02: Coordinate,
+    m10: Coordinate,
+    m11: Coordinate,
+    m12: Coordinate,
+    m20: Coordinate,
+    m21: Coordinate,
+    m22: Coordinate,
   ): Mat3 {
     return new Mat3(m00, m01, m02, m10, m11, m12, m20, m21, m22);
   }
@@ -67,9 +78,9 @@ export class Mat3 {
     );
   }
 
-  transformPoint(v: Vec2): Vec2 {
+  transformPoint(point: Vec2): Vec2 {
     const e = this.elements;
-    return new Vec2(e[0]! * v.x + e[3]! * v.y + e[6]!, e[1]! * v.x + e[4]! * v.y + e[7]!);
+    return new Vec2(e[0]! * point.x + e[3]! * point.y + e[6]!, e[1]! * point.x + e[4]! * point.y + e[7]!);
   }
 
   toJson(): Mat3Json {
@@ -79,5 +90,15 @@ export class Mat3 {
 
 export type Mat3Json = {
   type: typeof Mat3.type;
-  elements: [number, number, number, number, number, number, number, number, number];
+  elements: [
+    Coordinate,
+    Coordinate,
+    Coordinate,
+    Coordinate,
+    Coordinate,
+    Coordinate,
+    Coordinate,
+    Coordinate,
+    Coordinate,
+  ];
 };

@@ -28,6 +28,8 @@ export type Geometry2Input = Geometry2 | readonly Geometry2[];
  * - `Epsilon.custom(n)`: custom tolerance (`|n| >= Epsilon.value`).
  */
 export class Contains2 {
+  private constructor() {}
+
   static contains(container: Container2, guests: Geometry2Input, slack: Epsilon = Epsilon.preferIn): boolean {
     const list = asGuestList(guests);
     if (list.length === 0) {

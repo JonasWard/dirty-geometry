@@ -1,3 +1,4 @@
+import type { Integer, Length } from '../../core/numbers';
 import { Aabb2 } from '../../bounds/aabb2';
 import { Vec2 } from '../../core/vec2';
 import { Epsilon, type EpsilonJson } from '../../core/epsilon';
@@ -52,37 +53,37 @@ export class Grid2 {
   }
 
   /** Uniform U/V with the given interval lengths. */
-  static uniform(uSize: number, vSize: number, options: Omit<Grid2Options, 'u' | 'v'> = {}): Grid2 {
+  static uniform(uSize: Length, vSize: Length, options: Omit<Grid2Options, 'u' | 'v'> = {}): Grid2 {
     return new Grid2({ ...options, u: Axis.uniform(uSize), v: Axis.uniform(vSize) });
   }
 
-  columnWidth(i: number): number {
+  columnWidth(i: Integer): number {
     return this.u.size(i);
   }
 
-  rowHeight(j: number): number {
+  rowHeight(j: Integer): number {
     return this.v.size(j);
   }
 
   /** Override the width of column `i`. Promotes U to a custom axis when needed. */
-  setCustomWidth(i: number, width: number): this {
+  setCustomWidth(i: Integer, width: Length): this {
     this.u.setSize(i, width, this.epsilon);
     return this;
   }
 
   /** Override the height of row `j`. Promotes V to a custom axis when needed. */
-  setCustomHeight(j: number, height: number): this {
+  setCustomHeight(j: Integer, height: Length): this {
     this.v.setSize(j, height, this.epsilon);
     return this;
   }
 
   /** Local x of the left edge of column `i`. */
-  cellX(i: number): number {
+  cellX(i: Integer): number {
     return this.u.edge(i);
   }
 
   /** Local y of the bottom edge of row `j`. */
-  cellY(j: number): number {
+  cellY(j: Integer): number {
     return this.v.edge(j);
   }
 

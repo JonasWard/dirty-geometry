@@ -27,13 +27,20 @@ const cell = (json: unknown) => gridCell2Codec.decode(json);
 
 export const axisCodec = codec(Axis.type, isAxisJson, (json) => {
   const domain = json.domain ? interval2Codec.decode(json.domain) : null;
+  // Older JSON named a custom axis's size `defaultSize` and stored its sizes as an index → size record.
+  const size = (json.size ?? (json as { defaultSize?: number }).defaultSize)!;
   switch (json.kind) {
     case 'unit':
       return Axis.unit(domain);
     case 'uniform':
-      return Axis.uniform(json.size, domain);
-    case 'custom':
-      return Axis.custom(json.defaultSize, json.sizes as Record<number, number>, domain);
+      return Axis.uniform(size, domain);
+    case 'custom': {
+      const sizes = json.sizes as unknown;
+      const record = Array.isArray(sizes)
+        ? Object.fromEntries(sizes.map(({ index, size }: { index: number; size: number }) => [index, size]))
+        : (sizes as Record<number, number>);
+      return Axis.custom(size, record, domain);
+    }
   }
 });
 

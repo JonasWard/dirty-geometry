@@ -1,11 +1,10 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import type { ArgJson } from '@dirty-geometry/vec2/recording/definition';
-import type { TypeRef } from '@dirty-geometry/vec2/schema/types';
-import { literalShape } from '@dirty-geometry/vec2-dense/definition-schema';
-import type { OperandRole } from '@dirty-geometry/vec2-dense/roles';
-import { DEFAULT_VALUES, defaultLiteral } from './defaults';
+import type { Arg } from '@dirty-geometry/vec2/recording/definition';
+import { slotType, type Type } from '@dirty-geometry/vec2/schema/schema';
+import { DEFAULT_VALUES, defaultLiteral, literalShape, type LiteralShape } from './defaults';
+import { argOf, sourceKey } from './editing';
 
 export type NodeChoice = { id: string; label: string };
 
@@ -212,8 +211,7 @@ export function ValueEditor({
 }
 
 /** The forms an operand of `type` can take, as kind keys for the kind dropdown. */
-function operandKinds(type: TypeRef, optional: boolean): string[] {
-  const shape = literalShape(type);
+function operandKinds(shape: LiteralShape, optional: boolean): string[] {
   return [
     'node',
     ...(optional ? ['omit'] : []),
@@ -228,52 +226,34 @@ function operandKinds(type: TypeRef, optional: boolean): string[] {
   ];
 }
 
-function kindOf(arg: ArgJson | undefined): string {
-  if (!arg || 'undefined' in arg) return 'omit';
-  if ('ref' in arg) return 'node';
-  if ('number' in arg) return 'number';
-  if ('lit' in arg) {
-    if (typeof arg.lit === 'number') return 'number';
-    if (typeof arg.lit === 'boolean') return 'boolean';
-    if (arg.lit === null) return 'null';
-    return 'string';
+function kindOf(arg: Arg | undefined, shape: LiteralShape): string {
+  if (arg === undefined) return 'omit';
+  if (arg === null || typeof arg !== 'object') {
+    if (shape.choices?.includes(arg as string)) return 'choice';
+    return arg === null ? 'null' : typeof arg === 'number' ? 'number' : typeof arg;
   }
+  if (Array.isArray(arg)) return 'list';
+  if ('ref' in arg || 'param' in arg) return 'node';
   if ('value' in arg) return `value:${String((arg.value as Json)?.type)}`;
-  if ('array' in arg) return 'list';
-  return 'object';
+  return 'omit' in arg ? 'omit' : 'number' in arg ? 'number' : 'object';
 }
 
-const KIND_LABELS: Record<string, string> = {
-  node: 'node',
-  omit: 'omit',
-  number: 'number',
-  boolean: 'boolean',
-  choice: 'choice',
-  string: 'text',
-  null: 'null',
-  list: 'list',
-  object: 'options',
-};
+const KIND_LABELS: Record<string, string> = { string: 'text', object: 'options' };
 
-function initialArg(kind: string, type: TypeRef, role: OperandRole, nodes: readonly NodeChoice[]): ArgJson {
+function initialArg(kind: string, type: Type, nodes: readonly NodeChoice[]): Arg {
   const shape = literalShape(type);
-  if (kind === 'node') return { ref: nodes[nodes.length - 1]?.id ?? '' };
-  if (kind === 'omit') return { undefined: true };
-  if (kind === 'number') return defaultLiteral({ kind: 'number' }, role)!;
-  if (kind === 'boolean') return { lit: false };
-  if (kind === 'choice') return { lit: shape.choices![0]! };
-  if (kind === 'string') return { lit: '' };
-  if (kind === 'null') return { lit: null };
-  if (kind === 'list') return { array: [] };
-  if (kind === 'object') return { object: {} };
-  return { value: DEFAULT_VALUES[kind.slice('value:'.length)] ?? DEFAULT_VALUES.Vec2 };
+  if (kind === 'node') return argOf(nodes.at(-1)?.id ?? '');
+  if (kind === 'omit') return { omit: true };
+  if (kind === 'number') return defaultLiteral(shape.number ?? 'coordinate')!;
+  if (kind === 'choice') return shape.choices![0]!;
+  const literals: Record<string, Arg> = { boolean: false, string: '', null: null, list: [], object: { object: {} } };
+  return kind in literals ? literals[kind]! : { value: DEFAULT_VALUES[kind.slice(6)] ?? DEFAULT_VALUES.Vec2 };
 }
 
-/** Edit one operand: pick its kind (earlier node, omitted, or a literal form) and its value. */
+/** Edit one operand: pick its kind (an earlier node or a param, omitted, or a literal form) and its value. */
 export function OperandEditor({
   name,
   type,
-  role,
   optional,
   arg,
   nodes,
@@ -281,32 +261,33 @@ export function OperandEditor({
   onChange,
 }: {
   name: string;
-  type: TypeRef;
-  role: OperandRole;
+  type: Type;
   optional: boolean;
-  arg: ArgJson | undefined;
-  /** Nodes this operand may refer to (the ones before its node). */
+  arg: Arg | undefined;
+  /** Params and the nodes this operand may refer to (the ones before its node). */
   nodes: readonly NodeChoice[];
   /** Input step for numbers (the active preset's precision). */
-  step: (role: OperandRole) => number | undefined;
-  onChange: (arg: ArgJson) => void;
+  step: (numberType: string) => number | undefined;
+  onChange: (arg: Arg) => void;
 }) {
-  const kinds = operandKinds(type, optional);
-  const kind = kindOf(arg);
   const shape = literalShape(type);
+  const kinds = operandKinds(shape, optional);
+  const kind = kindOf(arg, shape);
   const label = `${name}`;
+  const value = arg && typeof arg === 'object' && 'number' in arg ? Number(arg.number) : arg;
 
   let editor: React.ReactNode = null;
-  if (arg && 'ref' in arg) {
+  if (kind === 'node') {
+    const current = arg && typeof arg === 'object' && 'ref' in arg ? arg.ref : sourceKey(arg as { param: string });
     editor = (
       <select
         aria-label={`${label} node`}
         className={selectClass}
-        value={arg.ref}
-        onChange={(event) => onChange({ ref: event.target.value })}
+        value={current}
+        onChange={(event) => onChange(argOf(event.target.value))}
       >
-        {!nodes.some((node) => node.id === arg.ref) && (
-          <option value={arg.ref}>{arg.ref || 'pick a node'} (missing)</option>
+        {!nodes.some((node) => node.id === current) && (
+          <option value={current}>{current || 'pick a node'} (missing)</option>
         )}
         {nodes.map((node) => (
           <option key={node.id} value={node.id}>
@@ -315,87 +296,66 @@ export function OperandEditor({
         ))}
       </select>
     );
-  } else if (arg && 'number' in arg) {
+  } else if (typeof value === 'number') {
     editor = (
       <NumberInput
         label={label}
-        value={Number(arg.number)}
+        value={value}
+        step={step(shape.number ?? 'coordinate')}
         allowNonFinite
-        onChange={(value) => onChange({ lit: value })}
+        onChange={(next) => onChange(Number.isFinite(next) ? next : { number: String(next) as 'Infinity' })}
       />
     );
-  } else if (arg && 'lit' in arg) {
-    const value = arg.lit;
-    if (typeof value === 'number') {
-      editor = (
-        <NumberInput
-          label={label}
-          value={value}
-          step={step(role)}
-          allowNonFinite
-          onChange={(next) => onChange(Number.isFinite(next) ? { lit: next } : { number: String(next) as 'Infinity' })}
-        />
-      );
-    } else if (typeof value === 'boolean') {
-      editor = (
-        <input
-          aria-label={label}
-          type='checkbox'
-          checked={value}
-          onChange={(event) => onChange({ lit: event.target.checked })}
-        />
-      );
-    } else if (shape.choices?.some((choice) => choice === value)) {
-      editor = (
-        <select
-          aria-label={label}
-          className={selectClass}
-          value={String(value)}
-          onChange={(event) =>
-            onChange({ lit: shape.choices!.find((choice) => String(choice) === event.target.value)! })
-          }
-        >
-          {shape.choices.map((choice) => (
-            <option key={String(choice)} value={String(choice)}>
-              {String(choice)}
-            </option>
-          ))}
-        </select>
-      );
-    } else if (typeof value === 'string') {
-      editor = (
-        <input
-          aria-label={label}
-          className={inputClass}
-          value={value}
-          onChange={(event) => onChange({ lit: event.target.value })}
-        />
-      );
-    }
-  } else if (arg && 'value' in arg) {
-    editor = <ValueEditor label={label} value={arg.value as Json} onChange={(value) => onChange({ value })} />;
-  } else if (arg && 'array' in arg && shape.array) {
-    const items = arg.array;
+  } else if (typeof value === 'boolean') {
+    editor = (
+      <input aria-label={label} type='checkbox' checked={value} onChange={(event) => onChange(event.target.checked)} />
+    );
+  } else if (kind === 'choice') {
+    editor = (
+      <select
+        aria-label={label}
+        className={selectClass}
+        value={String(value)}
+        onChange={(event) => onChange(shape.choices!.find((choice) => String(choice) === event.target.value)!)}
+      >
+        {shape.choices!.map((choice) => (
+          <option key={String(choice)} value={String(choice)}>
+            {String(choice)}
+          </option>
+        ))}
+      </select>
+    );
+  } else if (typeof value === 'string') {
+    editor = (
+      <input
+        aria-label={label}
+        className={inputClass}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+      />
+    );
+  } else if (arg && typeof arg === 'object' && 'value' in arg) {
+    editor = <ValueEditor label={label} value={arg.value as Json} onChange={(json) => onChange({ value: json })} />;
+  } else if (Array.isArray(arg) && shape.array) {
     editor = (
       <div className='space-y-1 border-l border-dg-border pl-2'>
-        {items.map((item, index) => (
+        {arg.map((item, index) => (
           <div key={index} className='flex items-start gap-1'>
             <span className='w-5 pt-0.5 text-right text-dg-subtle'>{index}</span>
             <OperandEditor
               name={`${name}[${index}]`}
               type={shape.array!}
-              role={role}
               optional={false}
               arg={item}
               nodes={nodes}
               step={step}
-              onChange={(next) => onChange({ array: items.map((current, i) => (i === index ? next : current)) })}
+              onChange={(next) => onChange(arg.map((current, i) => (i === index ? next : current)))}
             />
             <button
               type='button'
               className='px-1 text-dg-subtle hover:text-red-600'
               aria-label={`remove ${name}[${index}]`}
-              onClick={() => onChange({ array: items.filter((_, i) => i !== index) })}
+              onClick={() => onChange(arg.filter((_, i) => i !== index))}
             >
               ✕
             </button>
@@ -404,37 +364,33 @@ export function OperandEditor({
         <button
           type='button'
           className='text-dg-steel-600 hover:underline'
-          onClick={() => {
-            const last = items[items.length - 1];
-            onChange({
-              array: [...items, last ?? defaultLiteral(shape.array!, role) ?? { ref: nodes.at(-1)?.id ?? '' }],
-            });
-          }}
+          onClick={() =>
+            onChange([...arg, arg.at(-1) ?? defaultLiteral(shape.array!) ?? argOf(nodes.at(-1)?.id ?? '')])
+          }
         >
           + item
         </button>
       </div>
     );
-  } else if (arg && 'object' in arg && shape.object) {
+  } else if (arg && typeof arg === 'object' && 'object' in arg && shape.object) {
     const fields = arg.object;
     editor = (
       <div className='space-y-1 border-l border-dg-border pl-2'>
-        {Object.entries(shape.object).map(([field, spec]) => (
+        {Object.entries(shape.object).map(([field, slot]) => (
           <div key={field} className='flex flex-wrap items-center gap-1'>
             <span className='font-mono text-dg-subtle'>{field}</span>
             <OperandEditor
               name={`${name}.${field}`}
-              type={spec.type}
-              role={role}
+              type={slotType(slot)}
               optional
               arg={fields[field]}
               nodes={nodes}
               step={step}
               onChange={(next) => {
-                const rest = { ...fields };
-                if ('undefined' in next) delete rest[field];
-                else rest[field] = next;
-                onChange({ object: rest });
+                const { [field]: _, ...rest } = fields;
+                onChange({
+                  object: next && typeof next === 'object' && 'omit' in next ? rest : { ...rest, [field]: next },
+                });
               }}
             />
           </div>
@@ -449,11 +405,11 @@ export function OperandEditor({
         aria-label={`${label} kind`}
         className={selectClass}
         value={kinds.includes(kind) ? kind : kinds[0]}
-        onChange={(event) => onChange(initialArg(event.target.value, type, role, nodes))}
+        onChange={(event) => onChange(initialArg(event.target.value, type, nodes))}
       >
         {kinds.map((option) => (
           <option key={option} value={option}>
-            {KIND_LABELS[option] ?? option.slice('value:'.length)}
+            {option.startsWith('value:') ? option.slice(6) : (KIND_LABELS[option] ?? option)}
           </option>
         ))}
       </select>

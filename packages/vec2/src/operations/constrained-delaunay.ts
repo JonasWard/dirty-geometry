@@ -3,52 +3,43 @@
  *
  * Pipeline:
  * 1. Pack input geometry into Steiner points + undirected constraint edges
- *    (`collectConstraintSources`): endpoints, segment×segment crossings, and
+ *    (`ConstrainedDelaunay.collectSources`): endpoints, segment×segment crossings, and
  *    infinite-line hits become vertices; carriers are split into non-crossing
  *    constraint segments along each chain.
- * 2. Triangulate (`constrainedDelaunay`, implemented in `./cdt`): Bowyer–Watson with walking point
+ * 2. Triangulate (`ConstrainedDelaunay.triangulate`, implemented in `./helpers/cdt`): Bowyer–Watson with walking point
  *    location, then hull edges and constraints forced in by flips and every other edge made locally
  *    Delaunay. All predicates are exact, so results do not depend on scale or offset.
  *
- * Prefer `triangulateSources` when starting from polygons / polylines / lines.
- * Use `constrainedDelaunay` when points and constraint indices are already known
+ * Prefer `ConstrainedDelaunay.fromGeometries` when starting from polygons / polylines / lines.
+ * Use `ConstrainedDelaunay.triangulate` when points and constraint indices are already known
  * (e.g. Boolean2 after packing).
  */
+import type { Length } from '../core/numbers';
 import { assertNever } from '../core/assert';
 import { Epsilon } from '../core/epsilon';
-import { dehash2, hash2, hash2scale } from '../hash/core';
+import { hash2scale } from '../hash/core';
 import { mooreNeighborCellHashes } from '../hash/neighbors';
 import { orient } from '../core/predicates';
 import { Vec2 } from '../core/vec2';
 import type { Polyline2 } from '../geometry/curves/polyline2';
 import type { InfiniteLine2 } from '../geometry/primitives/infinite-line2';
 import { Line2 } from '../geometry/primitives/line2';
-import { intersectionLines } from './intersection/line2-like';
+import { Intersection2 } from './intersection2';
 import type { LineLike2IntersectionResult } from '../geometry/kinds';
 import { Polygon2 } from '../geometry/regions/polygon2';
 import { TriMesh2 } from '../geometry/regions/tri-mesh2';
-import { findSegmentCrossings } from './intersection/segment-sweep';
 import { dedupVertices } from '../spatial/dedup-vertices';
-import { emptyCdtStats, type CdtStats } from './cdt/mesh';
-import { triangulateConstrained } from './cdt/triangulate';
+import { emptyCdtStats, type CdtStats } from './helpers/cdt/mesh';
+import { triangulateConstrained } from './helpers/cdt/triangulate';
+import {
+  constraintEdge,
+  constraintEdgeEndpoints,
+  type ConstraintEdge,
+  type ConstraintEdgeInput,
+} from './helpers/constraint-edge';
 
-export type { CdtStats } from './cdt/mesh';
-
-/** Undirected edge key — same `hash2` convention as TriMesh2. */
-export type ConstraintEdge = number;
-/** Either a packed `ConstraintEdge` or an unordered vertex-index pair. */
-export type ConstraintEdgeInput = ConstraintEdge | readonly [number, number];
-
-/** Canonical undirected key for the edge between vertex indices `a` and `b`. */
-export function constraintEdge(a: number, b: number): ConstraintEdge {
-  return a < b ? hash2(a, b) : hash2(b, a);
-}
-
-/** Sorted endpoint indices for a packed constraint edge. */
-export function constraintEdgeEndpoints(edge: ConstraintEdge): [number, number] {
-  const [x, y] = dehash2(edge);
-  return x < y ? [x, y] : [y, x];
-}
+export type { CdtStats } from './helpers/cdt/mesh';
+export type { ConstraintEdge, ConstraintEdgeInput } from './helpers/constraint-edge';
 
 /** Geometry accepted by the packing / triangulation entry points. */
 export type TriangulateGeometry = Polygon2 | Polyline2 | Line2 | InfiniteLine2 | Vec2;
@@ -75,37 +66,87 @@ type HitChain = {
   direction: Vec2;
 };
 
-/**
- * Pack geometries into points + constraints:
- * seed chains → intersect carriers → emit split edges along each chain.
- * Finite segments contribute endpoints; infinite lines only contribute hits.
- */
-export function collectConstraintSources(
-  geometries: TriangulateGeometries,
-  slack: Epsilon = Epsilon.preferIn,
-): BuiltConstraintSources {
-  const { segments, lines, steiner } = partitionGeometries(geometries);
-  const registry = createPointRegistry(slack);
-  const finite = segments.map((segment) =>
-    seedChain(segment.from, segment.to.subtract(segment.from), registry, [segment.from, segment.to]),
-  );
-  const infinite = lines.map((line) => seedChain(line.through, line.direction, registry));
-  const lineGeomHits = infinite.map(() => [] as number[]);
+/** {@link ConstrainedDelaunay.triangulate} plus what it could not do and how much work it took. */
+export type ConstrainedDelaunayReport = {
+  mesh: TriMesh2;
+  /** Constraint edges (in mesh vertex indices) that could not be inserted. */
+  unresolved: [number, number][];
+  stats: CdtStats;
+};
 
-  for (const { point, i, j } of findSegmentCrossings(segments, slack)) {
-    link(finite[i]!, finite[j]!, point, registry);
+/** Constrained Delaunay triangulation (see the module comment for the pipeline). */
+export class ConstrainedDelaunay {
+  private constructor() {}
+
+  /**
+   * Constrained Delaunay triangulation of `points`.
+   * Constraint indices refer to the input `points` array (before dedup).
+   *
+   * Steps: dedup → split crossing constraints → triangulate with the constraints forced in.
+   * Constraints that cannot be inserted are dropped; use {@link ConstrainedDelaunay.report} to see them.
+   */
+  static triangulate(
+    points: readonly Vec2[],
+    constraints: readonly ConstraintEdgeInput[] = [],
+    slack: Epsilon = Epsilon.preferIn,
+    gridSize?: Length,
+  ): TriMesh2 {
+    return ConstrainedDelaunay.report(points, constraints, slack, gridSize).mesh;
   }
 
-  resolveInfiniteLineHits(segments, lines, finite, infinite, lineGeomHits, registry, slack);
+  /** {@link ConstrainedDelaunay.triangulate}, plus the constraints it could not insert and operation counts. */
+  static report(
+    points: readonly Vec2[],
+    constraints: readonly ConstraintEdgeInput[] = [],
+    slack: Epsilon = Epsilon.preferIn,
+    gridSize?: Length,
+  ): ConstrainedDelaunayReport {
+    const stats = emptyCdtStats();
+    if (points.length === 0) return { mesh: TriMesh2.withoutCleanup([], []), unresolved: [], stats };
 
-  for (const point of steiner) registry.add(point);
-  return emitConstraints([...finite, ...infinite], registry, slack);
-}
+    const { vertices, remap } = dedupVertices([...points], slack, gridSize);
+    const forced = splitAtCrossings(vertices, remapConstraints(constraints, remap, vertices.length));
+    const { triangles, unresolved } = triangulateConstrained(vertices, forced.map(constraintEdgeEndpoints), stats);
 
-/** Pack input geometries, then run constrained Delaunay on the result. */
-export function triangulateSources(geometries: TriangulateGeometries, slack: Epsilon = Epsilon.preferIn): TriMesh2 {
-  const { points, constraints } = collectConstraintSources(geometries, slack);
-  return constrainedDelaunay(points, constraints, slack);
+    return {
+      mesh: TriMesh2.withoutCleanup(
+        vertices.map((v) => v.clone()),
+        triangles,
+      ),
+      unresolved,
+      stats,
+    };
+  }
+
+  /** Pack input geometries, then triangulate the result. */
+  static fromGeometries(geometries: TriangulateGeometries, slack: Epsilon = Epsilon.preferIn): TriMesh2 {
+    const { points, constraints } = ConstrainedDelaunay.collectSources(geometries, slack);
+    return ConstrainedDelaunay.triangulate(points, constraints, slack);
+  }
+
+  /**
+   * Pack geometries into points + constraints:
+   * seed chains → intersect carriers → emit split edges along each chain.
+   * Finite segments contribute endpoints; infinite lines only contribute hits.
+   */
+  static collectSources(geometries: TriangulateGeometries, slack: Epsilon = Epsilon.preferIn): BuiltConstraintSources {
+    const { segments, lines, steiner } = partitionGeometries(geometries);
+    const registry = createPointRegistry(slack);
+    const finite = segments.map((segment) =>
+      seedChain(segment.from, segment.to.subtract(segment.from), registry, [segment.from, segment.to]),
+    );
+    const infinite = lines.map((line) => seedChain(line.through, line.direction, registry));
+    const lineGeomHits = infinite.map(() => [] as number[]);
+
+    for (const { point, i, j } of Intersection2.segmentCrossings(segments, slack)) {
+      link(finite[i]!, finite[j]!, point, registry);
+    }
+
+    resolveInfiniteLineHits(segments, lines, finite, infinite, lineGeomHits, registry, slack);
+
+    for (const point of steiner) registry.add(point);
+    return emitConstraints([...finite, ...infinite], registry, slack);
+  }
 }
 
 /** Split mixed geometry into finite segments, infinite lines, and free Steiner points. */
@@ -134,7 +175,7 @@ function partitionGeometries(geometries: TriangulateGeometries): {
         steiner.push(geometry);
         break;
       default:
-        assertNever(geometry, 'constrainedDelaunay: unsupported geometry');
+        assertNever(geometry, 'ConstrainedDelaunay: unsupported geometry');
     }
   }
 
@@ -206,7 +247,7 @@ function resolveInfiniteLineHits(
 ): void {
   for (let i = 0; i < segments.length; i++) {
     for (let j = 0; j < lines.length; j++) {
-      const hit = asPoint(intersectionLines(segments[i]!, lines[j]!));
+      const hit = asPoint(Intersection2.lines(segments[i]!, lines[j]!));
       if (!hit) continue;
       lineGeomHits[j]!.push(link(finite[i]!, infinite[j]!, hit, registry));
     }
@@ -216,7 +257,7 @@ function resolveInfiniteLineHits(
     if (lineGeomHits[i]!.length === 0) continue;
     for (let j = i + 1; j < lines.length; j++) {
       if (lineGeomHits[j]!.length === 0) continue;
-      const hit = asPoint(intersectionLines(lines[i]!, lines[j]!));
+      const hit = asPoint(Intersection2.lines(lines[i]!, lines[j]!));
       if (!hit) continue;
       if (!withinHitSpan(lines[i]!, hit, lineGeomHits[i]!, registry.points, slack)) continue;
       if (!withinHitSpan(lines[j]!, hit, lineGeomHits[j]!, registry.points, slack)) continue;
@@ -277,53 +318,6 @@ function withinHitSpan(
   return t >= Math.min(...ts) - pad && t <= Math.max(...ts) + pad;
 }
 
-/** {@link constrainedDelaunay} plus what it could not do and how much work it took. */
-export type ConstrainedDelaunayReport = {
-  mesh: TriMesh2;
-  /** Constraint edges (in mesh vertex indices) that could not be inserted. */
-  unresolved: [number, number][];
-  stats: CdtStats;
-};
-
-/**
- * Constrained Delaunay triangulation of `points`.
- * Constraint indices refer to the input `points` array (before dedup).
- *
- * Steps: dedup → split crossing constraints → triangulate with the constraints forced in.
- * Constraints that cannot be inserted are dropped; use {@link constrainedDelaunayReport} to see them.
- */
-export function constrainedDelaunay(
-  points: readonly Vec2[],
-  constraints: readonly ConstraintEdgeInput[] = [],
-  slack: Epsilon = Epsilon.preferIn,
-  gridSize?: number,
-): TriMesh2 {
-  return constrainedDelaunayReport(points, constraints, slack, gridSize).mesh;
-}
-
-export function constrainedDelaunayReport(
-  points: readonly Vec2[],
-  constraints: readonly ConstraintEdgeInput[] = [],
-  slack: Epsilon = Epsilon.preferIn,
-  gridSize?: number,
-): ConstrainedDelaunayReport {
-  const stats = emptyCdtStats();
-  if (points.length === 0) return { mesh: TriMesh2.withoutCleanup([], []), unresolved: [], stats };
-
-  const { vertices, remap } = dedupVertices([...points], slack, gridSize);
-  const forced = splitAtCrossings(vertices, remapConstraints(constraints, remap, vertices.length));
-  const { triangles, unresolved } = triangulateConstrained(vertices, forced.map(constraintEdgeEndpoints), stats);
-
-  return {
-    mesh: TriMesh2.withoutCleanup(
-      vertices.map((v) => v.clone()),
-      triangles,
-    ),
-    unresolved,
-    stats,
-  };
-}
-
 /** Map constraint endpoints through the dedup remap; drop collapsed / duplicate edges. */
 function remapConstraints(constraints: readonly ConstraintEdgeInput[], remap: number[], n: number): ConstraintEdge[] {
   const seen = new Set<number>();
@@ -354,7 +348,7 @@ function splitAtCrossings(vertices: Vec2[], constraints: readonly ConstraintEdge
       if (a === c || a === d || b === c || b === d) continue;
       if (!crosses(vertices[a]!, vertices[b]!, vertices[c]!, vertices[d]!)) continue;
       const hit = asPoint(
-        intersectionLines(new Line2(vertices[a]!, vertices[b]!), new Line2(vertices[c]!, vertices[d]!)),
+        Intersection2.lines(new Line2(vertices[a]!, vertices[b]!), new Line2(vertices[c]!, vertices[d]!)),
       );
       if (hit && !vertices.some((v) => v.distance(hit) < Epsilon.value)) vertices.push(hit.clone());
     }

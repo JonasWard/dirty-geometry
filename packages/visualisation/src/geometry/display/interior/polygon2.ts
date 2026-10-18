@@ -7,7 +7,7 @@ const MIN_FILL_AREA = 1e-12;
 
 export function createPolygon2Fill(geometry: Polygon2, ctx: GeometryDisplayContext): ShapeFillDisplay | null {
   // Zero-width virtual footprints collapse to the axis — skip empty fills.
-  if (Math.abs(Polygon2.signedArea(geometry.vertices)) < MIN_FILL_AREA) return null;
+  if (Math.abs(Polygon2.computeSignedArea(geometry.vertices)) < MIN_FILL_AREA) return null;
 
   const geometry3 = shapeGeometryFromPoints(geometry.vertices.map(ctx.fit));
   if (!geometry3) return null;

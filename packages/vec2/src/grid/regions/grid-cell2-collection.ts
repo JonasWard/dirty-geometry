@@ -70,7 +70,8 @@ export class GridCell2Collection {
     return GridCell2Collection.difference(this, other);
   }
 
-  xor(other: GridCell2Collection): GridCell2Collection {
+  /** Flips membership of `other`'s cells: the cells in exactly one of the two collections. */
+  toggle(other: GridCell2Collection): GridCell2Collection {
     return GridCell2Collection.xor(this, other);
   }
 

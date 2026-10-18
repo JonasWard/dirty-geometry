@@ -1,6 +1,6 @@
 import { Angle } from '../core/angle';
 import { Epsilon } from '../core/epsilon';
-import { Vec2 } from '../core/vec2';
+import type { Vec2 } from '../core/vec2';
 import { Polyline2 } from '../geometry/curves/polyline2';
 import { Polygon2 } from '../geometry/regions/polygon2';
 
@@ -11,64 +11,46 @@ export type DouglasPeuckerTolerances = {
   angle: Angle;
 };
 
-/** Defaults suited to metre-scale building footprints: 1 cm distance, 2° angle. */
-export const DOUGLAS_PEUCKER_DEFAULTS: DouglasPeuckerTolerances = {
-  distance: Epsilon.custom(0.01),
-  angle: Angle.fromDegrees(2),
-};
+/** Ramer–Douglas–Peucker simplification with distance and angle tolerances. */
+export class DouglasPeucker {
+  private constructor() {}
 
-/** Slightly looser preset for noisy survey vertices before grid fitting. */
-export const DOUGLAS_PEUCKER_GRID_DEFAULTS: DouglasPeuckerTolerances = {
-  distance: Epsilon.custom(0.05),
-  angle: Angle.fromDegrees(5),
-};
+  /** Defaults suited to metre-scale building footprints: 1 cm distance, 2° angle. */
+  static readonly defaults: Readonly<DouglasPeuckerTolerances> = Object.freeze({
+    distance: Epsilon.custom(0.01),
+    angle: Angle.fromDegrees(2),
+  });
 
-export function resolveDouglasPeuckerTolerances(
-  input: boolean | DouglasPeuckerTolerances | undefined,
-): DouglasPeuckerTolerances | undefined {
-  if (input === undefined || input === false) {
-    return undefined;
+  /** Slightly looser preset for noisy survey vertices before grid fitting. */
+  static readonly gridDefaults: Readonly<DouglasPeuckerTolerances> = Object.freeze({
+    distance: Epsilon.custom(0.05),
+    angle: Angle.fromDegrees(5),
+  });
+
+  /** Simplify a polyline or polygon; the result has the same type as `curve`. */
+  static simplify<T extends Polygon2 | Polyline2>(
+    curve: T,
+    tolerances: DouglasPeuckerTolerances = DouglasPeucker.defaults,
+  ): T {
+    const closed = curve.type === 'Polygon2';
+    const simplified = DouglasPeucker.simplifyVertices(curve.vertices, tolerances, closed);
+    return (closed ? new Polygon2(simplified) : new Polyline2(simplified)) as T;
   }
 
-  if (input === true) {
-    return DOUGLAS_PEUCKER_DEFAULTS;
-  }
+  /** Simplify a vertex list, open or `closed`. */
+  static simplifyVertices(vertices: readonly Vec2[], tolerances: DouglasPeuckerTolerances, closed: boolean): Vec2[] {
+    tolerances.distance.isPositive('DouglasPeucker', 'simplifyVertices');
 
-  input.distance.isPositive('operations', 'resolveDouglasPeuckerTolerances');
-  return input;
-}
+    if (vertices.length < 2 || (closed && vertices.length < 3)) {
+      return vertices.map((vertex) => vertex.clone());
+    }
 
-export function douglasPeucker<T extends Polygon2 | Polyline2>(
-  curve: T,
-  tolerances: DouglasPeuckerTolerances = DOUGLAS_PEUCKER_DEFAULTS,
-): T {
-  const closed = curve.type === 'Polygon2';
-  const simplified = douglasPeuckerVertices(curve.vertices, tolerances, closed);
-  return (closed ? new Polygon2(simplified) : new Polyline2(simplified)) as T;
-}
-
-/** Ramer-Douglas-Peucker simplification with distance and angle tolerances. */
-export function douglasPeuckerVertices(
-  vertices: readonly Vec2[],
-  tolerances: DouglasPeuckerTolerances,
-  closed: boolean,
-): Vec2[] {
-  tolerances.distance.isPositive('operations', 'douglasPeuckerVertices');
-
-  if (vertices.length < 2) {
-    return vertices.map((vertex) => vertex.clone());
-  }
-
-  if (closed && vertices.length < 3) {
-    return vertices.map((vertex) => vertex.clone());
-  }
-
-  const simplified =
-    closed && vertices.length >= 3
+    const simplified = closed
       ? simplifyClosedPolygon(vertices, tolerances)
       : simplifyOpenPolyline(vertices, tolerances);
 
-  return simplified.map((vertex) => vertex.clone());
+    return simplified.map((vertex) => vertex.clone());
+  }
 }
 
 /**

@@ -199,7 +199,7 @@ export class Polygon2 {
   }
 
   signedArea(): number {
-    return Polygon2.signedArea(this.vertices);
+    return Polygon2.computeSignedArea(this.vertices);
   }
 
   area(): number {
@@ -207,7 +207,7 @@ export class Polygon2 {
   }
 
   /** Signed area; positive when vertices are counter-clockwise. */
-  static signedArea(vertices: readonly Vec2[]): number {
+  static computeSignedArea(vertices: readonly Vec2[]): number {
     let area = 0;
 
     for (let i = 0; i < vertices.length; i++) {

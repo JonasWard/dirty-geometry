@@ -2,12 +2,12 @@
  * vec2.dense.json: vec2.schema.json as a densing schema, loaded at runtime with densing's `schemaFromJson`.
  *
  * - `definitions`: one per number type, its range names expanded (`±100@0.01` → `{ min: -100, max: 100, precision: 0.01 }`).
- * - `templates`: `MathJson` (a union keyed by `type`, first, so the value templates come first), the JSON types other
- *   JSON types use, `Source` (node | param), `Text`, `ParamValue`, and one `Arg<T>` per parameter type: a union keyed by
- *   the argument's JS shape (node, param, omit, value, nonFinite, and the literal shapes `T` allows).
- * - `fields`: stamp, params, outputs and nodes. Nodes are nested unions keyed `$op` that follow the schema's folders,
- *   files and classes down to the member (`#member` for instance members); a level with one entry joins its child
- *   (`vec2/Vec2`), so it costs no bits.
+ * - `templates`: `MathJson` (first, so the value templates come first), the JSON types other JSON types use, `Source`,
+ *   `Text`, `ParamValue`, and one template per parameter type, named after it (`Coordinate`, `Vec2[]`): what an argument
+ *   can be (node, param, omit, value, nonFinite, and the literal shapes the type allows).
+ * - `fields`: stamp, params, outputs and nodes. Nodes are nested unions following the schema's folders and classes down
+ *   to the member, as in densing's own nested unions: `{ type: 'core', core: { type: 'Vec2', Vec2: { type: 'add', … } } }`.
+ *   A level with a single entry is left out (its entry takes its place). Every union's discriminator is `type`.
  */
 import { SKIP_MEMBERS } from '../packages/vec2/schema/policy';
 
@@ -125,7 +125,21 @@ export function renderDenseSchema({ numbers, types, modules }: Schema): string {
   mathJson('value');
 
   const source = (name: string) =>
-    ref(name, 'Source', () => union('Source', 'kind', { node: [int('node')], param: [int('param')] }));
+    ref(name, 'Source', () => union('Source', 'type', { node: [int('node')], param: [int('param')] }));
+  /** A type written like TypeScript: `Vec2[]`, `Aabb2 | Vec2`, `[Index, Index]`, `{ min: Coordinate }`. */
+  const typeName = (type: any): string => {
+    if (typeof type === 'string') return type;
+    if (Array.isArray(type)) return isKind(type[0], 'or') ? `(${typeName(type[0])})[]` : `${typeName(type[0])}[]`;
+    if (isKind(type, 'or')) return type.or.map(typeName).sort().join(' | ');
+    if (isKind(type, 'tuple')) return `[${type.tuple.map(typeName).join(', ')}]`;
+    if (isKind(type, 'enum'))
+      return type.enum.map((v: unknown) => (typeof v === 'string' ? `'${v}'` : String(v))).join(' | ');
+    if (isKind(type, 'record')) return `Record<number, ${typeName(type.record)}>`;
+    if (Object.keys(type).length === 0) return '{}';
+    return `{ ${Object.entries(type)
+      .map(([k, slot]: [string, any]) => `${k}${slot?.optional ? '?' : ''}: ${typeName(slotType(slot))}`)
+      .join(', ')} }`;
+  };
   /** The literal shapes an argument of `type` can take (vec2 values come as `value` or a node). */
   function shapes(type: any): Record<string, Field[]> {
     const n = number('value', type);
@@ -156,7 +170,7 @@ export function renderDenseSchema({ numbers, types, modules }: Schema): string {
   }
   /** An argument of `type`: a node, a param, omitted, a vec2 value, or one of the type's literal shapes. */
   const arg = (name: string, type: unknown): Field =>
-    ref(name, `Arg<${typeof type === 'string' ? type : JSON.stringify(type)}>`, () => {
+    ref(name, typeName(type), () => {
       const nonFinite = [enumeration('value', ['Infinity', '-Infinity', 'NaN'])];
       const variants = {
         node: [int('node')],
@@ -166,19 +180,21 @@ export function renderDenseSchema({ numbers, types, modules }: Schema): string {
         nonFinite,
         ...shapes(type),
       };
-      return union(`Arg<${typeof type === 'string' ? type : JSON.stringify(type)}>`, 'kind', variants);
+      return union(typeName(type), 'type', variants);
     });
 
-  // Nodes: the schema's folders → files → classes → members, with `result` for elements and fields of results.
+  // Nodes: the schema's folders → classes → members, with `result` for elements and fields of results.
   const tree: Record<string, any> = {
     result: { item: { $leaf: [source('of'), int('at', 65535)] }, field: { $leaf: [source('of'), text('at')] } },
   };
-  const leaf = (path: string[], fields: Field[]) => {
-    let node = tree;
-    for (const key of path.slice(0, -1)) node = node[key] ??= {};
-    node[path.at(-1)!] = { $leaf: fields };
+  const at = (path: string[]) => path.reduce((node, key) => (node[key] ??= {}), tree);
+  const leaf = (path: string[], fields: Field[]) => (at(path.slice(0, -1))[path.at(-1)!] = { $leaf: fields });
+  const signature = (entry: any, self: boolean) => {
+    if ('type' in (entry.params ?? {}))
+      throw new Error('A parameter named `type` would clash with the union discriminator');
+    return signatureFields(entry, self);
   };
-  const signature = (entry: any, self: boolean) => [
+  const signatureFields = (entry: any, self: boolean) => [
     ...(self ? [source('self')] : []),
     ...Object.entries(entry.params ?? {}).map(([name, slot]: [string, any]) =>
       slot?.rest ? array(name, arg('item', slot.type), 255) : arg(name, slotType(slot)),
@@ -190,44 +206,52 @@ export function renderDenseSchema({ numbers, types, modules }: Schema): string {
     if (!('members' in node)) return Object.entries(node).forEach(([key, child]) => walk(child, [...path, key]));
     if (node.new) leaf([...path, 'new'], signature({ params: node.new }, false));
     for (const [key, entry] of Object.entries<any>(node.members)) {
-      if (!entry || SKIP_MEMBERS.has(key)) continue;
-      leaf([...path, entry.static === true ? key : `#${key}`], signature(entry, entry.static !== true));
-      if (typeof entry.static === 'object') leaf([...path, key], signature(entry.static, false));
+      if (entry && !SKIP_MEMBERS.has(key)) leaf([...path, key], signature(entry, entry.static !== true));
     }
   })(modules, []);
+  /** A union per level, its discriminator `type` and the next level a field named after the chosen entry. */
+  const nodeUnions = new WeakSet<Field>();
   const nodeUnion = (node: Record<string, any>, name: string): Field => {
     const variants: Record<string, Field[]> = {};
     for (let [key, child] of Object.entries(node)) {
-      while (!child.$leaf && Object.keys(child).length === 1)
-        [key, child] = [`${key}/${Object.keys(child)[0]}`, Object.values(child)[0]];
-      variants[key] = child.$leaf ?? [nodeUnion(child, '$in')];
+      while (!child.$leaf && Object.keys(child).length === 1) [key, child] = Object.entries(child)[0]!;
+      if (key in variants) throw new Error(`${key} appears twice in the ${name} union`);
+      variants[key] = child.$leaf ?? [nodeUnion(child, key)];
     }
-    return union(name, '$op', variants);
+    const result = union(name, 'type', variants);
+    nodeUnions.add(result);
+    return result;
   };
 
-  // A param's value: an argument of its number type (that of its first use), or a string, boolean or vec2 value.
-  const paramValue = ref('value', 'ParamValue', () =>
-    union(
-      'ParamValue',
-      'kind',
-      Object.fromEntries(Object.keys(numbers).map((t) => [t, [arg('value', { or: [t, 'string', 'boolean'] })]])),
-    ),
-  );
+  // A param's value, keyed by its type: a number type (that of its first use), string, boolean or a vec2 value.
+  const paramValue = ref('value', 'ParamValue', () => {
+    const numbered = Object.fromEntries(
+      Object.keys(numbers).map((t) => [t, [{ type: 'reference_numeric', name: 'value', ref: t }]]),
+    );
+    const nonFinite = [enumeration('value', ['Infinity', '-Infinity', 'NaN'])];
+    const value = [mathJson('value')];
+    return union('ParamValue', 'type', {
+      ...numbered,
+      nonFinite,
+      string: [text('value')],
+      boolean: [{ type: 'bool', name: 'value' }],
+      value,
+    });
+  });
   const named = (name: string, ...fields: Field[]) =>
     array(`${name}s`, { type: 'object', name, fields: [text('name'), ...fields] }, 255);
-  const tags = (types.MathJson.or as string[]).map((m) => m.replace(/Json$/, ''));
-  const params = named('param', enumeration('type', ['number', 'string', 'boolean', ...tags]), paramValue);
+  const params = named('param', paramValue);
   const stamp = { type: 'int', name: 'stamp', min: 0, max: 0xffffffff };
   const fields = [stamp, params, named('output', source('value')), array('nodes', nodeUnion(tree, 'node'), 4095)];
 
   // One template per line; node unions one variant per line, nested by level.
   const write = (field: Field, indent: string): string => {
-    if (field.items?.discriminator?.name === '$op')
+    if (nodeUnions.has(field.items))
       return JSON.stringify({ ...field, items: 0 }).replace('0}', `${write(field.items, indent)} }`);
-    if (field.discriminator?.name !== '$op') return JSON.stringify(field);
+    if (!nodeUnions.has(field)) return JSON.stringify(field);
     const inner = `${indent}  `;
     const variants = Object.entries<Field[]>(field.variants).map(([key, list]) =>
-      list.length === 1 && list[0]!.discriminator?.name === '$op'
+      list.length === 1 && nodeUnions.has(list[0]!)
         ? `${inner}${JSON.stringify(key)}: [${write(list[0]!, inner)}]`
         : `${inner}${JSON.stringify(key)}: ${JSON.stringify(list)}`,
     );

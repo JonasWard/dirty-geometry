@@ -7,8 +7,8 @@ export const NUMBER_TYPES = Object.keys(json.numbers);
 /** A name, `[T]`, `{ enum }`, `{ or }`, `{ tuple }`, `{ record }`, or an object type written as its fields. */
 export type Type = string | Type[] | { [key: string]: any };
 export type Slot = Type | { type: Type; optional?: true; rest?: true };
-type Entry = { static?: true | Entry; params?: Record<string, Slot>; returns?: Type; value?: Type } | null;
-/** `id`: `Class.member` or `helpers.name`; `path`: where it sits in the schema (`#member` for instance members). */
+type Entry = { static?: true; params?: Record<string, Slot>; returns?: Type; value?: Type } | null;
+/** `id`: `Class.member` or `helpers.name`; `path`: where it sits in the schema (folders, class, member). */
 export type Operation = { id: string; path: string[]; static: boolean; value: boolean; params: [string, Slot][] };
 
 export const types = json.types as Record<string, Type>;
@@ -37,9 +37,6 @@ const add = (id: string, path: string[], entry: Entry, isStatic: boolean): void 
   if (node.new) add(`${name}.new`, [...path, 'new'], { params: node.new }, true);
   for (const [member, entry] of Object.entries(node.members as Record<string, Entry>)) {
     if (member === 'toJson') classJson[name] = entry!.returns as string;
-    if (!entry || SKIP_MEMBERS.has(member)) continue;
-    const isStatic = entry.static === true;
-    add(`${name}.${member}`, [...path, isStatic ? member : `#${member}`], entry, isStatic);
-    if (typeof entry.static === 'object') add(`${name}.${member}`, [...path, member], entry.static, true);
+    if (entry && !SKIP_MEMBERS.has(member)) add(`${name}.${member}`, [...path, member], entry, entry.static === true);
   }
 })(json.modules, []);

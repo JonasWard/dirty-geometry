@@ -7,7 +7,7 @@ const MIN_OUTLINE_AREA = 1e-12;
 
 export function createPolygon2Outline(geometry: Polygon2, ctx: GeometryDisplayContext): PolylineOutlineDisplay | null {
   // Degenerate (zero-width virtual) footprints are drawn via their axis instead.
-  if (Math.abs(Polygon2.signedArea(geometry.vertices)) < MIN_OUTLINE_AREA) return null;
+  if (Math.abs(Polygon2.computeSignedArea(geometry.vertices)) < MIN_OUTLINE_AREA) return null;
 
   const points = fittedPolylinePoints(ctx.fit, geometry.vertices, true, ctx.offset);
   if (points.length < 2) return null;

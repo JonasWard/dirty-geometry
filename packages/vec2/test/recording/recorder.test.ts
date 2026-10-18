@@ -65,7 +65,7 @@ describe('recorder', () => {
     const c = new V(2, 2);
     const square = new Polygon2([a, b, c, new V(0, 2)]);
     rec.output('center', V.center(a, b, c));
-    rec.output('epsilon', Epsilon.preferIn);
+    expect(() => rec.output('epsilon', Epsilon.preferIn)).toThrow(RecordingError); // a constant, not a node
     expect(Epsilon.preferIn).toBe(Epsilon.preferIn);
     expect(b.parallel(new V(1, 0), Epsilon.preferIn)).toBe(true);
     rec.output('segment', square.segments()[1]);
@@ -77,7 +77,7 @@ describe('recorder', () => {
     const definition = rec.definition();
     const ops = definition.nodes.map((node) => node.op);
     expect(ops).toContain('Vec2.center');
-    expect(ops.filter((op) => op === 'Epsilon.preferIn')).toHaveLength(1);
+    expect(ops.filter((op) => op.startsWith('Epsilon.'))).toEqual([]);
     expect(ops).toContain('result.item');
     expect(ops).toContain('result.field');
     expect(ops).toContain('ConstrainedDelaunay.triangulate');
@@ -132,19 +132,30 @@ describe('recorder', () => {
     expect(JSON.parse(JSON.stringify(definition))).toEqual(definition);
   });
 
-  test('a static and an instance member with the same name are both recorded and replayed', () => {
+  test('a static value is read without a node and replays as the value itself', () => {
+    const rec = createRecorder({ strict: true });
+    const { Interval2, Epsilon } = rec.lib;
+    rec.output('overlap', new Interval2(0, 2).intersect(new Interval2(1, 3), Epsilon.preferIn));
+    const definition = rec.definition();
+    expect(definition.nodes.map((node) => node.op)).toEqual(['Interval2.new', 'Interval2.new', 'Interval2.intersect']);
+    expect(nodeOf(definition, 'Interval2.intersect')).toMatchObject({
+      args: [{ ref: 'n1' }, { value: Epsilon.preferIn.toJson() }],
+    });
+    const outputs = evaluateDefinition(JSON.parse(JSON.stringify(definition))).outputs;
+    expect((outputs.overlap as { toJson(): unknown }).toJson()).toEqual({ type: 'Interval2', min: 1, max: 2 });
+  });
+
+  test('a static and an instance member with related names replay to the same value', () => {
     const rec = createRecorder({ strict: true });
     const { Vec2: V, Polygon2, Epsilon } = rec.lib;
     const vertices = [new V(0, 0), new V(2, 0), new V(0, 2)];
-    rec.output('static', Polygon2.signedArea(vertices));
+    rec.output('static', Polygon2.computeSignedArea(vertices));
     rec.output('instance', new Polygon2(vertices).signedArea());
     rec.output('sq', Epsilon.custom(0.5).sq);
-    const definition = rec.definition();
-    expect(definition.nodes.filter((node) => node.op === 'Polygon2.signedArea').map((node) => 'self' in node)).toEqual([
-      false,
-      true,
-    ]);
-    const outputs = evaluateDefinition(JSON.parse(JSON.stringify(definition))).outputs;
+    const ops = rec.definition().nodes.map((node) => node.op);
+    expect(ops).toContain('Polygon2.computeSignedArea');
+    expect(ops).toContain('Polygon2.signedArea');
+    const outputs = evaluateDefinition(JSON.parse(JSON.stringify(rec.definition()))).outputs;
     expect([outputs.static, outputs.instance, outputs.sq]).toEqual([2, 2, 0.25]);
   });
 });

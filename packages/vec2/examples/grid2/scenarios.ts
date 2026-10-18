@@ -91,7 +91,7 @@ export function evaluateChainScenario(scenario: Grid2ChainScenario): GridCell2Co
         result = result.subtract(next);
         break;
       case 'xor':
-        result = result.xor(next);
+        result = result.toggle(next);
         break;
     }
   }

@@ -33,10 +33,10 @@ export class GridCell2 {
   }
 
   /** Cells within `count` steps (Manhattan for von Neumann, Chebyshev for Moore); cells past the index limits are skipped. */
-  neighbors(count: Index = 1, type: 'vonNeumann' | 'moore' = 'vonNeumann'): GridCell2[] {
+  neighbors(count: Index = 1, neighborhood: 'vonNeumann' | 'moore' = 'vonNeumann'): GridCell2[] {
     const cells: GridCell2[] = [];
     for (let di = -count; di <= count; di++) {
-      const reach = type === 'vonNeumann' ? count - Math.abs(di) : count;
+      const reach = neighborhood === 'vonNeumann' ? count - Math.abs(di) : count;
       for (let dj = -reach; dj <= reach; dj++) {
         if (di === 0 && dj === 0) continue;
         const i = this.i + di;

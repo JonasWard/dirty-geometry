@@ -28,7 +28,7 @@ const schemaDir = path.join(repoRoot, 'packages/vec2/schema');
 /** A name, `[T]`, `{ enum }`, `{ or }`, `{ tuple }`, `{ record }`, or an object written as its fields. */
 type Type = string | Record<string, any>;
 type Slot = Type | { type: Type; optional?: true; rest?: true };
-type Entry = { static?: true | Entry; params?: Record<string, Slot>; returns?: Type; value?: Type } | null;
+type Entry = { static?: true; params?: Record<string, Slot>; returns?: Type; value?: Type } | null;
 
 class Unsupported extends Error {}
 
@@ -269,16 +269,23 @@ export function generateSchema(root = srcRoot) {
 
   function describeClass(decl: ts.ClassDeclaration, name: string) {
     const ctor = decl.members.find(ts.isConstructorDeclaration);
-    const instance: Record<string, Entry> = {};
-    const statics: Record<string, Entry> = {};
+    const members: Record<string, Entry> = {};
+    const statics = new Map<string, boolean>(); // name → static
+    const claim = (key: string, isStatic: boolean) => {
+      if (statics.has(key) && statics.get(key) !== isStatic) {
+        throw new Error(`${name}.${key} is both a static and an instance member; rename one`);
+      }
+      return !statics.has(key) && !!statics.set(key, isStatic);
+    };
     for (const member of decl.members) {
+      // Private (`private`, `protected`, `#x`, `_x`) members are never listed; nor are static values (constants).
       if (!member.name || !ts.isIdentifier(member.name) || !isPublic(member) || ts.isSetAccessor(member)) continue;
       const key = member.name.text;
-      if (key.startsWith('_') || key === 'type') continue;
       const isStatic = has(member, ts.SyntaxKind.StaticKeyword);
-      const target = isStatic ? statics : instance;
+      if (key.startsWith('_') || key === 'type' || (isStatic && !ts.isMethodDeclaration(member))) continue;
       const id = `${name}.${key}`;
-      if (key in target) continue;
+      if (!claim(key, isStatic)) continue;
+      const target = members;
       if (ts.isMethodDeclaration(member)) {
         const overloaded = (checker.getSymbolAtLocation(member.name)?.getDeclarations() ?? []).some(
           (d) => ts.isMethodDeclaration(d) && !d.body,
@@ -300,17 +307,9 @@ export function generateSchema(root = srcRoot) {
       }
     }
     for (const p of ctor?.parameters ?? []) {
-      if (ts.isIdentifier(p.name) && isPublic(p) && modifiers(p).length > 0) {
-        instance[p.name.text] = read(`${name}.${p.name.text}`, p, p.type, false);
+      if (ts.isIdentifier(p.name) && isPublic(p) && modifiers(p).length > 0 && claim(p.name.text, false)) {
+        members[p.name.text] = read(`${name}.${p.name.text}`, p, p.type, false);
       }
-    }
-    // A static and an instance member may share a name: the static one nests under `static`.
-    const members: Record<string, Entry> = { ...statics, ...instance };
-    for (const key of Object.keys(statics)) {
-      if (key in instance && instance[key] && statics[key]) {
-        const { static: _, ...staticEntry } = statics[key]!;
-        members[key] = { ...instance[key], static: staticEntry };
-      } else if (key in instance && !instance[key]) members[key] = statics[key]!;
     }
     const constructible = !ctor || isPublic(ctor);
     return {
@@ -320,24 +319,35 @@ export function generateSchema(root = srcRoot) {
   }
 
   const modules: Record<string, any> = {};
-  const at = (module: string) => module.split('/').reduce((node, part) => (node[part] ??= {}), modules);
+  /** The folder a module's classes and helpers go in (files are not a level); names must be unique there. */
+  const put = (module: string, name: string, entry: unknown) => {
+    const folder = module
+      .split('/')
+      .slice(0, -1)
+      .reduce((node, part) => (node[part] ??= {}), modules);
+    if (name in folder) throw new Error(`${name} appears twice in ${module.split('/').slice(0, -1).join('/')}/`);
+    folder[name] = entry;
+  };
   const tables = { classes: [] as [string, string][], helpers: [] as [string, string][] };
   const misplaced: string[] = [];
   const helperNames = new Set<string>();
+  const toJsonTypes: string[] = [];
   for (const { source, module } of sources) {
     for (const st of source.statements) {
       const named = st as ts.Statement & { name?: ts.Node };
       if (!exported(st) || !named.name || !ts.isIdentifier(named.name)) continue;
       const name = named.name.text;
       if (ts.isClassDeclaration(st) && !SKIP_CLASSES.has(name)) {
-        at(module)[name] = describeClass(st, name);
+        const described = describeClass(st, name);
+        put(module, name, described);
+        if (described.members.toJson) toJsonTypes.push(described.members.toJson.returns as string);
         tables.classes.push([module, name]);
       } else if (ts.isFunctionDeclaration(st) && module.startsWith('operations/')) {
         if (!module.split('/').includes('helpers')) misplaced.push(`${module}:${name}`);
         else if (helperNames.has(name)) throw new Error(`Helper ${name} is exported twice`);
         else {
           helperNames.add(name);
-          at(module)[name] = call(name, st, false);
+          put(module, name, call(name, st, false));
           tables.helpers.push([module, name]);
         }
       }
@@ -354,8 +364,7 @@ export function generateSchema(root = srcRoot) {
   const mathJson = [...aliases.values()].find((decl) => decl.name.text === 'MathJson');
   if (!mathJson || named(mathJson) !== 'MathJson') throw new Error('MathJson is missing from io/deserialise.ts');
   const jsonTypes: string[] = (types.MathJson as { or: string[] }).or;
-  const toJsonOf = ([module, name]: [string, string]) => at(module)[name].members.toJson?.returns as string | undefined;
-  const unlisted = tables.classes.map(toJsonOf).filter((json) => json && !jsonTypes.includes(json));
+  const unlisted = toJsonTypes.filter((json) => !jsonTypes.includes(json));
   if (unlisted.length > 0) throw new Error(`MathJson lacks ${unlisted.join(', ')}`);
 
   const namedTypes = sorted(
@@ -376,7 +385,6 @@ export function generateSchema(root = srcRoot) {
     check(`${name}.new`, node.new);
     for (const [key, entry] of Object.entries<any>(node.members)) {
       check(`${name}.${key}`, entry?.params);
-      if (typeof entry?.static === 'object') check(`${name}.${key}`, entry.static.params);
     }
   })(modules, '');
   if (untyped.length > 0) throw new Error(`Bare \`number\` (use a type from core/numbers.ts): ${untyped.join(', ')}`);

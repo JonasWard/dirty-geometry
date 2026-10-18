@@ -65,7 +65,9 @@ export function createRecorder(options: RecorderOptions = {}) {
         const member = Reflect.get(target, key, target);
         const self = instance ? proxy : undefined;
         if (!isMember(target, key)) return typeof member === 'function' ? member.bind(target) : member;
-        if (typeof member !== 'function') return invoke(`${owner}.${key}`, self, () => member, null);
+        // A static value (`Epsilon.preferIn`) is a constant, not an operation: it is used as it is.
+        if (typeof member !== 'function')
+          return instance ? invoke(`${owner}.${key}`, self, () => member, null) : member;
         return (...args: unknown[]) => invoke(`${owner}.${key}`, self, (a) => member.apply(target, a), args);
       },
       set: () => fail(`Recorded ${owner} values are immutable`),

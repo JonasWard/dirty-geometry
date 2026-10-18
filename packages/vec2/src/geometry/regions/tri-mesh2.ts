@@ -256,7 +256,7 @@ export class TriMesh2 {
       if (to !== start || indices.length < 3) continue;
 
       const vertices = indices.map((index) => this.vertices[index]!.clone());
-      const signedArea = Polygon2.signedArea(vertices);
+      const signedArea = Polygon2.computeSignedArea(vertices);
       loops.push({ polygon: new Polygon2(vertices), signedArea });
     }
 

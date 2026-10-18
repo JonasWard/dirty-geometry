@@ -28,17 +28,37 @@ describe('vec2 schema', () => {
     expect(missing.map((op) => op.id)).toEqual([]);
   });
 
-  test('a static and an instance member with the same name are both kept', () => {
-    for (const id of ['Epsilon.sq', 'Epsilon.value', 'GridCell2Collection.xor', 'Polygon2.signedArea']) {
-      expect(find(id, true)).toBeDefined();
-      expect(find(id, false)).toBeDefined();
+  test('static values are constants, not operations; each member name is static or instance, never both', () => {
+    for (const id of ['Epsilon.preferIn', 'Interval2.infinite', 'Interval2.unit', 'Grid2.minIndex', 'Axis.limits']) {
+      expect(operations.find((op) => op.id === id)).toBeUndefined();
     }
+    expect(find('Epsilon.sq', false)).toBeDefined(); // the instance getter stays
+    expect(find('Epsilon.sq', true)).toBeUndefined();
+    expect(find('GridCell2Collection.toggle', false)).toBeDefined();
+    expect(find('GridCell2Collection.xor', true)).toBeDefined();
+    expect(find('Polygon2.computeSignedArea', true)).toBeDefined();
+    expect(new Set(operations.map((op) => op.id)).size).toBe(operations.length);
   });
+
+  test('private members are never in the schema', async () => {
+    const { schema, dense } = await renderSchemaFiles();
+    for (const id of ['GridCell2Collection.cells', 'GridCell2Collection.hashes', 'GridCell2Collection.fromHashSet']) {
+      expect(operations.find((op) => op.id === id)).toBeUndefined();
+    }
+    for (const text of [schema, dense]) expect(text).not.toMatch(/"(fromHashSet|hashes|_\w+|#\w+)"/);
+  }, 60_000);
+
+  test('keys are plain names: no file level, no markers, no joined paths', async () => {
+    const { schema } = await renderSchemaFiles();
+    const keys = [...schema.matchAll(/"([^"]+)":/g)].map((m) => m[1]!);
+    expect(keys.filter((key) => /[#$/]/.test(key))).toEqual([]);
+    expect(operations.filter((op) => op.path.some((part) => /[#$/]/.test(part))).map((op) => op.id)).toEqual([]);
+    expect(find('Vec2.add', false)?.path).toEqual(['core', 'Vec2', 'add']);
+  }, 60_000);
 
   test('members carry their static flag, semantic number types and schema path', () => {
     expect(find('Vec2.add', false)?.params).toEqual([['other', 'Vec2']]);
-    expect(find('Vec2.add', false)?.path).toEqual(['core', 'vec2', 'Vec2', '#add']);
-    expect(find('Interval2.infinite', true)?.value).toBe(true);
+    expect(find('Vec2.new', true)?.path).toEqual(['core', 'Vec2', 'new']);
     expect(find('Line2.evaluate', false)?.params).toEqual([['t', 'Parameter']]);
     expect(find('Circle2.new', true)?.params).toEqual([
       ['center', 'Vec2'],
@@ -46,7 +66,7 @@ describe('vec2 schema', () => {
     ]);
     expect(find('ConstrainedDelaunay.triangulate', true)).toBeDefined();
     expect(find('ConstrainedDelaunay.new', true)).toBeUndefined();
-    expect(find('helpers.convexHullLoop', true)?.path.slice(0, 2)).toEqual(['operations', 'helpers']);
+    expect(find('helpers.convexHullLoop', true)?.path).toEqual(['operations', 'helpers', 'cdt', 'convexHullLoop']);
     expect(NUMBER_TYPES).toEqual(['Coordinate', 'Length', 'Radians', 'Parameter', 'Integer', 'Index', 'Tolerance']);
   });
 

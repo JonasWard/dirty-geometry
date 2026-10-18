@@ -48,13 +48,30 @@ describe('definition schema', () => {
   test('every schema operation has a node variant, nested along its schema path', () => {
     const { schema } = createDefinitionSchema();
     const root = (schema.fields.find((f) => f.name === 'nodes') as any).items;
-    const reaches = (union: any, path: string[]): boolean =>
-      path.some((_, n) => {
-        const fields = union.variants[path.slice(0, n + 1).join('/')];
-        return !!fields && (n + 1 === path.length ? fields[0]?.name !== '$in' : reaches(fields[0], path.slice(n + 1)));
-      });
+    // Each level is a union keyed `type`; a level with one entry is left out, so a path segment may be skipped.
+    const reaches = (union: any, path: string[]): boolean => {
+      const i = path.findIndex((part) => part in union.variants);
+      if (i < 0) return false;
+      const fields = union.variants[path[i]!];
+      const nested = fields.length === 1 && fields[0].type === 'union' && fields[0].name === path[i];
+      return i + 1 === path.length ? !nested : nested && reaches(fields[0], path.slice(i + 1));
+    };
     expect(operations.filter((op) => !reaches(root, op.path)).map((op) => op.id)).toEqual([]);
     expect(root.discriminator.options).toEqual(['result', 'bounds', 'core', 'geometry', 'grid', 'operations']);
+    expect([root.discriminator.name, root.variants.core[0].name]).toEqual(['type', 'core']);
+  });
+
+  test('names are densing names: no markers, no joined paths, no serialised type expressions', () => {
+    const { schema } = createDefinitionSchema();
+    const names: string[] = [];
+    const visit = (f: any): void => {
+      if (!f || typeof f !== 'object') return;
+      if (typeof f.name === 'string') names.push(f.name);
+      if (f.type === 'union') names.push(...f.discriminator.options);
+      Object.values(f).forEach((v) => (Array.isArray(v) ? v.forEach(visit) : typeof v === 'object' && visit(v)));
+    };
+    [...schema.fields, ...(schema.templates ?? [])].forEach(visit);
+    expect(names.filter((name) => /[#$/"]|Arg</.test(name))).toEqual([]);
   });
 
   test('the plate definition round-trips and replays to the same result', () => {

@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import { createRecorder } from '@dirty-geometry/vec2/recording/recorder';
 import { Vec2 } from '@dirty-geometry/vec2/core/vec2';
 import { recordPlate } from '@dirty-geometry/vec2/examples/definitions/plate';
-import type { Definition } from '@dirty-geometry/vec2/recording/definition';
+import type { DefinitionV3 as Definition } from '@dirty-geometry/vec2/recording/v3';
 import { definitionToTypeScript } from '../src/playground/codegen';
 import { normaliseDefinition } from '../src/playground/presets';
 import { runTypeScript, TypeScriptRunError } from '../src/playground/run';

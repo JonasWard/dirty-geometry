@@ -1,8 +1,9 @@
-/** Records vec2 calls as a {@link Definition} by reflection: `rec.lib` mirrors the classes and helpers through Proxies,
+/** Records vec2 calls as a version 3 definition by reflection: `rec.lib` mirrors the classes and helpers through Proxies,
  * so every call and field read runs on the real value and becomes a node. Results come back wrapped. */
 import type { classes, helpers } from '../../schema/bindings';
 import { SKIP_MEMBERS } from '../../schema/policy';
-import { type Arg, type Definition, type Node, type Source, fail } from './definition';
+import { fail } from './definition';
+import type { ArgV3 as Arg, DefinitionV3 as Definition, NodeV3 as Node, SourceV3 as Source } from './v3';
 import { classNameOf, classTable, helperTable, isPlain, mapValues, typeOf } from './runtime';
 import { Scalar } from './scalar';
 

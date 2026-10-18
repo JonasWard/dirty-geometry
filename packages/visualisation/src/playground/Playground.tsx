@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { Definition } from '@dirty-geometry/vec2/recording/definition';
+import type { DefinitionV3 as Definition } from '@dirty-geometry/vec2/recording/v3';
 import { evaluateDefinition } from '@dirty-geometry/vec2/recording/replay';
 import {
   createDefinitionSchema,

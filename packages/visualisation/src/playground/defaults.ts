@@ -1,5 +1,5 @@
 /** The literal forms an operand type admits, and the literal a new operand starts with. */
-import type { Arg } from '@dirty-geometry/vec2/recording/definition';
+import type { ArgV3 as Arg } from '@dirty-geometry/vec2/recording/v3';
 import { classJson, isKind, NUMBER_TYPES, resolve, type Slot, type Type } from '@dirty-geometry/vec2/schema/schema';
 
 /** What literal forms a type admits, merged over unions; `number` is the number type (`Coordinate`, `Radians`, …). */

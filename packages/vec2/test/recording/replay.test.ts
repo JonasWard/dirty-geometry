@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import { createRecorder } from '../../src/recording/recorder';
 import { DefinitionError } from '../../src/recording/definition';
 import { evaluateDefinition } from '../../src/recording/replay';
-import type { Definition } from '../../src/recording/definition';
+import type { DefinitionV3 as Definition } from '../../src/recording/v3';
 import { ConstrainedDelaunay } from '../../src/operations/constrained-delaunay';
 import { Vec2 } from '../../src/core/vec2';
 import { recordPlate } from '../../examples/definitions/plate';

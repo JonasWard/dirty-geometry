@@ -4,7 +4,7 @@ import { Html, Line } from '@react-three/drei';
 import { useMemo } from 'react';
 import type { Vec2 } from '@dirty-geometry/vec2/core/vec2';
 import { isGeometry2, type Geometry2 } from '@dirty-geometry/vec2/geometry/kinds';
-import type { Definition } from '@dirty-geometry/vec2/recording/definition';
+import type { DefinitionV3 as Definition } from '@dirty-geometry/vec2/recording/v3';
 import { fitPointsToFrame, frameCorners, labelPosition } from '../core/frame';
 import { ScenarioGridVisualisation } from '../core/ScenarioGridVisualisation';
 import { GeometryRender } from '../geometry/components/GeometryRender';

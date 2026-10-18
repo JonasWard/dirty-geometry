@@ -3,7 +3,12 @@
  * decodes; one walk along the schema maps the history to densing data (snapping numbers onto their ranges) and back.
  */
 import * as d from 'densing';
-import type { Arg, Definition, Node, Source } from '../../src/recording/definition';
+import type {
+  ArgV3 as Arg,
+  DefinitionV3 as Definition,
+  NodeV3 as Node,
+  SourceV3 as Source,
+} from '../../src/recording/v3';
 import { DefinitionError, fail as raise } from '../../src/recording/definition';
 import { classJson, operations } from '../schema';
 import dense from '../vec2.dense.json';

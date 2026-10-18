@@ -1,5 +1,5 @@
 /** A definition as a layered graph, for inspecting or drawing it. */
-import type { Arg, Definition, Node, Source } from '@dirty-geometry/vec2/recording/definition';
+import type { ArgV3 as Arg, DefinitionV3 as Definition, NodeV3 as Node, SourceV3 as Source } from '@dirty-geometry/vec2/recording/v3';
 
 export type DefinitionGraphNodeKind = 'param' | 'operation' | 'item' | 'field';
 

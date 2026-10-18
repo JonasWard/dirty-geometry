@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import type { Arg } from '@dirty-geometry/vec2/recording/definition';
+import type { ArgV3 as Arg } from '@dirty-geometry/vec2/recording/v3';
 import { slotType, type Type } from '@dirty-geometry/vec2/schema/schema';
 import { DEFAULT_VALUES, defaultLiteral, literalShape, type LiteralShape } from './defaults';
 import { argOf, sourceKey } from './editing';

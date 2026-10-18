@@ -1,5 +1,5 @@
 /** Starting definitions for the playground. */
-import type { Definition } from '@dirty-geometry/vec2/recording/definition';
+import type { DefinitionV3 as Definition } from '@dirty-geometry/vec2/recording/v3';
 import { createRecorder } from '@dirty-geometry/vec2/recording/recorder';
 import { recordPlate } from '@dirty-geometry/vec2/examples/definitions/plate';
 

@@ -5,7 +5,7 @@
  */
 import { defaultRegistry } from '@dirty-geometry/vec2/io/default-registry';
 import { createRecorder, type Recorder } from '@dirty-geometry/vec2/recording/recorder';
-import type { Definition } from '@dirty-geometry/vec2/recording/definition';
+import type { DefinitionV3 as Definition } from '@dirty-geometry/vec2/recording/v3';
 
 export class TypeScriptRunError extends Error {
   override name = 'TypeScriptRunError';

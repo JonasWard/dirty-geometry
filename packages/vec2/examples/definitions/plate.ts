@@ -5,7 +5,7 @@
  * `Circle2.evaluate`, its centre from `Vec2.scale`), so replaying with new params moves everything.
  */
 import { createRecorder } from '../../src/recording/recorder';
-import type { Definition } from '../../src/recording/definition';
+import type { DefinitionV3 as Definition } from '../../src/recording/v3';
 
 export type PlateParams = { width: number; height: number; holeRadius: number; holeX: number };
 

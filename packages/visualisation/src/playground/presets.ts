@@ -1,5 +1,5 @@
 /** Picking presets for a definition: the cheapest ones that keep every literal exactly. */
-import type { Arg, Definition } from '@dirty-geometry/vec2/recording/definition';
+import type { ArgV3 as Arg, DefinitionV3 as Definition } from '@dirty-geometry/vec2/recording/v3';
 import { NUMBER_TYPES } from '@dirty-geometry/vec2/schema/schema';
 import {
   createDefinitionSchema,

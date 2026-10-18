@@ -1,5 +1,5 @@
 /** Pure edits of a recorded definition, used by the playground's builder. Every function returns a new definition. */
-import type { Arg, CallNode, Definition, Node, Source } from '@dirty-geometry/vec2/recording/definition';
+import type { ArgV3 as Arg, CallNodeV3 as CallNode, DefinitionV3 as Definition, NodeV3 as Node, SourceV3 as Source } from '@dirty-geometry/vec2/recording/v3';
 import { classNameOf } from '@dirty-geometry/vec2/recording/runtime';
 import {
   isOptional,

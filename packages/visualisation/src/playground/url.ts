@@ -3,7 +3,7 @@
  * the large definition schema is rebuilt from them, so it never travels in the URL.
  */
 import { array, densing, enumArray, enumeration, int, object, optional, schema, undensing } from 'densing';
-import type { Definition } from '@dirty-geometry/vec2/recording/definition';
+import type { DefinitionV3 as Definition } from '@dirty-geometry/vec2/recording/v3';
 import { NUMBER_TYPES } from '@dirty-geometry/vec2/schema/schema';
 import {
   createDefinitionSchema,

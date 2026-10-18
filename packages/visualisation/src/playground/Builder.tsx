@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import type { Arg, Definition, Node } from '@dirty-geometry/vec2/recording/definition';
+import type { ArgV3 as Arg, DefinitionV3 as Definition, NodeV3 as Node } from '@dirty-geometry/vec2/recording/v3';
 import { isOptional, isRest, operations, slotType } from '@dirty-geometry/vec2/schema/schema';
 import { DEFAULT_VALUES } from './defaults';
 import { describeValue } from './describe';

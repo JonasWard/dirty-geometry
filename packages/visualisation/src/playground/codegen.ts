@@ -2,7 +2,7 @@
  * Recorded definitions as TypeScript: recorder code that, when run (see run.ts), records the same
  * definition again. Stored vec2 values print as `value({...codec JSON})`, so they stay stored values.
  */
-import type { Arg, CallNode, Definition, Node, Source } from '@dirty-geometry/vec2/recording/definition';
+import type { ArgV3 as Arg, CallNodeV3 as CallNode, DefinitionV3 as Definition, NodeV3 as Node, SourceV3 as Source } from '@dirty-geometry/vec2/recording/v3';
 import { operations } from '@dirty-geometry/vec2/schema/schema';
 
 const IDENTIFIER = /^[A-Za-z_$][\w$]*$/;

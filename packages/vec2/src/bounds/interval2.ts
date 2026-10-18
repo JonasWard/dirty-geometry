@@ -1,3 +1,4 @@
+import type { Coordinate } from '../core/numbers';
 import { Epsilon } from '../core/epsilon';
 
 /** Closed numeric interval `[min, max]`. Endpoints may be `±Infinity`. */
@@ -15,8 +16,8 @@ export class Interval2 {
   static readonly infinite = Object.freeze(new Interval2(-Infinity, Infinity));
 
   constructor(
-    readonly min: number,
-    readonly max: number,
+    readonly min: Coordinate,
+    readonly max: Coordinate,
   ) {
     if (!Interval2.hasInfiniteEndpoint(min, max) && min > max) {
       throw new Error('Interval2 min must be less than or equal to max');
@@ -30,8 +31,8 @@ export class Interval2 {
 
   /** Floor endpoints to integers, clamp into `range`, and order so min ≤ max. */
   static clampedInteger(
-    domain: { readonly min: number; readonly max: number },
-    range: { readonly min: number; readonly max: number },
+    domain: { readonly min: Coordinate; readonly max: Coordinate },
+    range: { readonly min: Coordinate; readonly max: Coordinate },
   ): Interval2 {
     const min = Math.max(range.min, Math.floor(domain.min));
     const max = Math.min(range.max, Math.floor(domain.max));
@@ -42,7 +43,7 @@ export class Interval2 {
    * Bounding hull of every item — a single interval spanning them all, gaps included.
    * @see merge for the gap-aware disjoint union.
    */
-  static union(...items: readonly (Interval2 | number)[]): Interval2 {
+  static union(...items: readonly (Interval2 | Coordinate)[]): Interval2 {
     if (items.length === 0) {
       throw new Error('Interval2.union requires at least one item');
     }
@@ -115,19 +116,19 @@ export class Interval2 {
     return best;
   }
 
-  scale(factor: number): Interval2 {
+  scale(factor: Coordinate): Interval2 {
     return new Interval2(this.min * factor, this.max * factor);
   }
 
-  offset(offset: number): Interval2 {
+  offset(offset: Coordinate): Interval2 {
     return new Interval2(this.min + offset, this.max + offset);
   }
 
-  clamp(value: number): number {
+  clamp(value: Coordinate): number {
     return Math.max(this.min, Math.min(this.max, value));
   }
 
-  contains(value: number, slack: Epsilon = Epsilon.preferIn): boolean {
+  contains(value: Coordinate, slack: Epsilon = Epsilon.preferIn): boolean {
     return value >= this.min - slack.value && value <= this.max + slack.value;
   }
 
@@ -165,7 +166,7 @@ export class Interval2 {
   }
 
   /** Negative inside, positive outside, zero on the boundary. */
-  signedDistance(value: number): number {
+  signedDistance(value: Coordinate): number {
     if (this.isFullyInfinite()) return -Infinity;
     if (Number.isFinite(this.min) && value < this.min) return this.min - value;
     if (Number.isFinite(this.max) && value > this.max) return value - this.max;
@@ -202,13 +203,13 @@ export class Interval2 {
   }
 
   /** New interval that also covers a scalar or another interval. */
-  including(value: number | Interval2): Interval2 {
+  including(value: Coordinate | Interval2): Interval2 {
     const [min, max] = typeof value === 'number' ? [value, value] : [value.min, value.max];
     return new Interval2(Math.min(this.min, min), Math.max(this.max, max));
   }
 
   /** Image of `origin + t * delta` for `t` in this interval (a single point when `delta` is 0). */
-  mapLinear(origin: number, delta: number): Interval2 {
+  mapLinear(origin: Coordinate, delta: Coordinate): Interval2 {
     if (delta === 0) {
       return new Interval2(origin, origin);
     }
@@ -273,7 +274,7 @@ export class Interval2 {
 export type Interval2Json = {
   type: typeof Interval2.type;
   /** `null`: unbounded below. */
-  min: number | null;
+  min: Coordinate | null;
   /** `null`: unbounded above. */
-  max: number | null;
+  max: Coordinate | null;
 };

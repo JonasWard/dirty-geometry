@@ -74,8 +74,11 @@ function formatArg(arg: Arg, names: ReadonlyMap<string, string>): string {
 
 const ref = (source: Source, names: ReadonlyMap<string, string>) =>
   typeof source === 'string' ? (names.get(source) ?? source) : (names.get(`param:${source.param}`) ?? source.param);
-/** `Vec2.add` → owner `Vec2`, member `add`; a helper has no owner. */
-const split = (op: string) => (op.includes('.') ? (op.split('.') as [string, string]) : (['', op] as const));
+/** `Vec2.add` → owner `Vec2`, member `add`; a helper (`helpers.name`) is called without an owner. */
+const split = (op: string) => {
+  const [owner, member] = op.split('.') as [string, string];
+  return owner === 'helpers' ? (['', member] as const) : ([owner, member] as const);
+};
 
 /** A readable, unique variable name per param (`param:<name>`) and node. */
 function nodeNames(definition: Definition): Map<string, string> {

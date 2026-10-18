@@ -1,3 +1,4 @@
+import type { Length, Parameter, Tolerance } from '../../core/numbers';
 import type { Mat3 } from '../../core/mat3';
 import { Aabb2 } from '../../bounds/aabb2';
 import { Epsilon } from '../../core/epsilon';
@@ -60,7 +61,7 @@ export class Polygon2 {
    * Integer `t` in `0…n - 1` returns `vertices[t]`; `t = n` returns `vertices[0]`.
    * Values wrap around the closed boundary.
    */
-  evaluate(t: number): Vec2 {
+  evaluate(t: Parameter): Vec2 {
     const segments = this.segments();
     const period = this.n();
     const u = ((t % period) + period) % period;
@@ -75,15 +76,15 @@ export class Polygon2 {
   }
 
   /** Evaluate by arc length along the boundary. Values outside `[0, length()]` extrapolate. */
-  evaluateAtLength(length: number): Vec2 {
+  evaluateAtLength(length: Length): Vec2 {
     return Line2.evaluateAtLength(this.segments(), length);
   }
 
-  closestParametersForPoint(point: Vec2, additionalTolerance = 0): number[] {
+  closestParametersForPoint(point: Vec2, additionalTolerance: Tolerance = 0): number[] {
     return Line2.closestToPointForSegments(this.segments(), point, additionalTolerance).tParameters;
   }
 
-  closestPointsForPoint(point: Vec2, additionalTolerance = 0): Vec2[] {
+  closestPointsForPoint(point: Vec2, additionalTolerance: Tolerance = 0): Vec2[] {
     return Line2.closestToPointForSegments(this.segments(), point, additionalTolerance).points;
   }
 

@@ -4,7 +4,7 @@ Graph structures on top of `@dirty-geometry/vec2`. The core imports only `Vec2`.
 
 - **`UndirectedGraph2D<T>`:**
   - id-keyed nodes with positions and typed edge payloads;
-  - BFS, Dijkstra and A* (with an optional `heuristic`) and via-point path search;
+  - BFS, Dijkstra and A\* (with an optional `heuristic`) and via-point path search;
   - edge-subset helpers: simple cycles, components, `peelSpurs`, `twoCore`, longest paths with an expansion budget.
 - **`HalfEdgeGraph`:**
   - a half-edge structure built from an `NGonMesh` with `createFromNGon`;

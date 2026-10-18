@@ -1,3 +1,4 @@
+import type { Coordinate, Integer, Radians } from './numbers';
 import { Interval2 } from '../bounds/interval2';
 import type { Vec2 } from './vec2';
 
@@ -49,7 +50,7 @@ export class Angle {
   static readonly ThreePiOver2 = frozen(new Angle((3 * Math.PI) / 2, 'tau', DEFAULT_ANGLE_PRECISION));
 
   constructor(
-    private readonly value: number,
+    private readonly value: Radians,
     private readonly domainKind: AngleDomainKind,
     private readonly precision: AnglePrecisions,
   ) {}
@@ -102,16 +103,16 @@ export class Angle {
   /** Restore an angle from a hash; pass the same shape to `hash`.
    * Default shape is `{ domainKind: 'tau', precision: DEFAULT_ANGLE_PRECISION (.1) }`.
    */
-  static fromHash(hash: number, shape: AngleHashShape = DefaultAngleShape): Angle {
+  static fromHash(hash: Integer, shape: AngleHashShape = DefaultAngleShape): Angle {
     const radians = Angle.dehashAngle(hash, shape);
     return new Angle(radians, shape.domainKind, shape.precision);
   }
 
-  static fromRadians(radians: number, precision: AnglePrecisions = DEFAULT_ANGLE_PRECISION): Angle {
+  static fromRadians(radians: Radians, precision: AnglePrecisions = DEFAULT_ANGLE_PRECISION): Angle {
     return new Angle(Angle.wrapToTau(radians), 'tau', precision);
   }
 
-  static fromDegrees(degrees: number, precision: AnglePrecisions = DEFAULT_ANGLE_PRECISION): Angle {
+  static fromDegrees(degrees: Coordinate, precision: AnglePrecisions = DEFAULT_ANGLE_PRECISION): Angle {
     return Angle.fromRadians(degrees / Angle.degreeScale, precision);
   }
 
@@ -142,14 +143,14 @@ export class Angle {
     return Angle.fromTwoVectors(a.subtract(b), c.subtract(b), options);
   }
 
-  static wrapToTau(radians: number): number {
+  static wrapToTau(radians: Radians): number {
     const r = radians % TAU;
     const wrapped = r < 0 ? r + TAU : r;
     // A tiny negative remainder rounds up to exactly TAU when shifted.
     return wrapped >= TAU ? 0 : wrapped;
   }
 
-  static foldToPi(radians: number): number {
+  static foldToPi(radians: Radians): number {
     return radians > Math.PI ? TAU - radians : radians;
   }
 
@@ -171,7 +172,7 @@ export class Angle {
    * share a bucket. Domain/precision are not encoded — pass the same shape to dehash.
    */
   static getAngleHash(
-    radians: number,
+    radians: Radians,
     precision: AnglePrecisions = DEFAULT_HASH_PRECISION,
     domain: AngleDomainKind = 'tau',
   ): number {
@@ -183,7 +184,7 @@ export class Angle {
     return domain === 'tau' ? bucket % buckets : Math.min(bucket, buckets - 1);
   }
 
-  static dehashAngle(hash: number, shape: AngleHashShape): number {
+  static dehashAngle(hash: Integer, shape: AngleHashShape): number {
     const buckets = Angle.getAngleBuckets(shape.precision, shape.domainKind);
     const span = Angle.domainSpan(shape.domainKind);
     return (hash / buckets) * span;
@@ -201,7 +202,7 @@ export class Angle {
 
 export type AngleJson = {
   type: typeof Angle.type;
-  value: number;
+  value: Radians;
   domainKind: AngleDomainKind;
   precision: AnglePrecisions;
 };

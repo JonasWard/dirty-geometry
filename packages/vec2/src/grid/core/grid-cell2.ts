@@ -1,3 +1,4 @@
+import type { Index, Integer } from '../../core/numbers';
 import { dehash2, hash2 } from '../../hash/core';
 import { GRID_MAX_INDEX, GRID_MIN_INDEX } from './limits';
 
@@ -11,8 +12,8 @@ export class GridCell2 {
   }
 
   constructor(
-    public readonly i: number,
-    public readonly j: number,
+    public readonly i: Integer,
+    public readonly j: Integer,
   ) {
     if (i < GRID_MIN_INDEX || i > GRID_MAX_INDEX || j < GRID_MIN_INDEX || j > GRID_MAX_INDEX) {
       throw new Error('Grid cell index out of bounds');
@@ -32,7 +33,7 @@ export class GridCell2 {
   }
 
   /** Cells within `count` steps (Manhattan for von Neumann, Chebyshev for Moore); cells past the index limits are skipped. */
-  neighbors(count = 1, type: 'vonNeumann' | 'moore' = 'vonNeumann'): GridCell2[] {
+  neighbors(count: Index = 1, type: 'vonNeumann' | 'moore' = 'vonNeumann'): GridCell2[] {
     const cells: GridCell2[] = [];
     for (let di = -count; di <= count; di++) {
       const reach = type === 'vonNeumann' ? count - Math.abs(di) : count;
@@ -59,7 +60,7 @@ export class GridCell2 {
     return { type: GridCell2.type, i: this.i, j: this.j };
   }
 
-  static fromHash(hash: number): GridCell2 {
+  static fromHash(hash: Integer): GridCell2 {
     const [i, j] = dehash2(hash);
     return new GridCell2(i + GRID_MIN_INDEX, j + GRID_MIN_INDEX);
   }
@@ -79,6 +80,6 @@ export class GridCell2 {
 
 export type GridCell2Json = {
   type: typeof GridCell2.type;
-  i: number;
-  j: number;
+  i: Integer;
+  j: Integer;
 };

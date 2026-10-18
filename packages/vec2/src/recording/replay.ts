@@ -11,7 +11,7 @@ type Failure = { node: string; message: string };
 const fail = (message: string) => raise(message, DefinitionError);
 
 export function evaluateDefinition(definition: Definition, options: EvaluateOptions = {}): EvaluateResult {
-  if (definition.version !== 2) fail(`Unsupported definition version ${definition.version}; re-record it`);
+  if (definition.version !== 3) fail(`Unsupported definition version ${definition.version}; re-record it`);
   const params = options.params ?? {};
   for (const [name, value] of Object.entries(params)) {
     const type = definition.params[name]?.type ?? fail(`Unknown param ${name}`);
@@ -33,11 +33,12 @@ export function evaluateDefinition(definition: Definition, options: EvaluateOpti
   const run = (node: Node): unknown => {
     if ('of' in node) return (source(node.of) as any)['index' in node ? node.index : node.name];
     const args = (node.args ?? []).map(read);
-    const [owner, member] = node.op.includes('.') ? node.op.split('.') : [undefined, node.op];
-    const target: any = !owner ? helperTable : node.self !== undefined ? source(node.self) : classTable[owner];
+    const [owner, member = ''] = node.op.split('.');
+    const target: any =
+      node.self !== undefined ? source(node.self) : owner === 'helpers' ? helperTable : classTable[owner!];
     if (member === 'new' && node.self === undefined && target) return new target(...args);
-    if (Object(target) !== target || !(member! in target)) fail(`${node.op} does not exist in vec2`);
-    return typeof target[member!] === 'function' ? target[member!](...args) : target[member!];
+    if (Object(target) !== target || !(member in target)) fail(`${node.op} does not exist in vec2`);
+    return typeof target[member] === 'function' ? target[member](...args) : target[member];
   };
 
   let error: Failure | undefined;

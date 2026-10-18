@@ -1,120 +1,189 @@
-/** Definitions and vec2 values as densing strings: densing encodes and decodes; this maps the history's shape. */
+/**
+ * Recorded definitions and vec2 values as densing strings, with the generated vec2.dense.json. densing encodes and
+ * decodes; one walk along the schema maps the history to densing data (snapping numbers onto their ranges) and back.
+ */
 import * as d from 'densing';
-import type { Arg, Definition, Node, Param, Source } from '../../src/recording/definition';
+import type { Arg, Definition, Node, Source } from '../../src/recording/definition';
 import { DefinitionError, fail as raise } from '../../src/recording/definition';
-import { classJson, operations, resolve, ROLES, slotType, type Type } from '../schema';
-import { anyValue, MAX_ITEMS } from './fields';
-import { createNumerics, snap, type ActivePresets, type NumericOptions } from './numerics';
+import { operations } from '../schema';
+import dense from '../vec2.dense.json';
+
+type F = Record<string, any>;
+/** The range each number type is packed with (`{ Coordinate: '±10@0.001' }`); otherwise its first range. */
+export type ActivePresets = Record<string, string>;
+export type CustomPreset = d.NumericPreset;
+/** Extra ranges per number type: `{ custom: { Coordinate: { site: { min: -500, max: 500, precision: 0.25 } } } }`. */
+export type NumericOptions = { custom?: Record<string, Record<string, CustomPreset>> };
+export type DenseDefinitionSchema = { schema: d.DenseSchema; options: NumericOptions };
 
 const fail = (message: string) => raise(message, DefinitionError);
-type Data = Record<string, any>;
-const CHARS = [...Array(95)].map((_, i) => String.fromCharCode(32 + i));
-const text = (name: string) => d.enumArray(name, d.enumeration('char', CHARS), 0, 255);
-const OPS = ['item', 'field', ...new Set(operations.map((op) => op.id))];
-const SIGNATURES = new Map(operations.map((op) => [`${op.id}|${op.static}`, op.params]));
-const STAMP = [...OPS.join()].reduce((h, c) => Math.imul(h ^ c.charCodeAt(0), 16777619) >>> 0, 2166136261);
-const CONSTANTS: Record<string, Arg> = { omit: { omit: true }, null: null, true: true, false: false };
+const isOmit = (a: unknown) => a === undefined || (typeof a === 'object' && a !== null && 'omit' in a);
+const STAMP = [...JSON.stringify(dense.fields)].reduce((h, c) => Math.imul(h ^ c.charCodeAt(0), 16777619) >>> 0, 1);
+const PATHS = new Map(operations.map((op) => [`${op.id}|${op.static}`, op.path.join('/')]));
+const IDS = new Map(operations.map((op) => [op.path.join('/'), op.id]));
+/** `MathJson` is template 0; the value templates end where `Source` starts. */
+const VALUE = { type: 'reference', name: 'value', ref: 0 };
+const VALUE_TEMPLATES = dense.templates.slice(
+  0,
+  dense.templates.findIndex((t) => t.name === 'Source'),
+);
+const ranges = (o: NumericOptions) =>
+  dense.definitions.map((n) => ({ ...n, presets: { ...n.presets, ...o.custom?.[n.name] } }));
 
-const ref = (name: string) => d.reference(name, () => operand);
-const variants: Record<string, d.DenseField[]> = {
-  ...{ node: [d.int('node', 0, 4095)], param: [d.int('param', 0, 4095)], omit: [], null: [], true: [], false: [] },
-  ...Object.fromEntries(ROLES.map((role) => [role, [d.referenceNumeric('value', role)]])),
-  ...{ string: [text('value')], nonFinite: [d.enumeration('value', ['Infinity', '-Infinity', 'NaN'])] },
-  value: [anyValue('value')],
-  list: [d.array('items', 0, MAX_ITEMS, ref('item'))],
-  object: [d.array('fields', 0, 64, d.object('field', text('name'), ref('value')))],
-};
-const operand: d.Template = d.template(d.union('operand', d.enumeration('kind', Object.keys(variants)), variants));
-const named = (name: string, ...fields: d.DenseField[]) =>
-  d.array(`${name}s`, 0, 4095, d.object(name, text('name'), ...fields, ref('value')));
-
-const args = d.array('args', 0, 64, ref('arg'));
-const node = d.object('node', d.enumeration('op', OPS), d.optional('self', ref('self')), args);
-const types = d.enumeration('type', ['number', 'string', 'boolean', ...Object.keys(classJson)]);
-const FIELDS = [d.int('stamp', 0, 0xffffffff), named('param', types), named('output'), d.array('nodes', 0, 4095, node)];
-
-const make = (options: NumericOptions, ...fields: d.DenseField[]) =>
-  d.schemaWithDefinitions(createNumerics(options), ...fields) as d.DenseSchema;
-export type DenseDefinitionSchema = { schema: d.DenseSchema; options: NumericOptions };
-export const createDefinitionSchema = (options: NumericOptions = {}) => ({ options, schema: make(options, ...FIELDS) });
-
-/** How a number is stored: the role of the type it is passed as (numeric enums are exact parameters). */
-function kindOf(type: Type | undefined): string {
-  const t = type === undefined ? undefined : resolve(type);
-  if (typeof t === 'string') return (ROLES as readonly string[]).includes(t) ? t : 'coordinate';
-  if (Array.isArray(t) || (t && 'tuple' in t)) return kindOf(Array.isArray(t) ? t[0] : t.tuple[0]);
-  if (t && 'or' in t) return t.or.map(kindOf).find((kind) => kind !== 'coordinate') ?? 'coordinate';
-  return t && 'enum' in t && t.enum.some((v) => typeof v === 'number') ? 'parameter' : 'coordinate';
+const cache = new Map<string, DenseDefinitionSchema>();
+export function createDefinitionSchema(options: NumericOptions = {}): DenseDefinitionSchema {
+  const key = JSON.stringify(options);
+  if (!cache.has(key))
+    cache.set(key, { options, schema: d.schemaFromJson({ ...dense, definitions: ranges(options) }) });
+  return cache.get(key)!;
 }
-/** The type of field `key` of an object type (through unions), where it can be told. */
-function fieldOf(type: Type | undefined, key: string): Type | undefined {
-  const t = type === undefined ? undefined : resolve(type);
-  if (t && typeof t === 'object' && 'or' in t) return t.or.map((member) => fieldOf(member, key)).find(Boolean);
-  return t && typeof t === 'object' && 'object' in t && key in t.object ? slotType(t.object[key]!) : undefined;
+export const createValueSchema = (options: NumericOptions = {}) =>
+  d.schemaFromJson({ definitions: ranges(options), templates: VALUE_TEMPLATES, fields: [VALUE] });
+
+export function resolvePreset(definitions: readonly d.NumericDefinition[], type: string, active: ActivePresets = {}) {
+  const presets = definitions.find((definition) => definition.name === type)?.presets ?? {};
+  const name = active[type] ?? Object.keys(presets)[0]!;
+  return { ...(presets[name] ?? fail(`Unknown ${type} range ${name}`)), name };
 }
+
+/** Walks JSON data along a field: in, numbers snap onto their range; out, nested JSON types get their tag back. */
+function walker({ templates = [], definitions = [] }: d.DenseSchema, presets: ActivePresets, out: boolean) {
+  const snap = (v: number, { min, precision = 1 }: CustomPreset) =>
+    out ? v : Number((min + Math.round((v - min) / precision) * precision).toPrecision(12));
+  const all = (fields: F[], v: F) => byName(fields, (f) => walk(f, v[f.name]));
+  const walk = (f: F, v: any): any => {
+    if (v === null || v === undefined) return v;
+    if (f.type === 'reference_numeric') return snap(v, resolvePreset(definitions, f.ref, presets));
+    if (f.type === 'fixed') return snap(v, f as CustomPreset);
+    if (f.type === 'optional') return walk(f.field, v);
+    if (f.type === 'array') return v.map((item: unknown) => walk(f.items, item));
+    if (f.type === 'object') return all(f.fields, v);
+    if (f.type === 'union') return { type: v.type, ...all(f.variants[v.type], v) }; // `MathJson`, keyed by `type`
+    if (f.type !== 'reference') return v;
+    const t = templates[f.ref] as F;
+    return { ...(out && t.type === 'object' && /Json$/.test(t.name) && { type: t.name.slice(0, -4) }), ...walk(t, v) };
+  };
+  return walk;
+}
+/** The field of variant `kind` in the union behind `f` (an `Arg<T>`, `ParamValue`). */
+const variant = ({ templates = [] }: d.DenseSchema, f: F, kind: string): F | undefined =>
+  (f.type === 'reference' ? (templates[f.ref] as F) : f).variants[kind]?.[0];
+const items = (schema: d.DenseSchema, name: string) => (schema.fields.find((f) => f.name === name) as F).items as F;
+const byName = (fields: F[], value: (f: F) => unknown) => Object.fromEntries(fields.map((f) => [f.name, value(f)]));
 
 export function encodeDefinition(def: Definition, presets: ActivePresets = {}, dense = createDefinitionSchema()) {
+  const { schema } = dense;
+  const walk = walker(schema, presets, false);
   const ids = new Map(def.nodes.map((node, i) => [node.id, i]));
   const names = Object.keys(def.params);
-  const roles = new Map<string, Type | undefined>();
-  const encode = (arg: Arg | undefined, type?: Type): Data => {
-    if (arg === undefined || JSON.stringify(arg) === '{"omit":true}') return { kind: 'omit' };
-    if (arg === null || typeof arg === 'boolean') return { kind: `${arg}` };
-    if (typeof arg === 'number') return { kind: kindOf(type), value: arg };
-    if (typeof arg === 'string') return { kind: 'string', value: [...arg] };
-    if (Array.isArray(arg)) return { kind: 'list', items: arg.map((item) => encode(item, type)) };
-    if ('ref' in arg) return { kind: 'node', node: ids.get(arg.ref) ?? fail(`Unknown node ${arg.ref}`) };
-    if ('param' in arg) roles.set(arg.param, roles.get(arg.param) ?? type);
-    if ('param' in arg) return { kind: 'param', param: names.indexOf(arg.param) };
-    if ('value' in arg) return { kind: 'value', value: arg.value };
-    if ('number' in arg) return { kind: 'nonFinite', value: arg.number };
-    const field = ([name, value]: [string, Arg]) => ({ name: [...name], value: encode(value, fieldOf(type, name)) });
-    return { kind: 'object', fields: Object.entries((arg as { object: Record<string, Arg> }).object).map(field) };
+  const types = new Map<string, string>(); // a param's number type: that of its first use
+  const source = (s: Source) =>
+    typeof s === 'string' ? { kind: 'node', node: ids.get(s) } : { kind: 'param', param: names.indexOf(s.param) };
+  /** A history argument → its `Arg<T>` union data, keyed by the argument's JS shape. */
+  const arg = (f: F, a: Arg | undefined): F => {
+    const v = (kind: string) => variant(schema, f, kind) ?? fail(`${f.name} takes no ${kind}`);
+    if (isOmit(a)) return { kind: 'omit' };
+    if (typeof a === 'number') return { kind: 'number', value: walk(v('number'), a) };
+    if (typeof a === 'string') return { kind: 'string', value: v('string').type === 'enum' ? a : [...a] };
+    if (a === null || typeof a === 'boolean') return { kind: a === null ? 'null' : 'boolean', value: a };
+    if (Array.isArray(a)) return { kind: 'list', items: a.map((item) => arg(v('list').items, item)) };
+    if ('ref' in a!) return source(a.ref);
+    if ('value' in a!) return { kind: 'value', value: walk(VALUE, a.value) };
+    if ('number' in a!) return { kind: 'nonFinite', value: a.number };
+    if ('param' in a!) {
+      if (!types.has(a.param)) types.set(a.param, variant(schema, f, 'number')?.ref ?? 'Coordinate');
+      return source(a);
+    }
+    const object = (a as { object: Record<string, Arg> }).object;
+    if (!variant(schema, f, 'record'))
+      return { kind: 'object', fields: byName(v('object').fields, (c) => arg(c, object[c.name])) };
+    const entries = Object.entries(object).map(([k, item]) => ({
+      name: [...k],
+      value: arg(v('record').items.fields[1], item),
+    }));
+    return { kind: 'record', entries };
   };
-  const source = (s: Source) => encode(typeof s === 'string' ? { ref: s } : s);
+  /** The nested `$op` unions down to `path`; a joined key (`vec2/Vec2`) stands for several path segments. */
+  const nest = (u: F, path: string, leaf: (fields: F[]) => F): F => {
+    const key = Object.keys(u.variants).find((k) => path === k || path.startsWith(`${k}/`));
+    if (!key) return fail(`${path} is not in the vec2 schema`);
+    const fields = u.variants[key];
+    return key === path
+      ? { $op: key, ...leaf(fields) }
+      : { $op: key, $in: nest(fields[0], path.slice(key.length + 1), leaf) };
+  };
   const nodes = def.nodes.map((node) => {
-    const part = 'of' in node && ('index' in node ? node.index : node.name);
-    if ('of' in node) return { op: node.op, self: source(node.of), args: [encode(part as Arg, 'integer')] };
-    const sig = SIGNATURES.get(`${node.op}|${node.self === undefined}`) ?? fail(`${node.op} is not in the vec2 schema`);
-    const args = (node.args ?? []).map((arg, i) => encode(arg, slotType((sig[i] ?? sig.at(-1))![1])));
-    return { op: node.op, self: node.self === undefined ? null : source(node.self), args };
+    if ('of' in node) {
+      const at = 'index' in node ? node.index : [...node.name];
+      return nest(items(schema, 'nodes'), node.op.replace('.', '/'), () => ({ of: source(node.of), at }));
+    }
+    const args = [...(node.args ?? [])];
+    const path = PATHS.get(`${node.op}|${node.self === undefined}`) ?? fail(`${node.op} is not in the vec2 schema`);
+    const field = (f: F) => (f.type === 'array' ? args.splice(0).map((a) => arg(f.items, a)) : arg(f, args.shift()));
+    return nest(items(schema, 'nodes'), path, (fields) =>
+      byName(fields, (f) => (f.name === 'self' ? source(node.self!) : field(f))),
+    );
   });
-  const param = ([name, p]: [string, Param]) => ({ ...p, name: [...name], value: encode(p.value, roles.get(name)) });
-  const params = Object.entries(def.params).map(param);
+  const params = Object.entries(def.params).map(([name, { type, value }]) => {
+    const kind = types.get(name) ?? 'Coordinate';
+    return {
+      name: [...name],
+      type,
+      value: { kind, value: arg(variant(schema, items(schema, 'params').fields[2], kind)!, value) },
+    };
+  });
   const outputs = Object.entries(def.outputs).map(([name, s]) => ({ name: [...name], value: source(s) }));
-  return d.densing(dense.schema, snap(dense.schema, { $presets: presets, stamp: STAMP, params, nodes, outputs }));
+  return d.densing(schema, { $presets: presets, stamp: STAMP, params, outputs, nodes });
 }
 
 export function decodeDefinition(encoded: string, dense = createDefinitionSchema()) {
-  const data = d.undensing(dense.schema, encoded) as Data;
+  const { schema } = dense;
+  const walk = walker(schema, {}, true);
+  const data = d.undensing(schema, encoded) as F;
   if (data.stamp !== STAMP) fail('This payload was written against another version of the vec2 operations');
   const str = (chars: string[]) => chars.join('');
-  const byName = (list: Data[], f: (o: Data) => unknown) => Object.fromEntries(list.map((o) => [str(o.name), f(o)]));
-  const names: string[] = data.params.map((p: Data) => str(p.name));
-  const decode = (o: Data): Arg => {
-    if (o.kind in CONSTANTS) return CONSTANTS[o.kind]!;
-    if (o.kind === 'node') return { ref: `n${o.node}` };
-    if (o.kind === 'param') return { param: names[o.param]! };
-    if (o.kind === 'string') return str(o.value);
-    if (o.kind === 'list') return o.items.map(decode);
-    if (o.kind === 'object') return { object: byName(o.fields, (f) => decode(f.value)) as Record<string, Arg> };
-    return o.kind === 'value' ? { value: o.value } : o.kind === 'nonFinite' ? { number: o.value } : o.value;
+  const names: string[] = data.params.map((p: F) => str(p.name));
+  const source = (o: F): Source => (o.kind === 'node' ? `n${o.node}` : { param: names[o.param]! });
+  const arg = (f: F, o: F): Arg => {
+    const v = (kind: string) => variant(schema, f, kind)!;
+    if (o.kind === 'omit' || o.kind === 'null') return o.kind === 'null' ? null : { omit: true };
+    if (o.kind === 'node' || o.kind === 'param') return o.kind === 'node' ? { ref: `n${o.node}` } : source(o);
+    if (o.kind === 'list') return o.items.map((item: F) => arg(v('list').items, item));
+    if (o.kind === 'value') return { value: walk(VALUE, o.value) };
+    if (o.kind === 'nonFinite') return { number: o.value };
+    const entries = o.entries?.map((e: F) => [str(e.name), arg(v('record').items.fields[1], e.value)]);
+    if (o.kind === 'record') return { object: Object.fromEntries(entries) };
+    if (o.kind !== 'object') return Array.isArray(o.value) ? str(o.value) : o.value;
+    const fields = byName(v('object').fields, (c) => arg(c, o.fields[c.name]));
+    return {
+      object: Object.fromEntries(Object.entries(fields).filter(([, item]) => !isOmit(item))) as Record<string, Arg>,
+    };
   };
-  const source = (o: Data) => ((d) => (typeof d === 'object' && d && 'ref' in d ? d.ref : d))(decode(o)) as Source;
-  const nodes = data.nodes.map(({ op, self, args }: Data, i: number): Node => {
-    const values = args.map(decode);
-    if (op === 'item' || op === 'field')
-      return { id: `n${i}`, op, of: source(self), [op === 'item' ? 'index' : 'name']: values[0] } as Node;
-    return { id: `n${i}`, op, ...(self && { self: source(self) }), ...(values.length && { args: values }) };
+  const nodes = data.nodes.map((o: F, i: number): Node => {
+    let [u, cur, path] = [items(schema, 'nodes'), o, ''];
+    for (; u.variants[cur.$op][0]?.name === '$in'; [u, cur] = [u.variants[cur.$op][0], cur.$in]) path += `${cur.$op}/`;
+    path += cur.$op;
+    if (path.startsWith('result/')) {
+      const part = path === 'result/item' ? { index: cur.at } : { name: str(cur.at) };
+      return { id: `n${i}`, op: path.replace('/', '.'), of: source(cur.of), ...part } as Node;
+    }
+    const fields = (u.variants[cur.$op] as F[]).filter((f) => f.name !== 'self');
+    const args = fields.flatMap((f) =>
+      f.type === 'array' ? cur[f.name].map((x: F) => arg(f.items, x)) : [arg(f, cur[f.name])],
+    );
+    while (args.length && isOmit(args.at(-1))) args.pop();
+    const op = IDS.get(path) ?? fail(`${path} is not in the vec2 schema`);
+    return { id: `n${i}`, op, ...(cur.self && { self: source(cur.self) }), ...(args.length && { args }) };
   });
-  const params = byName(data.params, (p) => ({ type: p.type, value: decode(p.value) })) as Definition['params'];
-  const outputs = byName(data.outputs, (o) => source(o.value)) as Definition['outputs'];
-  const definition: Definition = { format: 'vec2-definition', version: 2, params, nodes, outputs };
+  const value = (p: F) => arg(variant(schema, items(schema, 'params').fields[2], p.value.kind)!, p.value.value);
+  const params = Object.fromEntries(data.params.map((p: F) => [str(p.name), { type: p.type, value: value(p) }]));
+  const outputs = Object.fromEntries(data.outputs.map((o: F) => [str(o.name), source(o.value)]));
+  const definition: Definition = { format: 'vec2-definition', version: 3, params, nodes, outputs };
   return { definition, presets: data.$presets as ActivePresets };
 }
 
-/** A schema for one stored vec2 value, whose data is exactly its `toJson()` output. */
-export const createValueSchema = (options: NumericOptions = {}) => make(options, anyValue('value'));
+/** A vec2 value's `toJson()` as a densing string, and back. */
 export const encodeValue = (value: { toJson(): unknown }, presets: ActivePresets = {}, schema = createValueSchema()) =>
-  d.densing(schema, snap(schema, { $presets: presets, value: value.toJson() }));
-export const decodeValue = (text: string, schema = createValueSchema()) => (d.undensing(schema, text) as Data).value;
+  d.densing(schema, { $presets: presets, value: walker(schema, presets, false)(VALUE, value.toJson()) });
+export const decodeValue = (encoded: string, schema = createValueSchema()) =>
+  walker(schema, {}, true)(VALUE, (d.undensing(schema, encoded) as F).value);

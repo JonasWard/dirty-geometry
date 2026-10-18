@@ -1,12 +1,13 @@
+import type { Index } from '../../../core/numbers';
 import { inCircle, orient } from '../../../core/predicates';
 import type { Vec2 } from '../../../core/vec2';
 
 /** Work counters for a triangulation, for count-based (not wall-clock) performance budgets. */
 export type CdtStats = {
-  orient: number;
-  inCircle: number;
-  flips: number;
-  walkSteps: number;
+  orient: Index;
+  inCircle: Index;
+  flips: Index;
+  walkSteps: Index;
 };
 
 export function emptyCdtStats(): CdtStats {

@@ -102,8 +102,8 @@ describe('replay', () => {
     expect(() => evaluateDefinition(definition, { params: { width: 'wide' } })).toThrow(DefinitionError);
   });
 
-  test('version 1 definitions are rejected with a clear error', () => {
-    const old = { ...recordLine().rec.definition(), version: 1 } as unknown as Definition;
+  test('older definition versions are rejected with a clear error', () => {
+    const old = { ...recordLine().rec.definition(), version: 2 } as unknown as Definition;
     expect(() => evaluateDefinition(old)).toThrow(/re-record/);
   });
 

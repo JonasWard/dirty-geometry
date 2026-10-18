@@ -48,9 +48,9 @@ export function createRecorder(options: RecorderOptions = {}) {
     if (['number', 'string'].includes(typeof value) || (typeof value === 'boolean' && !id)) {
       result = new Scalar(source, value as number);
     } else if (Array.isArray(value) && id) {
-      result = value.map((item, index) => wrap(item, add({ op: 'item', of: id, index })));
+      result = value.map((item, index) => wrap(item, add({ op: 'result.item', of: id, index })));
     } else if (isPlain(value) && id) {
-      result = mapValues(value, (field, name) => wrap(field, add({ op: 'field', of: id, name })));
+      result = mapValues(value, (field, name) => wrap(field, add({ op: 'result.field', of: id, name })));
     } else if (classNameOf(value)) result = reflect(value, classNameOf(value)!, true);
     if (typeof result === 'object' && result) traced.set(result, { source, real: value });
     return result;
@@ -96,7 +96,7 @@ export function createRecorder(options: RecorderOptions = {}) {
   }
 
   const lib = mapValues(classTable, (cls, name) => reflect(cls, name, false));
-  lib.helpers = mapValues(helperTable, (fn, name) => reflect(fn, name, false));
+  lib.helpers = mapValues(helperTable, (fn, name) => reflect(fn, `helpers.${name}`, false));
   return {
     lib: Object.freeze(lib) as unknown as typeof classes & { readonly helpers: typeof helpers },
     warnings: warnings as readonly string[],
@@ -113,7 +113,7 @@ export function createRecorder(options: RecorderOptions = {}) {
     },
     /** The definition of the outputs, pruned to the nodes they use (all params are kept). */
     definition: (): Definition =>
-      pruneDefinition({ format: 'vec2-definition', version: 2, params: { ...params }, nodes, outputs: { ...outputs } }),
+      pruneDefinition({ format: 'vec2-definition', version: 3, params: { ...params }, nodes, outputs: { ...outputs } }),
     /** The real value behind a recorded one. */
     unwrap: <T>(value: T) => real(value) as T,
   };

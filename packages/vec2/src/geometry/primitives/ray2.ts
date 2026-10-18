@@ -1,3 +1,4 @@
+import type { Parameter } from '../../core/numbers';
 import type { Mat3 } from '../../core/mat3';
 import { Aabb2 } from '../../bounds/aabb2';
 import { Interval2 } from '../../bounds/interval2';
@@ -19,7 +20,7 @@ export class Ray2 {
     public readonly direction: Vec2,
   ) {}
 
-  evaluate(t: number): Vec2 {
+  evaluate(t: Parameter): Vec2 {
     return this.infiniteLine().evaluate(t);
   }
 

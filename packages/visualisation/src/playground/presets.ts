@@ -1,13 +1,13 @@
 /** Picking presets for a definition: the cheapest ones that keep every literal exactly. */
 import type { Arg, Definition } from '@dirty-geometry/vec2/recording/definition';
-import { ROLES, type Role } from '@dirty-geometry/vec2/schema/schema';
+import { NUMBER_TYPES } from '@dirty-geometry/vec2/schema/schema';
 import {
   createDefinitionSchema,
   decodeDefinition,
   encodeDefinition,
+  type ActivePresets,
   type DenseDefinitionSchema,
 } from '@dirty-geometry/vec2/schema/dense/definition';
-import type { ActivePresets } from '@dirty-geometry/vec2/schema/dense/numerics';
 
 /** Renumber node ids by position (`n0`, `n1`, …), as decoding does, so definitions can be compared. */
 export function normaliseDefinition(definition: Definition): Definition {
@@ -59,7 +59,7 @@ export const presetBits = (preset: { min: number; max: number; precision?: numbe
   Math.ceil(Math.log2((preset.max - preset.min) / (preset.precision ?? 1) + 1));
 
 /** Preset names of a role, cheapest first. */
-export function presetsByCost(schema: DenseDefinitionSchema, role: Role): string[] {
+export function presetsByCost(schema: DenseDefinitionSchema, role: string): string[] {
   const definition = schema.schema.definitions?.find((candidate) => candidate.name === role);
   if (!definition) return [];
   return Object.entries(definition.presets)
@@ -77,13 +77,13 @@ function fits(definition: Definition, presets: ActivePresets, schema: DenseDefin
 
 /**
  * For each role, the cheapest preset under which the definition round-trips unchanged (keeping the other
- * roles fixed). Roles where no preset is exact keep `current`.
+ * number types fixed). Types where no range is exact keep `current`.
  */
 export function choosePresets(
   definition: Definition,
   current: ActivePresets = {},
   schema: DenseDefinitionSchema = createDefinitionSchema(),
-  roles: readonly Role[] = ROLES,
+  roles: readonly string[] = NUMBER_TYPES,
 ): ActivePresets {
   const chosen: ActivePresets = { ...current };
   for (const role of roles) {

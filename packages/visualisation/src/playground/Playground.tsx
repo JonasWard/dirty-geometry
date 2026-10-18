@@ -3,13 +3,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Definition } from '@dirty-geometry/vec2/recording/definition';
 import { evaluateDefinition } from '@dirty-geometry/vec2/recording/replay';
-import type { Role as OperandRole } from '@dirty-geometry/vec2/schema/schema';
 import {
   createDefinitionSchema,
   decodeDefinition,
   encodeDefinition,
 } from '@dirty-geometry/vec2/schema/dense/definition';
-import { resolvePreset, type ActivePresets, type NumericOptions } from '@dirty-geometry/vec2/schema/dense/numerics';
+import { resolvePreset, type ActivePresets, type NumericOptions } from '@dirty-geometry/vec2/schema/dense/definition';
 import { choosePresets, quantisationReport } from './presets';
 import { decodePlaygroundHash, encodePlaygroundHash } from './url';
 import { VisualisationLegend } from '../core/VisualisationLegend';
@@ -115,7 +114,7 @@ export function Playground() {
     return () => window.removeEventListener('hashchange', onHashChange);
   }, []);
 
-  const step = (role: OperandRole) => {
+  const step = (role: string) => {
     if (role === 'epsilon') return undefined;
     try {
       return resolvePreset(schema.schema.definitions ?? [], role, presets).precision ?? 1;

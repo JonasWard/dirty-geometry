@@ -1,3 +1,4 @@
+import type { Integer } from '../../core/numbers';
 import { GridCell2 } from '../../grid/core/grid-cell2';
 
 const AXIS_DELTAS: readonly GridCell2[] = [
@@ -76,6 +77,6 @@ export function axisDirection(from: GridCell2, to: GridCell2): number | null {
   return index >= 0 ? index : null;
 }
 
-export function directionDelta(direction: number): GridCell2 {
+export function directionDelta(direction: Integer): GridCell2 {
   return AXIS_DELTAS[direction & 3]!;
 }

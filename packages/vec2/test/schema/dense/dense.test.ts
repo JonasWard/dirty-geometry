@@ -1,12 +1,13 @@
 import { describe, expect, test } from 'bun:test';
 import { densing, undensing } from 'densing';
 import { Vec2 } from '../../../src/core/vec2';
+import { Line2 } from '../../../src/geometry/primitives/line2';
 import { defaultRegistry } from '../../../src/io/default-registry';
 import type { Definition } from '../../../src/recording/definition';
 import { createRecorder } from '../../../src/recording/recorder';
 import { evaluateDefinition } from '../../../src/recording/replay';
 import { recordPlate } from '../../../examples/definitions/plate';
-import { classJson, operations } from '../../../schema/schema';
+import { operations, types } from '../../../schema/schema';
 import {
   createDefinitionSchema,
   createValueSchema,
@@ -14,8 +15,8 @@ import {
   decodeValue,
   encodeDefinition,
   encodeValue,
+  resolvePreset,
 } from '../../../schema/dense/definition';
-import { createNumerics, resolvePreset } from '../../../schema/dense/numerics';
 
 /** Node ids renumbered by position, as decoding does. */
 function normalise(definition: Definition) {
@@ -27,7 +28,7 @@ const roundTrip = (definition: Definition, presets = {}) =>
 
 function recordMixed(): Definition {
   const rec = createRecorder({ strict: true });
-  const { Vec2: V, Line2, Polygon2, Boolean2, Interval2, Epsilon, Circle2 } = rec.lib;
+  const { Vec2: V, Line2: L, Polygon2, Boolean2, Interval2, Epsilon, Circle2 } = rec.lib;
   const size = rec.param('size', 4);
   const a = new V(0, 0);
   const b = new V(size, 0);
@@ -36,29 +37,36 @@ function recordMixed(): Definition {
   rec.output('union', Boolean2.union([square, other], { slack: Epsilon.custom(0.0005) }).polygons);
   rec.output('mesh', rec.lib.ConstrainedDelaunay.triangulate([a, b, new V(1, 3)], [[0, 2], 1]));
   rec.output('ray', new Interval2(-1, Infinity));
-  rec.output('point', new Line2(a, b).evaluate(0.25));
+  rec.output('point', new L(a, b).evaluate(0.25));
   rec.output('rim', new Circle2(new V(1, 1), 0.5).evaluate(1.047));
   rec.output('outside', V.center(new Vec2(2, 4), a));
+  rec.output('hull', rec.lib.helpers.convexHullLoop([a, b, new V(1, 3)]));
   return rec.definition();
 }
 
 describe('definition schema', () => {
-  test('every schema operation is an op choice', () => {
+  test('every schema operation has a node variant, nested along its schema path', () => {
     const { schema } = createDefinitionSchema();
-    const node = JSON.stringify(schema);
-    for (const op of operations) expect(node).toContain(`"${op.id}"`);
+    const root = (schema.fields.find((f) => f.name === 'nodes') as any).items;
+    const reaches = (union: any, path: string[]): boolean =>
+      path.some((_, n) => {
+        const fields = union.variants[path.slice(0, n + 1).join('/')];
+        return !!fields && (n + 1 === path.length ? fields[0]?.name !== '$in' : reaches(fields[0], path.slice(n + 1)));
+      });
+    expect(operations.filter((op) => !reaches(root, op.path)).map((op) => op.id)).toEqual([]);
+    expect(root.discriminator.options).toEqual(['result', 'bounds', 'core', 'geometry', 'grid', 'operations']);
   });
 
   test('the plate definition round-trips and replays to the same result', () => {
     const definition = recordPlate();
-    const decoded = roundTrip(definition, { angle: 'rad@0.0001' });
+    const decoded = roundTrip(definition, { Radians: '±7@0.0001' });
     expect(decoded.nodes).toHaveLength(definition.nodes.length);
     expect(decoded.params).toEqual(definition.params);
     expect(evaluateDefinition(decoded).outputs.area).toBe(24);
-    expect(encodeDefinition(definition).length).toBeLessThan(JSON.stringify(definition).length / 5);
+    expect(encodeDefinition(definition).length).toBeLessThan(JSON.stringify(definition).length / 6);
   });
 
-  test('lists, tuples, options, epsilons, infinities, angles and outside values round-trip', () => {
+  test('lists, tuples, options, helpers, infinities, angles and outside values round-trip', () => {
     const definition = recordMixed();
     expect(normalise(roundTrip(definition))).toEqual(normalise(definition));
     const replayed = evaluateDefinition(roundTrip(definition)).outputs;
@@ -68,13 +76,13 @@ describe('definition schema', () => {
     );
   });
 
-  test('numbers off the preset grid are snapped; out-of-range numbers throw', () => {
+  test('numbers off the range grid are snapped; out-of-range numbers throw', () => {
     const rec = createRecorder();
     rec.output('p', new rec.lib.Vec2(1.23456, 2));
     const definition = rec.definition();
     expect(roundTrip(definition).nodes[0]).toMatchObject({ args: [1.23, 2] });
-    expect(roundTrip(definition, { coordinate: '±10@0.0001' }).nodes[0]).toMatchObject({ args: [1.2346, 2] });
-    expect(() => encodeDefinition(definition, { coordinate: '0..1@0.1' })).toThrow();
+    expect(roundTrip(definition, { Coordinate: '±10@0.0001' }).nodes[0]).toMatchObject({ args: [1.2346, 2] });
+    expect(() => encodeDefinition(definition, { Coordinate: '0..1@0.1' })).toThrow();
   });
 
   test('payloads from another vec2 schema are rejected with a clear error', () => {
@@ -84,13 +92,8 @@ describe('definition schema', () => {
   });
 
   test('operations outside the schema cannot be packed', () => {
-    const definition: Definition = {
-      format: 'vec2-definition',
-      version: 2,
-      params: {},
-      nodes: [{ id: 'n0', op: 'Vec2.nope' }],
-      outputs: {},
-    };
+    const nodes = [{ id: 'n0', op: 'Vec2.nope' }];
+    const definition: Definition = { format: 'vec2-definition', version: 3, params: {}, nodes, outputs: {} };
     expect(() => encodeDefinition(definition)).toThrow(/not in the vec2 schema/);
   });
 });
@@ -194,10 +197,8 @@ const samples: Record<string, unknown> = {
 describe('value schema', () => {
   const schema = createValueSchema();
 
-  test('every registered codec type has a layout', () => {
-    const tags = Object.values(classJson).map(
-      (json) => (json as { object: { type: { enum: string[] } } }).object.type.enum[0],
-    );
+  test('every registered codec type is a MathJson member', () => {
+    const tags = (types.MathJson as { or: string[] }).or.map((name) => name.replace(/Json$/, ''));
     expect(tags.sort()).toEqual([...defaultRegistry.types()].sort());
   });
 
@@ -207,17 +208,37 @@ describe('value schema', () => {
     expect((defaultRegistry.decode(decoded) as { toJson(): unknown }).toJson()).toEqual(value.toJson());
   });
 
-  test('presets trade size for range and precision', () => {
-    const point = new Vec2(1234.5, 2);
-    expect(() => encodeValue(point, {}, schema)).toThrow();
-    expect(decodeValue(encodeValue(point, { coordinate: '±10000@0.1' }, schema))).toEqual(point.toJson());
-    const small = encodeValue(new Vec2(1, 2), { coordinate: '0..10@1' }, schema);
-    expect(small.length).toBeLessThan(encodeValue(new Vec2(1, 2), { coordinate: '±10000@0.0001' }, schema).length);
+  test('nested JSON types are packed untagged and get their tag back', () => {
+    const line = new Line2(new Vec2(0, 0), new Vec2(3, 4));
+    expect(decodeValue(encodeValue(line, {}, schema))).toEqual(line.toJson());
   });
 
-  test('custom presets are added to their role', () => {
-    const numerics = createNumerics({ custom: { coordinate: { site: { min: -500, max: 500, precision: 0.05 } } } });
-    expect(resolvePreset(numerics, 'coordinate', { coordinate: 'site' })).toMatchObject({ min: -500, max: 500 });
-    expect(resolvePreset(numerics, 'coordinate').name).toBe('±100@0.01');
+  test('a Length cannot be negative', () => {
+    const circle = (radius: number) => ({
+      toJson: () => ({ type: 'Circle2', center: { type: 'Vec2', x: 0, y: 0 }, radius }),
+    });
+    expect(() => encodeValue(circle(1), {}, schema)).not.toThrow();
+    expect(() => encodeValue(circle(-1), {}, schema)).toThrow();
+  });
+
+  test('ranges trade size for extent and precision', () => {
+    const point = new Vec2(1234.5, 2);
+    expect(() => encodeValue(point, {}, schema)).toThrow();
+    expect(decodeValue(encodeValue(point, { Coordinate: '±10000@0.1' }, schema))).toEqual(point.toJson());
+    const small = encodeValue(new Vec2(1, 2), { Coordinate: '0..10@1' }, schema);
+    expect(small.length).toBeLessThan(encodeValue(new Vec2(1, 2), { Coordinate: '±10000@0.0001' }, schema).length);
+  });
+
+  test('custom ranges are added to their number type; refinements clamp their parent', () => {
+    const { schema } = createDefinitionSchema({
+      custom: { Coordinate: { site: { min: -500, max: 500, precision: 0.05 } } },
+    });
+    expect(resolvePreset(schema.definitions!, 'Coordinate', { Coordinate: 'site' })).toMatchObject({
+      min: -500,
+      max: 500,
+    });
+    expect(resolvePreset(schema.definitions!, 'Coordinate').name).toBe('±100@0.01');
+    expect(resolvePreset(schema.definitions!, 'Length').name).toBe('0..100@0.01');
+    expect(resolvePreset(schema.definitions!, 'Index').name).toBe('0..1024');
   });
 });

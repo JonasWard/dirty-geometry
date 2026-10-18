@@ -1,3 +1,4 @@
+import type { Length, Parameter, Tolerance } from '../../core/numbers';
 import { Aabb2 } from '../../bounds/aabb2';
 import { Vec2, type Vec2Json } from '../../core/vec2';
 import { Line2 } from '../primitives/line2';
@@ -40,7 +41,7 @@ export class Polyline2 {
    * Evaluate in the index domain `[0, n]`.
    * Integer `t` returns `vertices[t]`; values between `i` and `i + 1` interpolate segment `i`.
    */
-  evaluate(t: number): Vec2 {
+  evaluate(t: Parameter): Vec2 {
     const segments = this.segments();
     const clamped = Math.max(0, Math.min(this.n(), t));
 
@@ -54,15 +55,15 @@ export class Polyline2 {
   }
 
   /** Evaluate by arc length along the polyline. Values outside `[0, length()]` extrapolate. */
-  evaluateAtLength(length: number): Vec2 {
+  evaluateAtLength(length: Length): Vec2 {
     return Line2.evaluateAtLength(this.segments(), length);
   }
 
-  closestParametersForPoint(point: Vec2, additionalTolerance = 0): number[] {
+  closestParametersForPoint(point: Vec2, additionalTolerance: Tolerance = 0): number[] {
     return Line2.closestToPointForSegments(this.segments(), point, additionalTolerance).tParameters;
   }
 
-  closestPointsForPoint(point: Vec2, additionalTolerance = 0): Vec2[] {
+  closestPointsForPoint(point: Vec2, additionalTolerance: Tolerance = 0): Vec2[] {
     return Line2.closestToPointForSegments(this.segments(), point, additionalTolerance).points;
   }
 

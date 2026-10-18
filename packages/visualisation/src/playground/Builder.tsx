@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import type { Arg, Definition, Node } from '@dirty-geometry/vec2/recording/definition';
-import { isOptional, isRest, operations, slotType, type Role } from '@dirty-geometry/vec2/schema/schema';
+import { isOptional, isRest, operations, slotType } from '@dirty-geometry/vec2/schema/schema';
 import { DEFAULT_VALUES } from './defaults';
 import { describeValue } from './describe';
 import {
@@ -80,7 +80,7 @@ type BuilderProps = {
   issues: ReadonlyMap<string, string[]>;
   failure?: { node: string; message: string };
   selected: string | null;
-  step: (role: Role) => number | undefined;
+  step: (numberType: string) => number | undefined;
   onSelect: (node: string | null) => void;
   onChange: (definition: Definition) => void;
 };

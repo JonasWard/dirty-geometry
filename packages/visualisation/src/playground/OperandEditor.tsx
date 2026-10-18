@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import type { Arg } from '@dirty-geometry/vec2/recording/definition';
-import { slotType, type Role, type Type } from '@dirty-geometry/vec2/schema/schema';
+import { slotType, type Type } from '@dirty-geometry/vec2/schema/schema';
 import { DEFAULT_VALUES, defaultLiteral, literalShape, type LiteralShape } from './defaults';
 import { argOf, sourceKey } from './editing';
 
@@ -267,7 +267,7 @@ export function OperandEditor({
   /** Params and the nodes this operand may refer to (the ones before its node). */
   nodes: readonly NodeChoice[];
   /** Input step for numbers (the active preset's precision). */
-  step: (role: Role) => number | undefined;
+  step: (numberType: string) => number | undefined;
   onChange: (arg: Arg) => void;
 }) {
   const shape = literalShape(type);

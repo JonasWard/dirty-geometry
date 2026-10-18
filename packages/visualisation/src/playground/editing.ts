@@ -27,7 +27,7 @@ export const sourceOf = (key: string): Source => (key.startsWith('param:') ? { p
 export const argOf = (key: string): Arg => (key.startsWith('param:') ? { param: key.slice(6) } : { ref: key });
 
 export function emptyDefinition(): Definition {
-  return { format: 'vec2-definition', version: 2, params: {}, nodes: [], outputs: {} };
+  return { format: 'vec2-definition', version: 3, params: {}, nodes: [], outputs: {} };
 }
 
 /** A fresh node id (`n<k>`) not used in `definition`. */

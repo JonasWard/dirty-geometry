@@ -1,10 +1,10 @@
 /** The literal forms an operand type admits, and the literal a new operand starts with. */
 import type { Arg } from '@dirty-geometry/vec2/recording/definition';
-import { classJson, resolve, ROLES, type Role, type Slot, type Type } from '@dirty-geometry/vec2/schema/schema';
+import { classJson, isKind, NUMBER_TYPES, resolve, type Slot, type Type } from '@dirty-geometry/vec2/schema/schema';
 
-/** What literal forms a type admits, merged over unions; `number` is the role numbers are stored with. */
+/** What literal forms a type admits, merged over unions; `number` is the number type (`Coordinate`, `Radians`, …). */
 export type LiteralShape = {
-  number?: Role;
+  number?: string;
   boolean?: true;
   string?: true;
   null?: true;
@@ -15,23 +15,24 @@ export type LiteralShape = {
   object?: Record<string, Slot>;
 };
 
-const tagOf = (cls: string) => (classJson[cls] as { object: { type: { enum: string[] } } }).object.type.enum[0]!;
+const tagOf = (cls: string) => classJson[cls]!.replace(/Json$/, '');
 
 export function literalShape(type: Type, shape: LiteralShape = {}): LiteralShape {
   const t = resolve(type);
   if (typeof t === 'string') {
     if (t in classJson) shape.values = [...new Set([...(shape.values ?? []), tagOf(t)])];
     else if (t === 'boolean' || t === 'string' || t === 'null') shape[t] = true;
-    else if (t === 'number' || (ROLES as readonly string[]).includes(t))
-      shape.number ??= t === 'number' ? 'coordinate' : (t as Role);
-  } else if (Array.isArray(t)) shape.array = t[0];
-  else if ('tuple' in t) shape.array = t.tuple[0];
-  else if ('or' in t) t.or.forEach((member) => literalShape(member, shape));
-  else if ('object' in t) shape.object = { ...shape.object, ...t.object };
-  else if ('enum' in t) {
-    if (t.enum.includes(null)) shape.null = true;
-    shape.choices = [...(shape.choices ?? []), ...(t.enum.filter((v) => v !== null) as (string | number)[])];
+    else if (t === 'number' || NUMBER_TYPES.includes(t)) shape.number ??= t === 'number' ? 'Coordinate' : t;
+    return shape;
   }
+  const o = t as Record<string, any>;
+  if (Array.isArray(t)) shape.array = t[0];
+  else if (isKind(o, 'tuple')) shape.array = o.tuple[0];
+  else if (isKind(o, 'or')) o.or.forEach((member: Type) => literalShape(member, shape));
+  else if (isKind(o, 'enum')) {
+    if (o.enum.includes(null)) shape.null = true;
+    shape.choices = [...(shape.choices ?? []), ...o.enum.filter((v: unknown) => v !== null)];
+  } else if (!isKind(o, 'record')) shape.object = { ...shape.object, ...o };
   return shape;
 }
 
@@ -81,19 +82,18 @@ export const DEFAULT_VALUES: Readonly<Record<string, unknown>> = {
   CellCollection: { type: 'CellCollection', cells: [{ type: 'GridCell2', i: 0, j: 0 }] },
 };
 
-const DEFAULT_NUMBER: Readonly<Record<Role, number>> = {
-  coordinate: 1,
-  angle: 0,
-  parameter: 0.5,
-  integer: 0,
-  epsilon: 0.000001,
+const DEFAULT_NUMBER: Readonly<Record<string, number>> = {
+  Coordinate: 1,
+  Length: 1,
+  Parameter: 0.5,
+  Tolerance: 0.000001,
 };
 
 /** The literal a new operand of `type` starts with, or `undefined` when it can only be a node. */
 export function defaultLiteral(type: Type): Arg | undefined {
   const shape = literalShape(type);
   if (shape.values?.length) return { value: DEFAULT_VALUES[shape.values[0]!] ?? DEFAULT_VALUES.Vec2 };
-  if (shape.number) return DEFAULT_NUMBER[shape.number];
+  if (shape.number) return DEFAULT_NUMBER[shape.number] ?? 0;
   if (shape.choices?.length) return shape.choices[0]!;
   if (shape.boolean) return false;
   if (shape.array) return [];

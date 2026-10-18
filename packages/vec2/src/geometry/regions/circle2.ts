@@ -1,3 +1,4 @@
+import type { Length, Radians } from '../../core/numbers';
 import { Aabb2 } from '../../bounds/aabb2';
 import { Interval2 } from '../../bounds/interval2';
 import { Epsilon } from '../../core/epsilon';
@@ -16,7 +17,7 @@ export class Circle2 {
   readonly center: Vec2;
   readonly radius: number;
 
-  constructor(center: Vec2, radius: number) {
+  constructor(center: Vec2, radius: Length) {
     if (!(radius >= 0) || !Number.isFinite(radius)) {
       throw new Error('Circle2 radius must be a finite non-negative number');
     }
@@ -26,7 +27,7 @@ export class Circle2 {
   }
 
   /** Point on the circle at polar angle `theta` (radians, CCW from +x). */
-  evaluate(theta: number): Vec2 {
+  evaluate(theta: Radians): Vec2 {
     return this.center.add(new Vec2(Math.cos(theta), Math.sin(theta)).scale(this.radius));
   }
 
@@ -122,5 +123,5 @@ export class Circle2 {
 export type Circle2Json = {
   type: typeof Circle2.type;
   center: Vec2Json;
-  radius: number;
+  radius: Length;
 };

@@ -1,3 +1,4 @@
+import type { Coordinate } from './numbers';
 import { hash2scale } from '../hash/core';
 import { Angle, type AngleOptions } from './angle';
 import { Epsilon } from './epsilon';
@@ -12,8 +13,8 @@ export class Vec2 {
   }
 
   constructor(
-    readonly x = 0,
-    readonly y = 0,
+    readonly x: Coordinate = 0,
+    readonly y: Coordinate = 0,
   ) {}
 
   add(other: Vec2): Vec2 {
@@ -24,7 +25,7 @@ export class Vec2 {
     return new Vec2(this.x - other.x, this.y - other.y);
   }
 
-  scale(factor: number): Vec2 {
+  scale(factor: Coordinate): Vec2 {
     return new Vec2(this.x * factor, this.y * factor);
   }
 
@@ -115,7 +116,7 @@ export class Vec2 {
     return new Vec2(e[0]! * this.x + e[3]! * this.y, e[1]! * this.x + e[4]! * this.y);
   }
 
-  hash(scale = Epsilon.value): number {
+  hash(scale: Coordinate = Epsilon.value): number {
     return hash2scale(this.x, this.y, scale);
   }
 
@@ -169,6 +170,6 @@ export class Vec2 {
 
 export type Vec2Json = {
   type: typeof Vec2.type;
-  x: number;
-  y: number;
+  x: Coordinate;
+  y: Coordinate;
 };

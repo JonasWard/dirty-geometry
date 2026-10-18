@@ -1,3 +1,4 @@
+import type { Coordinate, Length, Tolerance } from './numbers';
 export class Epsilon {
   static readonly type = 'Epsilon' as const;
 
@@ -22,7 +23,7 @@ export class Epsilon {
   }
 
   /** Resolve boolean, numeric, or pre-built slack to an `Epsilon` tolerance. */
-  static custom(input: boolean | number | Epsilon): Epsilon {
+  static custom(input: boolean | Tolerance | Epsilon): Epsilon {
     if (input instanceof Epsilon) {
       return input;
     }
@@ -56,11 +57,11 @@ export class Epsilon {
    * `directionLength` (`point = through + t * direction`). Use it for `t` comparisons, so the
    * tolerance stays a distance whatever the direction's length.
    */
-  static parameter(directionLength: number, length = Epsilon.value): number {
+  static parameter(directionLength: Coordinate, length: Length = Epsilon.value): number {
     return directionLength > 0 ? length / directionLength : Infinity;
   }
 
-  areEqual(a: number, b: number): boolean {
+  areEqual(a: Coordinate, b: Coordinate): boolean {
     return Math.abs(a - b) <= this.value;
   }
 
@@ -74,5 +75,5 @@ export class Epsilon {
 
 export type EpsilonJson = {
   type: typeof Epsilon.type;
-  value: number;
+  value: Tolerance;
 };

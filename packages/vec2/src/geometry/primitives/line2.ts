@@ -1,3 +1,4 @@
+import type { Length, Parameter, Tolerance } from '../../core/numbers';
 import type { Mat3 } from '../../core/mat3';
 import { partialSum } from '../../analysis/aggregation/partial-sum';
 import { Aabb2 } from '../../bounds/aabb2';
@@ -29,7 +30,7 @@ export class Line2 {
     return this.to.subtract(this.from);
   }
 
-  evaluate(t: number): Vec2 {
+  evaluate(t: Parameter): Vec2 {
     return this.infiniteLine().evaluate(t);
   }
 
@@ -93,7 +94,7 @@ export class Line2 {
    * Sample a chain of segments by arc length.
    * Lengths outside `[0, totalLength]` extrapolate along the first or last segment.
    */
-  static evaluateAtLength(segments: readonly Line2[], length: number): Vec2 {
+  static evaluateAtLength(segments: readonly Line2[], length: Length): Vec2 {
     if (segments.length === 0) {
       throw new Error('Line2.evaluateAtLength requires at least one segment');
     }
@@ -128,7 +129,7 @@ export class Line2 {
   static closestToPointForSegments(
     segments: readonly Line2[],
     point: Vec2,
-    additionalTolerance = 0,
+    additionalTolerance: Tolerance = 0,
   ): {
     smallestDistance: number;
     tParameters: number[];

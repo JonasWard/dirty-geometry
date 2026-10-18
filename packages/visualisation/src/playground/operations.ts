@@ -54,7 +54,7 @@ export const OPERATION_GROUPS: readonly { label: string; ops: readonly string[] 
     ],
   },
   { label: 'Booleans', ops: ['Boolean2.union', 'Boolean2.subtract', 'Boolean2.intersect'] },
-  { label: 'Mesh', ops: ['ConstrainedDelaunay.triangulate', 'convexHullLoop'] },
+  { label: 'Mesh', ops: ['ConstrainedDelaunay.triangulate', 'helpers.convexHullLoop'] },
   { label: 'Transforms', ops: ['Mat3.translation', 'Mat3.rotation', 'Mat3.scale'] },
 ];
 

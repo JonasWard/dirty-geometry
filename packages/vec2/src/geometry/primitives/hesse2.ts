@@ -1,3 +1,4 @@
+import type { Coordinate, Integer } from '../../core/numbers';
 import type { Mat3 } from '../../core/mat3';
 import { Angle, type AnglePrecisions } from '../../core/angle';
 import { Epsilon } from '../../core/epsilon';
@@ -32,7 +33,7 @@ export class Hesse2 {
   readonly normal: Vec2;
   readonly offset: number;
 
-  constructor(normal: Vec2, offset: number) {
+  constructor(normal: Vec2, offset: Coordinate) {
     if (normal.isZeroLength()) {
       throw new Error('Hesse2 requires a non-zero normal');
     }
@@ -119,7 +120,7 @@ export class Hesse2 {
     return distanceHash * 2 ** Hesse2.HASH_ANGLE_BITWIDTH + angleHash;
   }
 
-  static fromHash(hash: number): Hesse2 {
+  static fromHash(hash: Integer): Hesse2 {
     const angleBits = 2 ** Hesse2.HASH_ANGLE_BITWIDTH;
     const angleHash = hash % angleBits;
     const distanceHash = Math.floor(hash / angleBits);
@@ -142,5 +143,5 @@ export class Hesse2 {
 export type Hesse2Json = {
   type: typeof Hesse2.type;
   normal: Vec2Json;
-  offset: number;
+  offset: Coordinate;
 };

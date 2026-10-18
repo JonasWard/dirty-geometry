@@ -78,10 +78,10 @@ describe('recorder', () => {
     const ops = definition.nodes.map((node) => node.op);
     expect(ops).toContain('Vec2.center');
     expect(ops.filter((op) => op === 'Epsilon.preferIn')).toHaveLength(1);
-    expect(ops).toContain('item');
-    expect(ops).toContain('field');
+    expect(ops).toContain('result.item');
+    expect(ops).toContain('result.field');
     expect(ops).toContain('ConstrainedDelaunay.triangulate');
-    expect(ops).toContain('convexHullLoop');
+    expect(ops).toContain('helpers.convexHullLoop');
     expect(nodeOf(definition, 'Vec2.center')).toMatchObject({ args: [{ ref: 'n0' }, { ref: 'n1' }, { ref: 'n2' }] });
     expect(nodeOf(definition, 'Interval2.new')).toMatchObject({ args: [0, { number: 'Infinity' }] });
   });

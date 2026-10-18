@@ -1,3 +1,4 @@
+import type { Coordinate, Index, Length } from '../../core/numbers';
 import { Epsilon } from '../../core/epsilon';
 import { Interval2, type Interval2Json } from '../../bounds/interval2';
 import { GRID_MAX_INDEX, GRID_MIN_INDEX } from './limits';
@@ -70,13 +71,13 @@ export class Axis {
   }
 
   /** All indexes share the same interval length. Size ≈ `1` becomes {@link Axis.unit}. */
-  static uniform(size: number, domain: Interval2 | null = null): Axis {
+  static uniform(size: Length, domain: Interval2 | null = null): Axis {
     Axis.assertPositiveSize(size, 'Axis uniform size');
     return new Axis(size, null, domain);
   }
 
   /** Default length plus per-index overrides (at least one required). */
-  static custom(defaultSize: number, sizes: Record<number, number>, domain: Interval2 | null = null): Axis {
+  static custom(defaultSize: Length, sizes: Record<number, Length>, domain: Interval2 | null = null): Axis {
     Axis.assertPositiveSize(defaultSize, 'Axis default size');
     const axis = new Axis(defaultSize, null, domain);
     for (const [index, size] of Object.entries(sizes)) {
@@ -117,12 +118,12 @@ export class Axis {
     return this.domain() ?? Axis.limits;
   }
 
-  containsIndex(index: number): boolean {
+  containsIndex(index: Index): boolean {
     return this.indexDomain().contains(index);
   }
 
   /** Local-space length of the interval at `index`. Throws if out of domain. */
-  size(index: number): number {
+  size(index: Index): number {
     if (!this.containsIndex(index)) {
       throw new Error('Axis index out of domain');
     }
@@ -144,7 +145,7 @@ export class Axis {
    * Index 0 starts at 0 and negative indexes extend below the origin, also when the domain excludes 0.
    * Valid for `domain.min … domain.max + 1` (the last is the exclusive high lattice edge).
    */
-  edge(index: number): number {
+  edge(index: Index): number {
     const domain = this.indexDomain();
     if (index < domain.min || index > domain.max + 1) {
       throw new Error('Axis index out of domain');
@@ -161,7 +162,7 @@ export class Axis {
   }
 
   /** Map a local coordinate to its interval index, or `null` when it falls outside the domain. */
-  indexAt(coordinate: number): number | null {
+  indexAt(coordinate: Coordinate): number | null {
     const domain = this.indexDomain();
 
     if (this.kind() !== 'custom') {
@@ -200,7 +201,7 @@ export class Axis {
    * Override size at `index`. Promotes unit/uniform to custom; clearing the last override
    * demotes back to unit/uniform.
    */
-  setSize(index: number, size: number, slack: Epsilon = Epsilon.preferIn): this {
+  setSize(index: Index, size: Length, slack: Epsilon = Epsilon.preferIn): this {
     Axis.assertPositiveSize(size, 'Axis size');
     if (!this.containsIndex(index)) {
       throw new Error('Axis index out of domain');
@@ -268,8 +269,8 @@ export type AxisJson = {
   type: typeof Axis.type;
   kind: AxisKind;
   /** The cell size of a uniform axis, the default cell size of a custom one. */
-  size?: number;
+  size?: Length;
   /** A custom axis's sizes that differ from `size`. */
-  sizes?: { index: number; size: number }[];
+  sizes?: { index: Index; size: Length }[];
   domain?: Interval2Json;
 };

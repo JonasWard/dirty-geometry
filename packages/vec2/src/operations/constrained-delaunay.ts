@@ -14,6 +14,7 @@
  * Use `ConstrainedDelaunay.triangulate` when points and constraint indices are already known
  * (e.g. Boolean2 after packing).
  */
+import type { Length } from '../core/numbers';
 import { assertNever } from '../core/assert';
 import { Epsilon } from '../core/epsilon';
 import { hash2scale } from '../hash/core';
@@ -88,7 +89,7 @@ export class ConstrainedDelaunay {
     points: readonly Vec2[],
     constraints: readonly ConstraintEdgeInput[] = [],
     slack: Epsilon = Epsilon.preferIn,
-    gridSize?: number,
+    gridSize?: Length,
   ): TriMesh2 {
     return ConstrainedDelaunay.report(points, constraints, slack, gridSize).mesh;
   }
@@ -98,7 +99,7 @@ export class ConstrainedDelaunay {
     points: readonly Vec2[],
     constraints: readonly ConstraintEdgeInput[] = [],
     slack: Epsilon = Epsilon.preferIn,
-    gridSize?: number,
+    gridSize?: Length,
   ): ConstrainedDelaunayReport {
     const stats = emptyCdtStats();
     if (points.length === 0) return { mesh: TriMesh2.withoutCleanup([], []), unresolved: [], stats };

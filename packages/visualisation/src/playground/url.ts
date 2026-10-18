@@ -4,14 +4,14 @@
  */
 import { array, densing, enumArray, enumeration, int, object, optional, schema, undensing } from 'densing';
 import type { Definition } from '@dirty-geometry/vec2/recording/definition';
-import { ROLES, type Role } from '@dirty-geometry/vec2/schema/schema';
+import { NUMBER_TYPES } from '@dirty-geometry/vec2/schema/schema';
 import {
   createDefinitionSchema,
   decodeDefinition,
   encodeDefinition,
 } from '@dirty-geometry/vec2/schema/dense/definition';
 import type { NumericPreset as CustomPreset } from 'densing';
-import type { ActivePresets, NumericOptions } from '@dirty-geometry/vec2/schema/dense/numerics';
+import type { ActivePresets, NumericOptions } from '@dirty-geometry/vec2/schema/dense/definition';
 
 const NAME_CHARS = [...'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_$-.@±'];
 const NUMBER_CHARS = [...'0123456789.-e'];
@@ -31,7 +31,7 @@ const optionsSchema = schema(
     32,
     object(
       'preset',
-      enumeration('role', ROLES),
+      enumeration('role', NUMBER_TYPES),
       text('name', NAME_CHARS),
       text('min', NUMBER_CHARS),
       text('max', NUMBER_CHARS),
@@ -43,7 +43,7 @@ const optionsSchema = schema(
 const numberChars = (value: number, label: string) => toChars(String(value), NUMBER_CHARS, label);
 
 export function encodeOptions(options: NumericOptions): string {
-  const custom = ROLES.flatMap((role) =>
+  const custom = NUMBER_TYPES.flatMap((role) =>
     Object.entries(options.custom?.[role] ?? {}).map(([name, preset]) => ({
       role,
       name: toChars(name, NAME_CHARS, `preset ${name}`),
@@ -57,9 +57,9 @@ export function encodeOptions(options: NumericOptions): string {
 
 export function decodeOptions(text: string): NumericOptions {
   const data = undensing(optionsSchema, text) as { custom: Record<string, any>[] };
-  const custom: Partial<Record<Role, Record<string, CustomPreset>>> = {};
+  const custom: Record<string, Record<string, CustomPreset>> = {};
   for (const preset of data.custom) {
-    const role = preset.role as Role;
+    const role = preset.role as string;
     custom[role] = {
       ...(custom[role] ?? {}),
       [fromChars(preset.name)]: {

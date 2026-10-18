@@ -1,3 +1,4 @@
+import type { Index } from '../../../core/numbers';
 import { Aabb2 } from '../../../bounds/aabb2';
 import { Vec2 } from '../../../core/vec2';
 import { convexHullLoop } from './hull';
@@ -24,7 +25,7 @@ const edgeKey = (a: number, b: number) => (a < b ? `${a}:${b}` : `${b}:${a}`);
  */
 export function triangulateConstrained(
   vertices: readonly Vec2[],
-  constraints: readonly (readonly [number, number])[],
+  constraints: readonly (readonly [Index, Index])[],
   stats: CdtStats = emptyCdtStats(),
 ): CdtResult {
   const n = vertices.length;

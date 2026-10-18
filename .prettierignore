@@ -1,2 +1,3 @@
 packages/vec2/schema/vec2.schema.json
 packages/vec2/schema/vec2.dense.json
+packages/vec2/schema/dense/v3/vec2.dense.json

@@ -1,0 +1,1160 @@
+[
+  {
+    "name": "plate",
+    "dense": "AAAk4KtlAgLqiNoZgUtANBhOn_s4KKAKn0X6YziPCwyEBkBbDQNPwCdCBQXEJzA7AHQR_Hz2gHgfVrvurb4gAgI7juQADYI13BjQD4ECgKnEKnEFAEACpxBQBAAIAKgKnECAC5BQAEAAAABAAQADUAQAKnEFLABSAGoCpxAgAqWAD1OhKBADAAhwAAJIATiQBVbWHEgCq5wuJAFV5pcSAKr_k4kAVYXtxIAqxgbiQBVkjHEgCrMKuJAFWeecSAKtJM4kAVaq9xIAq2HDiQBVtwHEgCrekuJAFXDScSAKuS05BQAQABYAMABoAOAB4AQACIASACYAUACoAWAC4AYADIAaoaAAIAEADdViAcCKBzcZ5U-ciAcB-L3iwT2YciACA",
+    "url": "EA/AAAk4KtlAgLqiNoZgUtANBhOn_s4KKAKn0X6YziPCwyEBkBbDQNPwCdCBQXEJzA7AHQR_Hz2gHgfVrvurb4gAgI7juQADYI13BjQD4ECgKnEKnEFAEACpxBQBAAIAKgKnECAC5BQAEAAAABAAQADUAQAKnEFLABSAGoCpxAgAqWAD1OhKBADAAhwAAJIATiQBVbWHEgCq5wuJAFV5pcSAKr_k4kAVYXtxIAqxgbiQBVkjHEgCrMKuJAFWeecSAKtJM4kAVaq9xIAq2HDiQBVtwHEgCrekuJAFXDScSAKuS05BQAQABYAMABoAOAB4AQACIASACYAUACoAWAC4AYADIAaoaAAIAEADdViAcCKBzcZ5U-ciAcB-L3iwT2YciACA",
+    "definition": {
+      "format": "vec2-definition",
+      "version": 3,
+      "params": {
+        "width": {
+          "type": "number",
+          "value": 6
+        },
+        "height": {
+          "type": "number",
+          "value": 4
+        },
+        "holeRadius": {
+          "type": "number",
+          "value": 1
+        },
+        "holeX": {
+          "type": "number",
+          "value": 0.5
+        }
+      },
+      "nodes": [
+        {
+          "id": "n0",
+          "op": "Vec2.new",
+          "args": [0, 0]
+        },
+        {
+          "id": "n1",
+          "op": "Vec2.new",
+          "args": [
+            {
+              "param": "width"
+            },
+            0
+          ]
+        },
+        {
+          "id": "n2",
+          "op": "Vec2.new",
+          "args": [
+            {
+              "param": "width"
+            },
+            {
+              "param": "height"
+            }
+          ]
+        },
+        {
+          "id": "n3",
+          "op": "Vec2.new",
+          "args": [
+            0,
+            {
+              "param": "height"
+            }
+          ]
+        },
+        {
+          "id": "n4",
+          "op": "Polygon2.new",
+          "args": [
+            [
+              {
+                "ref": "n0"
+              },
+              {
+                "ref": "n1"
+              },
+              {
+                "ref": "n2"
+              },
+              {
+                "ref": "n3"
+              }
+            ]
+          ]
+        },
+        {
+          "id": "n5",
+          "op": "Vec2.new",
+          "args": [
+            {
+              "param": "width"
+            },
+            0
+          ]
+        },
+        {
+          "id": "n6",
+          "op": "Vec2.scale",
+          "self": "n5",
+          "args": [
+            {
+              "param": "holeX"
+            }
+          ]
+        },
+        {
+          "id": "n7",
+          "op": "Vec2.new",
+          "args": [
+            0,
+            {
+              "param": "height"
+            }
+          ]
+        },
+        {
+          "id": "n8",
+          "op": "Vec2.scale",
+          "self": "n7",
+          "args": [0.5]
+        },
+        {
+          "id": "n9",
+          "op": "Vec2.add",
+          "self": "n6",
+          "args": [
+            {
+              "ref": "n8"
+            }
+          ]
+        },
+        {
+          "id": "n10",
+          "op": "Circle2.new",
+          "args": [
+            {
+              "ref": "n9"
+            },
+            {
+              "param": "holeRadius"
+            }
+          ]
+        },
+        {
+          "id": "n11",
+          "op": "Circle2.evaluate",
+          "self": "n10",
+          "args": [0]
+        },
+        {
+          "id": "n12",
+          "op": "Circle2.evaluate",
+          "self": "n10",
+          "args": [0.393]
+        },
+        {
+          "id": "n13",
+          "op": "Circle2.evaluate",
+          "self": "n10",
+          "args": [0.785]
+        },
+        {
+          "id": "n14",
+          "op": "Circle2.evaluate",
+          "self": "n10",
+          "args": [1.178]
+        },
+        {
+          "id": "n15",
+          "op": "Circle2.evaluate",
+          "self": "n10",
+          "args": [1.571]
+        },
+        {
+          "id": "n16",
+          "op": "Circle2.evaluate",
+          "self": "n10",
+          "args": [1.963]
+        },
+        {
+          "id": "n17",
+          "op": "Circle2.evaluate",
+          "self": "n10",
+          "args": [2.356]
+        },
+        {
+          "id": "n18",
+          "op": "Circle2.evaluate",
+          "self": "n10",
+          "args": [2.749]
+        },
+        {
+          "id": "n19",
+          "op": "Circle2.evaluate",
+          "self": "n10",
+          "args": [3.142]
+        },
+        {
+          "id": "n20",
+          "op": "Circle2.evaluate",
+          "self": "n10",
+          "args": [3.534]
+        },
+        {
+          "id": "n21",
+          "op": "Circle2.evaluate",
+          "self": "n10",
+          "args": [3.927]
+        },
+        {
+          "id": "n22",
+          "op": "Circle2.evaluate",
+          "self": "n10",
+          "args": [4.32]
+        },
+        {
+          "id": "n23",
+          "op": "Circle2.evaluate",
+          "self": "n10",
+          "args": [4.712]
+        },
+        {
+          "id": "n24",
+          "op": "Circle2.evaluate",
+          "self": "n10",
+          "args": [5.105]
+        },
+        {
+          "id": "n25",
+          "op": "Circle2.evaluate",
+          "self": "n10",
+          "args": [5.498]
+        },
+        {
+          "id": "n26",
+          "op": "Circle2.evaluate",
+          "self": "n10",
+          "args": [5.89]
+        },
+        {
+          "id": "n27",
+          "op": "Polygon2.new",
+          "args": [
+            [
+              {
+                "ref": "n11"
+              },
+              {
+                "ref": "n12"
+              },
+              {
+                "ref": "n13"
+              },
+              {
+                "ref": "n14"
+              },
+              {
+                "ref": "n15"
+              },
+              {
+                "ref": "n16"
+              },
+              {
+                "ref": "n17"
+              },
+              {
+                "ref": "n18"
+              },
+              {
+                "ref": "n19"
+              },
+              {
+                "ref": "n20"
+              },
+              {
+                "ref": "n21"
+              },
+              {
+                "ref": "n22"
+              },
+              {
+                "ref": "n23"
+              },
+              {
+                "ref": "n24"
+              },
+              {
+                "ref": "n25"
+              },
+              {
+                "ref": "n26"
+              }
+            ]
+          ]
+        },
+        {
+          "id": "n28",
+          "op": "Boolean2.subtract",
+          "args": [
+            [
+              {
+                "ref": "n4"
+              }
+            ],
+            {
+              "ref": "n27"
+            },
+            {
+              "object": {
+                "mesh": true
+              }
+            }
+          ]
+        },
+        {
+          "id": "n29",
+          "op": "result.field",
+          "of": "n28",
+          "name": "polygons"
+        },
+        {
+          "id": "n30",
+          "op": "result.field",
+          "of": "n28",
+          "name": "triMesh"
+        },
+        {
+          "id": "n31",
+          "op": "Polygon2.area",
+          "self": "n4"
+        }
+      ],
+      "outputs": {
+        "plate": "n29",
+        "mesh": "n30",
+        "outline": "n4",
+        "hole": "n27",
+        "area": "n31"
+      }
+    }
+  },
+  {
+    "name": "mixed",
+    "dense": "AAAk4KtlAIJEgIQQUUASC6Cv028AYCP4-e0AcB2xpQA8FxDtb2ABEDtmNgCgPq136M2AoBUEdzg5oBcEeNNC4BgEc-XdQBsBxQFTiFTiCgCABU4goAgAEABQFTiBAAcgoACAAAAAgAIABqAqfYqfYUBVLRU-woCqWiqWhQFT7FUtDkFAAQACgAYADgAhE16IaUVAAIACAAmgApCALCKBzcZ5U-cqAqd0qg8p6AAYAAAAIANoABUAAqACgCwAUjBU1ZBsAAAAAFsgAhT6UBU7pU7o4AAJUAycSATr7eogCYE-wooAAAoCp3SqDywlAAMAAAAEALGCpxCp3RzAAIABkAAGygDQ",
+    "url": "EA/AAAk4KtlAIJEgIQQUUASC6Cv028AYCP4-e0AcB2xpQA8FxDtb2ABEDtmNgCgPq136M2AoBUEdzg5oBcEeNNC4BgEc-XdQBsBxQFTiFTiCgCABU4goAgAEABQFTiBAAcgoACAAAAAgAIABqAqfYqfYUBVLRU-woCqWiqWhQFT7FUtDkFAAQACgAYADgAhE16IaUVAAIACAAmgApCALCKBzcZ5U-cqAqd0qg8p6AAYAAAAIANoABUAAqACgCwAUjBU1ZBsAAAAAFsgAhT6UBU7pU7o4AAJUAycSATr7eogCYE-wooAAAoCp3SqDywlAAMAAAAEALGCpxCp3RzAAIABkAAGygDQ",
+    "definition": {
+      "format": "vec2-definition",
+      "version": 3,
+      "params": {
+        "size": {
+          "type": "number",
+          "value": 4
+        }
+      },
+      "nodes": [
+        {
+          "id": "n0",
+          "op": "Vec2.new",
+          "args": [0, 0]
+        },
+        {
+          "id": "n1",
+          "op": "Vec2.new",
+          "args": [
+            {
+              "param": "size"
+            },
+            0
+          ]
+        },
+        {
+          "id": "n2",
+          "op": "Vec2.new",
+          "args": [
+            {
+              "param": "size"
+            },
+            {
+              "param": "size"
+            }
+          ]
+        },
+        {
+          "id": "n3",
+          "op": "Vec2.new",
+          "args": [
+            0,
+            {
+              "param": "size"
+            }
+          ]
+        },
+        {
+          "id": "n4",
+          "op": "Polygon2.new",
+          "args": [
+            [
+              {
+                "ref": "n0"
+              },
+              {
+                "ref": "n1"
+              },
+              {
+                "ref": "n2"
+              },
+              {
+                "ref": "n3"
+              }
+            ]
+          ]
+        },
+        {
+          "id": "n5",
+          "op": "Vec2.new",
+          "args": [2, 2]
+        },
+        {
+          "id": "n6",
+          "op": "Vec2.new",
+          "args": [6, 2]
+        },
+        {
+          "id": "n7",
+          "op": "Vec2.new",
+          "args": [6, 6]
+        },
+        {
+          "id": "n8",
+          "op": "Vec2.new",
+          "args": [2, 6]
+        },
+        {
+          "id": "n9",
+          "op": "Polygon2.new",
+          "args": [
+            [
+              {
+                "ref": "n5"
+              },
+              {
+                "ref": "n6"
+              },
+              {
+                "ref": "n7"
+              },
+              {
+                "ref": "n8"
+              }
+            ]
+          ]
+        },
+        {
+          "id": "n10",
+          "op": "Epsilon.custom",
+          "args": [0.0005]
+        },
+        {
+          "id": "n11",
+          "op": "Boolean2.union",
+          "args": [
+            [
+              {
+                "ref": "n4"
+              },
+              {
+                "ref": "n9"
+              }
+            ],
+            {
+              "object": {
+                "slack": {
+                  "ref": "n10"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "id": "n12",
+          "op": "result.field",
+          "of": "n11",
+          "name": "polygons"
+        },
+        {
+          "id": "n13",
+          "op": "Vec2.new",
+          "args": [1, 3]
+        },
+        {
+          "id": "n14",
+          "op": "ConstrainedDelaunay.triangulate",
+          "args": [
+            [
+              {
+                "ref": "n0"
+              },
+              {
+                "ref": "n1"
+              },
+              {
+                "ref": "n13"
+              }
+            ],
+            [[0, 2], 1]
+          ]
+        },
+        {
+          "id": "n15",
+          "op": "Interval2.new",
+          "args": [
+            -1,
+            {
+              "number": "Infinity"
+            }
+          ]
+        },
+        {
+          "id": "n16",
+          "op": "Line2.new",
+          "args": [
+            {
+              "ref": "n0"
+            },
+            {
+              "ref": "n1"
+            }
+          ]
+        },
+        {
+          "id": "n17",
+          "op": "Line2.evaluate",
+          "self": "n16",
+          "args": [0.25]
+        },
+        {
+          "id": "n18",
+          "op": "Vec2.new",
+          "args": [1, 1]
+        },
+        {
+          "id": "n19",
+          "op": "Circle2.new",
+          "args": [
+            {
+              "ref": "n18"
+            },
+            0.5
+          ]
+        },
+        {
+          "id": "n20",
+          "op": "Circle2.evaluate",
+          "self": "n19",
+          "args": [1.047]
+        },
+        {
+          "id": "n21",
+          "op": "Vec2.center",
+          "args": [
+            {
+              "value": {
+                "type": "Vec2",
+                "x": 2,
+                "y": 4
+              }
+            },
+            {
+              "ref": "n0"
+            }
+          ]
+        },
+        {
+          "id": "n22",
+          "op": "Vec2.new",
+          "args": [1, 3]
+        },
+        {
+          "id": "n23",
+          "op": "helpers.convexHullLoop",
+          "args": [
+            [
+              {
+                "ref": "n0"
+              },
+              {
+                "ref": "n1"
+              },
+              {
+                "ref": "n22"
+              }
+            ]
+          ]
+        },
+        {
+          "id": "n24",
+          "op": "Interval2.new",
+          "args": [0, 1]
+        },
+        {
+          "id": "n25",
+          "op": "Polygon2.segments",
+          "self": "n4"
+        },
+        {
+          "id": "n26",
+          "op": "result.item",
+          "of": "n25",
+          "index": 0
+        },
+        {
+          "id": "n27",
+          "op": "Line2.from",
+          "self": "n26"
+        }
+      ],
+      "outputs": {
+        "union": "n12",
+        "mesh": "n14",
+        "ray": "n15",
+        "point": "n17",
+        "rim": "n20",
+        "outside": "n21",
+        "hull": "n23",
+        "it's": "n24",
+        "from": "n27"
+      }
+    }
+  },
+  {
+    "name": "line",
+    "dense": "AAAk4KtlAIDUM-gIEfY3-gAIFxDtb2AAMARQFTJFTVigKoPKn2GwAAAAAWyAARAA",
+    "url": "EA/AAAk4KtlAIDUM-gIEfY3-gAIFxDtb2AAMARQFTJFTVigKoPKn2GwAAAAAWyAARAA",
+    "definition": {
+      "format": "vec2-definition",
+      "version": 3,
+      "params": {
+        "t": {
+          "type": "number",
+          "value": 0.25
+        }
+      },
+      "nodes": [
+        {
+          "id": "n0",
+          "op": "Vec2.new",
+          "args": [-2, -1]
+        },
+        {
+          "id": "n1",
+          "op": "Vec2.new",
+          "args": [3, 2]
+        },
+        {
+          "id": "n2",
+          "op": "Line2.new",
+          "args": [
+            {
+              "ref": "n0"
+            },
+            {
+              "ref": "n1"
+            }
+          ]
+        },
+        {
+          "id": "n3",
+          "op": "Line2.evaluate",
+          "self": "n2",
+          "args": [
+            {
+              "param": "t"
+            }
+          ]
+        }
+      ],
+      "outputs": {
+        "line": "n2",
+        "point": "n3"
+      }
+    }
+  },
+  {
+    "name": "squares",
+    "dense": "AAAk4KtlAIJEgIQQUHgGAwQAgDCAEgugr9NvAFgGKAqcQqcQUAQAKnEFAEAAgAKAqcQIADkFAAQAAAAEABAANQFT01T0ygKo0qnplAVRpVRpKAqemqjScgoACAAUADAAcAEUVAAIACAAlCAKCKBzcZ5U-cg",
+    "url": "EA/AAAk4KtlAIJEgIQQUHgGAwQAgDCAEgugr9NvAFgGKAqcQqcQUAQAKnEFAEAAgAKAqcQIADkFAAQAAAAEABAANQFT01T0ygKo0qnplAVRpVRpKAqemqjScgoACAAUADAAcAEUVAAIACAAlCAKCKBzcZ5U-cg",
+    "definition": {
+      "format": "vec2-definition",
+      "version": 3,
+      "params": {
+        "size": {
+          "type": "number",
+          "value": 3
+        }
+      },
+      "nodes": [
+        {
+          "id": "n0",
+          "op": "Vec2.new",
+          "args": [0, 0]
+        },
+        {
+          "id": "n1",
+          "op": "Vec2.new",
+          "args": [
+            {
+              "param": "size"
+            },
+            0
+          ]
+        },
+        {
+          "id": "n2",
+          "op": "Vec2.new",
+          "args": [
+            {
+              "param": "size"
+            },
+            {
+              "param": "size"
+            }
+          ]
+        },
+        {
+          "id": "n3",
+          "op": "Vec2.new",
+          "args": [
+            0,
+            {
+              "param": "size"
+            }
+          ]
+        },
+        {
+          "id": "n4",
+          "op": "Polygon2.new",
+          "args": [
+            [
+              {
+                "ref": "n0"
+              },
+              {
+                "ref": "n1"
+              },
+              {
+                "ref": "n2"
+              },
+              {
+                "ref": "n3"
+              }
+            ]
+          ]
+        },
+        {
+          "id": "n5",
+          "op": "Vec2.new",
+          "args": [1.5, 1.5]
+        },
+        {
+          "id": "n6",
+          "op": "Vec2.new",
+          "args": [4.5, 1.5]
+        },
+        {
+          "id": "n7",
+          "op": "Vec2.new",
+          "args": [4.5, 4.5]
+        },
+        {
+          "id": "n8",
+          "op": "Vec2.new",
+          "args": [1.5, 4.5]
+        },
+        {
+          "id": "n9",
+          "op": "Polygon2.new",
+          "args": [
+            [
+              {
+                "ref": "n5"
+              },
+              {
+                "ref": "n6"
+              },
+              {
+                "ref": "n7"
+              },
+              {
+                "ref": "n8"
+              }
+            ]
+          ]
+        },
+        {
+          "id": "n10",
+          "op": "Boolean2.union",
+          "args": [
+            [
+              {
+                "ref": "n4"
+              },
+              {
+                "ref": "n9"
+              }
+            ]
+          ]
+        },
+        {
+          "id": "n11",
+          "op": "result.field",
+          "of": "n10",
+          "name": "polygons"
+        }
+      ],
+      "outputs": {
+        "a": "n4",
+        "b": "n9",
+        "union": "n11"
+      }
+    }
+  },
+  {
+    "name": "plate-custom",
+    "dense": "",
+    "url": "EEEK3kIEw2gzTZA1y/0AAk4KtlAgLqiNoZgfoBoMJ0_9nB-AKn0X6YziPCwyEBkBbDQNPwD6QKC4hOYHYA6CP4-e0A8D6td91bfEAEBHcdyAAbBGu4MaAfAgUBX0K-goAgAV9BQBAAIAKgK-gQAXIKAAgAAAAIACAAagCABX0FLABSAGoCvoEAFSwAevpKBADAAhwAAJIATiQBVbWHEgCq5wuJAFV5pcSAKr_k4kAVYXtxIAqxgbiQBVkjHEgCrMKuJAFWeecSAKtJM4kAVaq9xIAq2HDiQBVtwHEgCrekuJAFXDScSAKuS05BQAQABYAMABoAOAB4AQACIASACYAUACoAWAC4AYADIAaoaAAIAEADdViAcCKBzcZ5U-ciAcB-L3iwT2YciACA",
+    "definition": {
+      "format": "vec2-definition",
+      "version": 3,
+      "params": {
+        "width": {
+          "type": "number",
+          "value": 6
+        },
+        "height": {
+          "type": "number",
+          "value": 4
+        },
+        "holeRadius": {
+          "type": "number",
+          "value": 1
+        },
+        "holeX": {
+          "type": "number",
+          "value": 0.5
+        }
+      },
+      "nodes": [
+        {
+          "id": "n0",
+          "op": "Vec2.new",
+          "args": [0, 0]
+        },
+        {
+          "id": "n1",
+          "op": "Vec2.new",
+          "args": [
+            {
+              "param": "width"
+            },
+            0
+          ]
+        },
+        {
+          "id": "n2",
+          "op": "Vec2.new",
+          "args": [
+            {
+              "param": "width"
+            },
+            {
+              "param": "height"
+            }
+          ]
+        },
+        {
+          "id": "n3",
+          "op": "Vec2.new",
+          "args": [
+            0,
+            {
+              "param": "height"
+            }
+          ]
+        },
+        {
+          "id": "n4",
+          "op": "Polygon2.new",
+          "args": [
+            [
+              {
+                "ref": "n0"
+              },
+              {
+                "ref": "n1"
+              },
+              {
+                "ref": "n2"
+              },
+              {
+                "ref": "n3"
+              }
+            ]
+          ]
+        },
+        {
+          "id": "n5",
+          "op": "Vec2.new",
+          "args": [
+            {
+              "param": "width"
+            },
+            0
+          ]
+        },
+        {
+          "id": "n6",
+          "op": "Vec2.scale",
+          "self": "n5",
+          "args": [
+            {
+              "param": "holeX"
+            }
+          ]
+        },
+        {
+          "id": "n7",
+          "op": "Vec2.new",
+          "args": [
+            0,
+            {
+              "param": "height"
+            }
+          ]
+        },
+        {
+          "id": "n8",
+          "op": "Vec2.scale",
+          "self": "n7",
+          "args": [0.5]
+        },
+        {
+          "id": "n9",
+          "op": "Vec2.add",
+          "self": "n6",
+          "args": [
+            {
+              "ref": "n8"
+            }
+          ]
+        },
+        {
+          "id": "n10",
+          "op": "Circle2.new",
+          "args": [
+            {
+              "ref": "n9"
+            },
+            {
+              "param": "holeRadius"
+            }
+          ]
+        },
+        {
+          "id": "n11",
+          "op": "Circle2.evaluate",
+          "self": "n10",
+          "args": [0]
+        },
+        {
+          "id": "n12",
+          "op": "Circle2.evaluate",
+          "self": "n10",
+          "args": [0.393]
+        },
+        {
+          "id": "n13",
+          "op": "Circle2.evaluate",
+          "self": "n10",
+          "args": [0.785]
+        },
+        {
+          "id": "n14",
+          "op": "Circle2.evaluate",
+          "self": "n10",
+          "args": [1.178]
+        },
+        {
+          "id": "n15",
+          "op": "Circle2.evaluate",
+          "self": "n10",
+          "args": [1.571]
+        },
+        {
+          "id": "n16",
+          "op": "Circle2.evaluate",
+          "self": "n10",
+          "args": [1.963]
+        },
+        {
+          "id": "n17",
+          "op": "Circle2.evaluate",
+          "self": "n10",
+          "args": [2.356]
+        },
+        {
+          "id": "n18",
+          "op": "Circle2.evaluate",
+          "self": "n10",
+          "args": [2.749]
+        },
+        {
+          "id": "n19",
+          "op": "Circle2.evaluate",
+          "self": "n10",
+          "args": [3.142]
+        },
+        {
+          "id": "n20",
+          "op": "Circle2.evaluate",
+          "self": "n10",
+          "args": [3.534]
+        },
+        {
+          "id": "n21",
+          "op": "Circle2.evaluate",
+          "self": "n10",
+          "args": [3.927]
+        },
+        {
+          "id": "n22",
+          "op": "Circle2.evaluate",
+          "self": "n10",
+          "args": [4.32]
+        },
+        {
+          "id": "n23",
+          "op": "Circle2.evaluate",
+          "self": "n10",
+          "args": [4.712]
+        },
+        {
+          "id": "n24",
+          "op": "Circle2.evaluate",
+          "self": "n10",
+          "args": [5.105]
+        },
+        {
+          "id": "n25",
+          "op": "Circle2.evaluate",
+          "self": "n10",
+          "args": [5.498]
+        },
+        {
+          "id": "n26",
+          "op": "Circle2.evaluate",
+          "self": "n10",
+          "args": [5.89]
+        },
+        {
+          "id": "n27",
+          "op": "Polygon2.new",
+          "args": [
+            [
+              {
+                "ref": "n11"
+              },
+              {
+                "ref": "n12"
+              },
+              {
+                "ref": "n13"
+              },
+              {
+                "ref": "n14"
+              },
+              {
+                "ref": "n15"
+              },
+              {
+                "ref": "n16"
+              },
+              {
+                "ref": "n17"
+              },
+              {
+                "ref": "n18"
+              },
+              {
+                "ref": "n19"
+              },
+              {
+                "ref": "n20"
+              },
+              {
+                "ref": "n21"
+              },
+              {
+                "ref": "n22"
+              },
+              {
+                "ref": "n23"
+              },
+              {
+                "ref": "n24"
+              },
+              {
+                "ref": "n25"
+              },
+              {
+                "ref": "n26"
+              }
+            ]
+          ]
+        },
+        {
+          "id": "n28",
+          "op": "Boolean2.subtract",
+          "args": [
+            [
+              {
+                "ref": "n4"
+              }
+            ],
+            {
+              "ref": "n27"
+            },
+            {
+              "object": {
+                "mesh": true
+              }
+            }
+          ]
+        },
+        {
+          "id": "n29",
+          "op": "result.field",
+          "of": "n28",
+          "name": "polygons"
+        },
+        {
+          "id": "n30",
+          "op": "result.field",
+          "of": "n28",
+          "name": "triMesh"
+        },
+        {
+          "id": "n31",
+          "op": "Polygon2.area",
+          "self": "n4"
+        }
+      ],
+      "outputs": {
+        "plate": "n29",
+        "mesh": "n30",
+        "outline": "n4",
+        "hole": "n27",
+        "area": "n31"
+      }
+    }
+  }
+]

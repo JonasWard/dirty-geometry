@@ -2,6 +2,8 @@ import { describe, expect, test } from 'bun:test';
 import { ConstrainedDelaunay } from '../../src/operations/constrained-delaunay';
 import { inCircle, orient } from '../../src/core/predicates';
 import { Vec2 } from '../../src/core/vec2';
+import { hash2 } from '../../src/hash/core';
+import { constraintEdge } from '../../src/operations/helpers/constraint-edge';
 import type { TriMesh2 } from '../../src/geometry/regions/tri-mesh2';
 import { mulberry32 } from '../../examples/random';
 
@@ -18,15 +20,15 @@ function lattice(size: number, step = 1, origin = new Vec2(0, 0)): Vec2[] {
 /** Distinct random points on a 1/1024 lattice in [0, 1024)², so power-of-two transforms stay exact. */
 function latticeRandomPoints(count: number, seed: number): Vec2[] {
   const rng = mulberry32(seed);
-  const seen = new Set<string>();
+  const seen = new Set<number>();
   const points: Vec2[] = [];
   while (points.length < count) {
-    const x = Math.floor(rng() * 2 ** 20) / 1024;
-    const y = Math.floor(rng() * 2 ** 20) / 1024;
-    const key = `${x}:${y}`;
+    const i = Math.floor(rng() * 2 ** 20);
+    const j = Math.floor(rng() * 2 ** 20);
+    const key = hash2(i, j);
     if (seen.has(key)) continue;
     seen.add(key);
-    points.push(new Vec2(x, y));
+    points.push(new Vec2(i / 1024, j / 1024));
   }
   return points;
 }
@@ -53,13 +55,13 @@ function triangleSet(triangles: readonly Triangle[]): string[] {
 }
 
 /** Every interior edge, apart from `constrained` ones, has no opposite vertex strictly inside the other circumcircle. */
-function delaunayViolations(mesh: TriMesh2, constrained: ReadonlySet<string> = new Set()): number {
-  const opposite = new Map<string, { tri: Triangle; apex: number }[]>();
+function delaunayViolations(mesh: TriMesh2, constrained: ReadonlySet<number> = new Set()): number {
+  const opposite = new Map<number, { tri: Triangle; apex: number }[]>();
   for (const tri of mesh.triangles) {
     for (let k = 0; k < 3; k++) {
       const u = tri[k]!;
       const v = tri[(k + 1) % 3]!;
-      const key = u < v ? `${u}:${v}` : `${v}:${u}`;
+      const key = constraintEdge(u, v);
       const list = opposite.get(key) ?? [];
       list.push({ tri, apex: tri[(k + 2) % 3]! });
       opposite.set(key, list);
@@ -102,14 +104,14 @@ describe('CDT robustness', () => {
     // Random segments cross each other; the façade splits them, so the mesh keys differ from the input.
     expect(report.unresolved).toEqual([]);
     expect(allCcw(report.mesh)).toBe(true);
-    const edges = new Set<string>();
+    const edges = new Set<number>();
     for (const [a, b, c] of report.mesh.triangles) {
       for (const [u, v] of [
         [a, b],
         [b, c],
         [c, a],
       ] as const)
-        edges.add(u < v ? `${u}:${v}` : `${v}:${u}`);
+        edges.add(constraintEdge(u, v));
     }
     expect(delaunayViolations(report.mesh, edges)).toBe(0);
   });

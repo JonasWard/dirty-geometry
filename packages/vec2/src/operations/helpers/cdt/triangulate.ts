@@ -1,6 +1,7 @@
 import type { Index } from '../../../core/numbers';
 import { Aabb2 } from '../../../bounds/aabb2';
 import { Vec2 } from '../../../core/vec2';
+import { constraintEdge, type ConstraintEdge } from '../constraint-edge';
 import { convexHullLoop } from './hull';
 import { CdtMesh, emptyCdtStats, type CdtStats } from './mesh';
 
@@ -12,8 +13,6 @@ export type CdtResult = {
   unresolved: [number, number][];
   stats: CdtStats;
 };
-
-const edgeKey = (a: number, b: number) => (a < b ? `${a}:${b}` : `${b}:${a}`);
 
 /**
  * Constrained Delaunay triangulation of distinct `vertices`, with constraint edges given as index pairs
@@ -49,21 +48,21 @@ export function triangulateConstrained(
   // Spatially coherent order keeps each point-location walk short.
   for (const i of mortonOrder(vertices, box)) mesh.insert(i);
 
-  const locked = new Set<string>();
+  const locked = new Set<ConstraintEdge>();
   const unresolved: [number, number][] = [];
   // Hull edges first: once they are present, the super triangle only touches the outside of the hull.
   for (let i = 0; i < hull.length; i++) {
     const a = hull[i]!;
     const b = hull[(i + 1) % hull.length]!;
-    if (mesh.insertConstraint(a, b)) locked.add(edgeKey(a, b));
+    if (mesh.insertConstraint(a, b)) locked.add(constraintEdge(a, b));
   }
   for (const [a, b] of constraints) {
     if (a === b) continue;
-    if (mesh.insertConstraint(a, b)) locked.add(edgeKey(a, b));
+    if (mesh.insertConstraint(a, b)) locked.add(constraintEdge(a, b));
     else unresolved.push([a, b]);
   }
 
-  mesh.legalize((u, v) => u < n && v < n && !locked.has(edgeKey(u, v)));
+  mesh.legalize((u, v) => u < n && v < n && !locked.has(constraintEdge(u, v)));
 
   const triangles: [number, number, number][] = [];
   for (const t of mesh.liveTriangles()) {

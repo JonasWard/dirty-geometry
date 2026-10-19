@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { densing, undensing } from 'densing';
+import { densing, schemaFromJson, undensing } from 'densing';
 import { Vec2 } from '../../../src/core/vec2';
 import { Line2 } from '../../../src/geometry/primitives/line2';
 import { defaultRegistry } from '../../../src/io/default-registry';
@@ -8,8 +8,8 @@ import { evaluate } from '../../../src/recording/evaluate';
 import { fromV3 } from '../../../src/recording/migrate';
 import type { DefinitionV3 } from '../../../src/recording/v3';
 import { recordPlate } from '../../../examples/definitions/plate';
-import { operations, types } from '../../../schema/schema';
-import { groupKey } from '../../../schema/typing';
+import { operationById, operations, types } from '../../../schema/schema';
+import { assignable } from '../../../schema/typing';
 import {
   createDefinitionSchema,
   createValueSchema,
@@ -38,24 +38,30 @@ describe('definition schema', () => {
   const { schema } = createDefinitionSchema();
   const templates = schema.templates as any[];
 
-  test('is well formed: references in range, unique template names, a variant for every option', () => {
+  test('is well formed: references in range, unique template names, variants are object templates', () => {
     const problems: string[] = [];
     const names = new Set<string>();
     const reached = new Set<number>();
+    const reach = (ref: number, at: string) => {
+      if (!templates[ref]) problems.push(`${at}: no template ${ref}`);
+      else if (!reached.has(ref)) {
+        reached.add(ref);
+        visit(templates[ref], `templates[${ref}]`);
+      }
+    };
     const visit = (f: any, at: string): void => {
       if (!f || typeof f !== 'object') return;
-      if (f.type === 'reference') {
-        if (!templates[f.ref]) problems.push(`${at}: no template ${f.ref}`);
-        else if (!reached.has(f.ref)) {
-          reached.add(f.ref);
-          visit(templates[f.ref], `templates[${f.ref}]`);
-        }
-      }
+      if (f.type === 'reference') reach(f.ref, at);
       if (f.type === 'reference_numeric' && !schema.definitions!.some((d) => d.name === f.ref))
         problems.push(`${at}: no number type ${f.ref}`);
-      if (f.type === 'union')
-        for (const option of f.discriminator.options)
-          if (!(option in f.variants)) problems.push(`${at}: ${f.name} has no variant ${option}`);
+      if (f.type === 'union') {
+        if (f.discriminator !== 'type') problems.push(`${at}: ${f.name} is keyed by ${f.discriminator}`);
+        for (const [key, ref] of Object.entries<number>(f.variants)) {
+          if (templates[ref]?.type !== 'object') problems.push(`${at}: ${f.name}.${key} is not an object template`);
+          reach(ref, `${at}.${key}`);
+        }
+        return;
+      }
       for (const [key, value] of Object.entries(f))
         if (Array.isArray(value)) value.forEach((v, i) => visit(v, `${at}.${key}[${i}]`));
         else if (typeof value === 'object') visit(value, `${at}.${key}`);
@@ -67,24 +73,25 @@ describe('definition schema', () => {
     }
     expect(problems).toEqual([]);
     expect(templates.length - reached.size).toBe(0);
+    expect(() => schemaFromJson(schema)).not.toThrow();
   });
 
   test('every operation can be packed where its result type is expected', () => {
+    const unions = templates.filter((t) => t.type === 'union');
     const missing = operations.filter((op) => {
-      const group = `${groupKey(op.returns)} call`;
-      const calls = templates.find((t) => t.name === group);
-      const own = templates.find((t) => t.name === (typeof op.returns === 'string' ? op.returns : ''));
-      return !calls?.variants[op.id] || (own && !own.variants[group]);
+      const own = unions.find((t) => t.name === (typeof op.returns === 'string' ? op.returns : ''));
+      return !unions.some((t) => op.id in t.variants) || (own && !(op.id in own.variants));
     });
     expect(missing.map((op) => op.id)).toEqual([]);
   });
 
   test('an expression only offers the operations whose result fits', () => {
     const vec2 = templates.find((t) => t.name === 'Vec2');
-    const calls = Object.keys(vec2.variants).filter((key) => key.endsWith(' call'));
-    expect(calls).toEqual(['Vec2 call']);
+    const calls = Object.keys(vec2.variants).filter((key) => key.includes('.'));
+    expect(calls).toContain('Vec2.add');
+    expect(calls.filter((id) => !assignable(operationById.get(id)!.returns, 'Vec2'))).toEqual([]);
     const coordinate = templates.find((t) => t.name === 'Coordinate');
-    expect(Object.keys(coordinate.variants)).toEqual(expect.arrayContaining(['number', 'math', 'neg', 'number call']));
+    expect(Object.keys(coordinate.variants)).toEqual(expect.arrayContaining(['number', 'math', 'neg', 'Vec2.length']));
   });
 
   test('names are densing names: no markers, no joined paths', () => {

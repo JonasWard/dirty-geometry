@@ -12,7 +12,7 @@
   "dependencies": {
     "@dirty-geometry/graph": "workspace:*",
     "@dirty-geometry/vec2": "workspace:*",
-    "densing": "0.4.4",
+    "densing": "0.5.0",
     "zustand": "5.0.15"
   },
   "peerDependencies": {

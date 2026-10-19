@@ -40,7 +40,7 @@
       "name": "@dirty-geometry/vec2",
       "version": "0.1.0",
       "dependencies": {
-        "densing": "0.4.4",
+        "densing": "0.5.0",
         "robust-predicates": "3.0.2",
       },
     },
@@ -50,7 +50,7 @@
       "dependencies": {
         "@dirty-geometry/graph": "workspace:*",
         "@dirty-geometry/vec2": "workspace:*",
-        "densing": "0.4.4",
+        "densing": "0.5.0",
         "zustand": "5.0.15",
       },
       "peerDependencies": {
@@ -394,7 +394,7 @@
 
     "define-properties": ["define-properties@1.2.1", "", { "dependencies": { "define-data-property": "^1.0.1", "has-property-descriptors": "^1.0.0", "object-keys": "^1.1.1" } }, "sha512-8QmQKqEASLd5nx0U1B1okLElbUuuttJ/AnYmRXbbbGDWh6uS208EjD4Xqq/I9wK7u0v6O08XhTWnt5XtEbR6Dg=="],
 
-    "densing": ["densing@0.4.4", "", {}, "sha512-LUheWMOS2cwtUo8vSIT9TlTMvtHitKWhTcBR3resDMhVqVP0YF73z7JT9Ly5de9HcjZd0jjjwyKUPpyB9JBfMQ=="],
+    "densing": ["densing@0.5.0", "", {}, "sha512-eAcREgwsDlfDKk1B1EtiQ0OsrshiZZv40p373DKPEJlNHOLOm07G3c6M4idsv47/BkximY19KfZDWnZXaFePQQ=="],
 
     "detect-gpu": ["detect-gpu@5.0.70", "", { "dependencies": { "webgl-constants": "^1.1.1" } }, "sha512-bqerEP1Ese6nt3rFkwPnGbsUF9a4q+gMmpTVVOEzoCyeCc+y7/RvJnQZJx1JwhgQI5Ntg0Kgat8Uu7XpBqnz1w=="],
 

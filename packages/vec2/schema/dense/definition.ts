@@ -5,15 +5,14 @@
  * cell's own type), so only expressions that fit can be packed, and an operation costs only the bits of the
  * operations whose result fits there. Numbers snap onto the active range of their number type.
  *
- * The schema is used as generated, without densing's `schemaFromJson`: its validation walks every path through the
- * templates, and a typed expression grammar is one large cycle. The generator builds the schema so that it is valid
- * (tests check its structure).
+ * The schema is used as generated, without densing's `schemaFromJson`, so loading it costs nothing; tests check that
+ * `schemaFromJson` accepts it.
  */
 import * as d from 'densing';
 import type { Cell, Definition, Expr, Fn, Input } from '../../src/recording/definition';
 import { DefinitionError, fail as raise } from '../../src/recording/definition';
 import { operationById, type Type } from '../schema';
-import { checkDefinition, groupKey, members, parseTypeName, typeName, typer, widen, type FnType } from '../typing';
+import { checkDefinition, members, parseTypeName, typeName, typer, widen, type FnType } from '../typing';
 import dense from '../vec2.dense.json';
 
 type F = Record<string, any>;
@@ -81,7 +80,7 @@ function walker(
     if (f.type === 'optional') return walk(f.field, v);
     if (f.type === 'array') return v.map((item: unknown) => walk(f.items, item));
     if (f.type === 'object') return all(f.fields, v);
-    if (f.type === 'union') return { type: v.type, ...all(f.variants[v.type], v) }; // `MathJson`, keyed by `type`
+    if (f.type === 'union') return { type: v.type, ...all((templates[f.variants[v.type]] as F).fields, v) }; // `MathJson`
     if (f.type !== 'reference') return v;
     const t = templates[f.ref] as F;
     return { ...(out && t.type === 'object' && /Json$/.test(t.name) && { type: t.name.slice(0, -4) }), ...walk(t, v) };
@@ -89,6 +88,9 @@ function walker(
   return walk;
 }
 
+/** The fields of variant `key` of union `t` (its object template), if it has one. */
+const fieldsOf = (t: F, key: string): F[] | undefined =>
+  t.variants[key] === undefined ? undefined : TEMPLATES[t.variants[key]]!.fields;
 /** The expression union a field refers to. */
 const target = (f: F): F => TEMPLATES[f.ref]!;
 const keyOf = (f: F): string => target(f).name;
@@ -135,7 +137,7 @@ function pack(
   function expr(e: Expr, key: string, names: Names, scope: Map<string, Type>, at: string): F {
     const t = TEMPLATES[INDEX.get(key) ?? fail(`${at}: no layout for ${key}`)]!;
     const variant = (name: string, what = name): [F, ...F[]] =>
-      t.variants[name] ?? fail(`${at}: a ${key} cannot be ${what}`);
+      (fieldsOf(t, name) as [F, ...F[]] | undefined) ?? fail(`${at}: a ${key} cannot be ${what}`);
     if (typeof e === 'number') {
       if (!Number.isFinite(e)) fail(`${at}: write ${e} as { number: '${e}' }`);
       return { type: 'number', value: walk(variant('number', 'a number')[0], e) };
@@ -214,9 +216,7 @@ function pack(
       return 'index' in e ? { type: 'index', of: data, at: e.index } : { type: 'field', of: data, at: [...e.field] };
     }
     const op = operationById.get(e.op) ?? fail(`${at}: ${e.op} is not a vec2 operation`);
-    const group = `${groupKey(op.returns)} call`;
-    const calls = target(variant(group, `${e.op} (it returns ${typeName(op.returns)})`)[0]);
-    const fields: F[] = calls.variants[op.id];
+    const fields: F[] = variant(op.id, `${e.op} (it returns ${typeName(op.returns)})`);
     const args = e.args ?? {};
     for (const name of Object.keys(args))
       if (!fieldNamed(fields, name)) fail(`${at}: ${e.op} has no parameter ${name}`);
@@ -238,7 +238,7 @@ function pack(
         return [f.name, expr(value ?? fail(`${place}: missing`), keyOf(f), names, scope, place)];
       }),
     );
-    return { type: group, call: { type: op.id, ...data } };
+    return { type: op.id, ...data };
   }
   const any = (e: Expr, key: string, names: Names, scope: Map<string, Type>, at: string) => ({
     type: key,
@@ -286,7 +286,7 @@ export function decodeDefinition(encoded: string, dense = createDefinitionSchema
 
   function expr(o: F, key: string, names: Names): Expr {
     const t = TEMPLATES[INDEX.get(key)!]!;
-    const only = (name: string) => t.variants[name][0] as F;
+    const only = (name: string) => fieldsOf(t, name)![0]!;
     const at = <T>(list: T[] | undefined, i: number, what: string) => list?.[i] ?? fail(`No ${what} ${i} here`);
     switch (o.type) {
       case 'input':
@@ -337,12 +337,12 @@ export function decodeDefinition(encoded: string, dense = createDefinitionSchema
         };
       }
     }
-    const fields: F[] = target(only(o.type)).variants[o.call.type];
-    const op = operationById.get(o.call.type) ?? fail(`${o.call.type} is not a vec2 operation`);
+    const fields = fieldsOf(t, o.type) ?? fail(`${o.type} cannot stand in a ${key}`);
+    const op = operationById.get(o.type) ?? fail(`${o.type} is not a vec2 operation`);
     const args: Record<string, Expr> = {};
     let self: Expr | undefined;
     for (const f of fields) {
-      const v = o.call[f.name];
+      const v = o[f.name];
       if (f.name === 'self') self = expr(v, keyOf(f), names);
       else if (f.type === 'array') {
         if (v.length) args[f.name] = v.map((item: F) => expr(item, keyOf(f.items), names));

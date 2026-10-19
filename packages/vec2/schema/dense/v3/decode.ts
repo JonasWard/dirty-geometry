@@ -36,8 +36,10 @@ const schemaFor = (options: NumericOptions) => {
 };
 
 const byName = (fields: F[], value: (f: F) => unknown) => Object.fromEntries(fields.map((f) => [f.name, value(f)]));
+/** The frozen JSON as written (0.4 form: a union's variants are field lists), which the field walks below read. */
+const RAW = dense as unknown as { templates: F[] };
 /** Walks decoded data along a field, giving nested JSON types their `type` tag back. */
-function tagger({ templates = [] }: d.DenseSchema) {
+function tagger({ templates }: { templates: F[] }) {
   const all = (fields: F[], v: F) => byName(fields, (f) => walk(f, v[f.name]));
   const walk = (f: F, v: any): any => {
     if (v === null || v === undefined) return v;
@@ -51,7 +53,7 @@ function tagger({ templates = [] }: d.DenseSchema) {
   };
   return walk;
 }
-const variant = ({ templates = [] }: d.DenseSchema, f: F, type: string): F | undefined =>
+const variant = ({ templates }: { templates: F[] }, f: F, type: string): F | undefined =>
   (f.type === 'reference' ? (templates[f.ref] as F) : f).variants[type]?.[0];
 const nested = (fields: F[], key: string) =>
   fields.length === 1 && fields[0]!.type === 'union' && fields[0]!.name === key;
@@ -61,14 +63,14 @@ export function decodeDefinitionV3(
   options: NumericOptions = {},
 ): { definition: DefinitionV3; presets: ActivePresets } {
   const schema = schemaFor(options);
-  const walk = tagger(schema);
+  const walk = tagger(RAW);
   const data = d.undensing(schema, encoded) as F;
   if (data.stamp !== STAMP_V3) fail('This payload was written against another version of the vec2 operations');
   const str = (chars: string[]) => chars.join('');
   const names: string[] = data.params.map((p: F) => str(p.name));
   const source = (o: F): SourceV3 => (o.type === 'node' ? `n${o.node}` : { param: names[o.param]! });
   const arg = (f: F, o: F): ArgV3 => {
-    const v = (type: string) => variant(schema, f, type)!;
+    const v = (type: string) => variant(RAW, f, type)!;
     if (o.type === 'omit' || o.type === 'null') return o.type === 'null' ? null : { omit: true };
     if (o.type === 'node' || o.type === 'param') return o.type === 'node' ? { ref: `n${o.node}` } : source(o);
     if (o.type === 'list') return o.items.map((item: F) => arg(v('list').items, item));

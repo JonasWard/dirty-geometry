@@ -1,6 +1,7 @@
 /**
- * vec2.dense.json: vec2.schema.json as a densing schema for version 4 definitions, loaded with densing's
- * `schemaFromJson`. Expressions are typed: what may stand where a value of some type is expected is a union of its own.
+ * vec2.dense.json: vec2.schema.json as a densing (0.5) schema for version 4 definitions. Expressions are typed: what may
+ * stand where a value of some type is expected is a union of its own. A union's variants are object templates (by
+ * index), so unions that offer the same alternatives (an operation, `input`, …) share one template.
  *
  * - `definitions`: one per number type, its range names expanded (`±100@0.01` → `{ min: -100, max: 100, precision: 0.01 }`).
  * - `templates`:
@@ -8,9 +9,9 @@
  *   - one **expression union per type**, named like the TypeScript type (`Vec2`, `Coordinate`, `Vec2[]`,
  *     `Aabb2 | Vec2`): a reference (`input`, `cell`, `param`), a function call (`fn`), an item or field of another
  *     value (`index`, `field`), a stored value (`value`), arithmetic (`math`, `neg`, numbers only), the literal shapes
- *     the type allows, and one variant per group of operations whose result fits (`Vec2 call`);
- *   - one **call union per result type** (`Vec2 call`), keyed by operation id (`Vec2.add`): `self` (instance
- *     members), then one field per parameter, typed by that parameter's expression union;
+ *     the type allows, and every operation whose result fits, keyed by its id (`Vec2.add`);
+ *   - one **object template per operation signature** (`(self: Vec2, other: Vec2)`): `self` (instance members), then
+ *     one field per parameter, typed by that parameter's expression union;
  *   - `Any`: an expression of any type, keyed by the type's name (cell roots, function bodies, `of`, function args).
  * - `fields`: stamp, inputs, functions and cells. Every union's discriminator is `type`.
  */
@@ -32,12 +33,12 @@ const enumeration = (name: string, options: unknown[]) => ({
   name,
   options: [...options.map(String), ''].slice(0, Math.max(2, options.length)),
 });
-/** A union needs two options: a single variant gets an empty `''` beside it, which no data uses. */
-const union = (name: string, key: string, variants: Record<string, Field[]>) => ({
+/** `variants`: variant name → index of its object template. */
+const union = (name: string, variants: Record<string, number>) => ({
   type: 'union',
   name,
-  discriminator: enumeration(key, Object.keys(variants)),
-  variants: Object.keys(variants).length === 1 ? { ...variants, '': [] } : variants,
+  discriminator: 'type',
+  variants,
 });
 const array = (name: string, items: Field, max = 65535, min = 0) => ({
   type: 'array',
@@ -161,6 +162,15 @@ export function renderDenseSchema({ numbers, types, modules }: Schema): string {
     }
     return { type: 'reference', name, ref: index.get(key) };
   };
+  /** A union variant: an object template, shared by every variant with the same fields. */
+  const shared = new Map<string, number>();
+  const variant = (name: string, fields: Field[]): number => {
+    const key = JSON.stringify(fields);
+    if (!shared.has(key)) shared.set(key, templates.push({ type: 'object', name, fields }) - 1);
+    return shared.get(key)!;
+  };
+  const variants = (type: Type, list: Record<string, Field[]>) =>
+    Object.fromEntries(Object.entries(list).map(([key, fields]) => [key, variant(`${typeName(type)} ${key}`, fields)]));
   const text = (name: string) => ref(name, 'Text', () => TEXT);
   const entries = (value: Field) =>
     array('entries', { type: 'object', name: 'entry', fields: [text('name'), value] }, 255);
@@ -208,8 +218,7 @@ export function renderDenseSchema({ numbers, types, modules }: Schema): string {
       const tags: string[] = types.MathJson.or;
       return union(
         'MathJson',
-        'type',
-        Object.fromEntries(tags.map((m) => [m.replace(/Json$/, ''), object(m, types[m]).fields])),
+        Object.fromEntries(tags.map((m) => [m.replace(/Json$/, ''), ref('value', m, () => object(m, types[m])).ref!])),
       );
     });
   mathJson('value');
@@ -263,56 +272,51 @@ export function renderDenseSchema({ numbers, types, modules }: Schema): string {
     );
     return { object: [{ type: 'object', name: 'fields', fields }] };
   }
+  /** The names of the expression unions. */
+  const exprs = new Set<string>();
   /** What may stand where a value of `type` is expected. */
   const expr = (name: string, type: Type): Field =>
     ref(name, typeName(type), () => {
       const numeric = members(type).some(isNumeric);
       const self = () => expr('a', type);
-      const fitting = [...groups].filter(([, g]) => assignable(g.type, type));
-      return union(typeName(type), 'type', {
-        input: [int('input', LIMITS.inputs)],
-        cell: [int('cell', LIMITS.cells)],
-        param: [int('param', LIMITS.params)],
-        fn: [int('fn', LIMITS.functions), array('args', any('arg'), LIMITS.params)],
-        index: [any('of'), int('at', LIMITS.items)],
-        field: [any('of'), text('at')],
-        ...(members(type).some(isValueClass) && { value: [mathJson('value')] }),
+      const fitting = [...groups.values()].filter((g) => assignable(g.type, type)).flatMap((g) => g.ops);
+      exprs.add(typeName(type));
+      return union(typeName(type), {
+        input: variant('input', [int('input', LIMITS.inputs)]),
+        cell: variant('cell', [int('cell', LIMITS.cells)]),
+        param: variant('param', [int('param', LIMITS.params)]),
+        fn: variant('fn', [int('fn', LIMITS.functions), array('args', any('arg'), LIMITS.params)]),
+        index: variant('index', [any('of'), int('at', LIMITS.items)]),
+        field: variant('field', [any('of'), text('at')]),
+        ...(members(type).some(isValueClass) && { value: variant('value', [mathJson('value')]) }),
         ...(numeric && {
-          nonFinite: nonFinite(),
-          math: [enumeration('op', ['+', '-', '*', '/']), self(), expr('b', type)],
-          neg: [self()],
+          nonFinite: variant('nonFinite', nonFinite()),
+          ...variants(type, {
+            math: [enumeration('op', ['+', '-', '*', '/']), self(), expr('b', type)],
+            neg: [self()],
+          }),
         }),
-        ...shapes(type),
-        ...Object.fromEntries(fitting.map(([key, g]) => [`${key} call`, [call(key, g.ops)]])),
+        ...variants(type, shapes(type)),
+        ...Object.fromEntries(fitting.map((op) => [op.id, call(op)])),
       });
     });
-  /** The operations of one result group, keyed by id. */
-  const call = (key: string, list: Op[]): Field =>
-    ref('call', `${key} call`, () =>
-      union(
-        `${key} call`,
-        'type',
-        Object.fromEntries(
-          list.map((op) => [
-            op.id,
-            [
-              ...(op.isStatic ? [] : [expr('self', op.owner)]),
-              ...op.params.map(([param, slot]) =>
-                slot?.rest
-                  ? array(param, expr('item', slot.type), LIMITS.args)
-                  : slot?.optional
-                    ? {
-                        type: 'optional',
-                        name: param,
-                        field: expr(param, slot.type),
-                      }
-                    : expr(param, slot),
-              ),
-            ],
-          ]),
-        ),
-      ),
+  /** An operation's arguments: `self` (instance members), then its params; named after its signature. */
+  const call = (op: Op): number => {
+    const slots: [string, any][] = [...(op.isStatic ? [] : [['self', op.owner] as [string, any]]), ...op.params];
+    const fields = slots.map(([param, slot]) =>
+      slot?.rest
+        ? array(param, expr('item', slot.type), LIMITS.args)
+        : slot?.optional
+          ? { type: 'optional', name: param, field: expr(param, slot.type) }
+          : expr(param, slot),
     );
+    const signature = slots.map(([param, slot]) =>
+      slot?.rest
+        ? `...${param}: ${typeName(slot.type)}[]`
+        : `${param}${slot?.optional ? '?' : ''}: ${typeName(slotType(slot))}`,
+    );
+    return variant(`(${signature.join(', ')})`, fields);
+  };
 
   // Every type an expression may have at a root: results, parameters, inputs, and lists of values.
   const roots: Type[] = [
@@ -326,13 +330,12 @@ export function renderDenseSchema({ numbers, types, modules }: Schema): string {
     ]),
   ];
   for (const type of roots) expr('value', type);
-  const exprNames = [...index.keys()].filter(
-    (key) => templates[index.get(key)!]!.discriminator?.options?.[0] === 'input',
-  );
+  const exprNames = [...index.keys()].filter((key) => exprs.has(key));
   templates[ANY] = union(
     'Any',
-    'type',
-    Object.fromEntries(exprNames.map((key) => [key, [{ type: 'reference', name: 'value', ref: index.get(key) }]])),
+    Object.fromEntries(
+      exprNames.map((key) => [key, variant(`Any ${key}`, [{ type: 'reference', name: 'value', ref: index.get(key) }])]),
+    ),
   );
 
   const named = (name: string, max: number, ...fields: Field[]) =>

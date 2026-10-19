@@ -110,11 +110,11 @@ describe('definitions', () => {
     },
   );
 
-  test('the plate packs to a seventh of its JSON and replays', () => {
+  test('the plate packs to a sixth of its JSON and replays', () => {
     const definition = fromV3(recordPlate());
     const decoded = roundTrip(definition, { Radians: '±7@0.0001' });
     expect(evaluate(decoded).outputs.area).toBe(24);
-    expect(encodeDefinition(definition).length).toBeLessThan(JSON.stringify(definition).length / 7);
+    expect(encodeDefinition(definition).length).toBeLessThan(JSON.stringify(definition).length / 6);
   });
 
   test('random well-typed definitions round-trip', () => {

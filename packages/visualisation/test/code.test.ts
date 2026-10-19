@@ -26,14 +26,16 @@ const wrap = (body: string, inputs = 'w: Coordinate = 2') =>
 describe('printing and parsing', () => {
   test('the plate prints as a function of its inputs, one const per cell', () => {
     const code = printDefinition(plate());
-    expect(code).toContain("import { Boolean2, Circle2, Polygon2, Vec2 } from '@dirty-geometry/vec2/schema/bindings';");
+    expect(code).toContain(
+      "import { Aabb2, Boolean2, Circle2, Polygon2, Vec2 } from '@dirty-geometry/vec2/schema/bindings';",
+    );
     expect(code).toContain(
       'export function definition(\n  width: Coordinate = 6,\n  height: Coordinate = 4,\n  holeRadius: Length = 1,\n',
     );
     expect(code).toContain(
-      '  const circle2 = new Circle2(new Vec2(width, 0).scale(holeX).add(new Vec2(0, height).scale(0.5)), holeRadius);',
+      '  const outline = Polygon2.fromAabb2(Aabb2.fromMinMax(new Vec2(0, 0), new Vec2(width, height)));',
     );
-    expect(code).toContain('  const hole = new Polygon2([\n    circle2.evaluate(0),\n');
+    expect(code).toContain('  const hole = Polygon2.fromCircle2(\n');
     expect(code).toContain('  const subtract = Boolean2.subtract([outline], hole, { mesh: true });');
     expect(code).toContain('  const plate = subtract.polygons;');
     expect(code).toContain('  return { outline, hole, plate, mesh, area };');

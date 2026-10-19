@@ -16,17 +16,17 @@ const byName = (outputs: Record<string, unknown>) =>
   Object.fromEntries(Object.entries(json(outputs)).map(([k, v]) => [k.replace(/[^\w$]/g, '_'), v]));
 
 describe('fromV3', () => {
-  test('the plate becomes seven cells with the 16 rim points written into the hole', () => {
+  test('the plate becomes six cells, the circle written into the hole', () => {
     const definition = fromV3(recordPlate());
     expect(definition.inputs.map((input) => `${input.name}: ${input.type}`)).toEqual([
       'width: Coordinate',
       'height: Coordinate',
       'holeRadius: Length',
       'holeX: Coordinate',
+      'holeSegments: Index',
     ]);
     expect(definition.cells.map((cell) => `${cell.name}${cell.output ? '*' : ''}`)).toEqual([
       'outline*',
-      'circle2',
       'hole*',
       'subtract',
       'plate*',
@@ -34,9 +34,9 @@ describe('fromV3', () => {
       'area*',
     ]);
     const hole = definition.cells.find((cell) => cell.name === 'hole')!.expr as any;
-    expect(hole.op).toBe('Polygon2.new');
-    expect(hole.args.vertices).toHaveLength(16);
-    expect(hole.args.vertices[0]).toEqual({ op: 'Circle2.evaluate', self: { ref: 'circle2' }, args: { theta: 0 } });
+    expect(hole.op).toBe('Polygon2.fromCircle2');
+    expect(hole.args.segments).toEqual({ ref: 'holeSegments' });
+    expect(hole.args.circle.op).toBe('Circle2.new');
   });
 
   test.each(fixtures.map((f) => [f.name, f.definition] as const))(

@@ -7,7 +7,7 @@ import { isOptional, isRest, operationById, slotType, type Type } from '@dirty-g
 import { members, parseTypeName, roleOf } from '@dirty-geometry/vec2/schema/typing';
 import { literalShape } from '../defaults';
 import { describeJson } from '../describe';
-import { methodsOf, partsOf } from '../model/ops';
+import { methodsOf, partsOf, replaceOf, unchain } from '../model/ops';
 import { operationLabel } from '../operations';
 import { NumberInput } from '../widgets';
 import { pathKey, type Editing } from './context';
@@ -41,17 +41,18 @@ const isLarge = (children: Child[]) =>
 
 /** What stands in a slot, edited in place: its children are slots too, and its head opens a picker. */
 export function Operand({ expr, slot, path, ed, name, optional }: Omit<Child, 'key'> & { ed: Editing }) {
-  const [open, setOpen] = useState<'slot' | 'chain' | null>(null);
+  // `part`: another field, item or method of the value a field or item is read from (`x.polygons` → `x.triMesh`).
+  const [open, setOpen] = useState<'slot' | 'chain' | 'part' | null>(null);
   const close = useCallback(() => setOpen(null), []);
   const issues = ed.issues.get(pathKey(path));
   const label = `${ed.label} ${path.join('.') || 'expression'}`;
-  const head = (kind: keyof typeof KIND, text: React.ReactNode, title?: string) => (
+  const head = (kind: keyof typeof KIND, text: React.ReactNode, title?: string, mode: 'slot' | 'part' = 'slot') => (
     <button
       type='button'
       aria-label={label}
       title={issues?.join('\n') ?? title}
       className={`${token} ${issues ? KIND.missing : KIND[kind]}`}
-      onClick={() => setOpen(open ? null : 'slot')}
+      onClick={() => setOpen(open ? null : mode)}
     >
       {text}
     </button>
@@ -145,10 +146,19 @@ export function Operand({ expr, slot, path, ed, name, optional }: Omit<Child, 'k
         {expr.math !== 'neg' && <span className={punct}>)</span>}
       </>
     );
-  } else
+  } else {
+    const accessor = expr;
+    // A new value in front drops the field or item when it has none of that name.
+    const ofEd: Editing = {
+      ...ed,
+      set: (p, e, options) =>
+        e !== undefined && pathKey(p) === pathKey(at('of'))
+          ? ed.set(path, replaceOf(accessor, e, ed.typeOf), options)
+          : ed.set(p, e, options),
+    };
     body = (
       <>
-        <Operand expr={expr.of} slot='unknown' path={at('of')} ed={ed} />
+        <Operand expr={expr.of} slot='unknown' path={at('of')} ed={ofEd} />
         {'index' in expr ? (
           <>
             <span className={punct}>[</span>
@@ -158,13 +168,14 @@ export function Operand({ expr, slot, path, ed, name, optional }: Omit<Child, 'k
               onChange={(v) => ed.set(at('index'), Math.max(0, Math.round(v)))}
               narrow
             />
-            {head('literal', ']', 'change')}
+            {head('literal', ']', 'another item, field or method', 'part')}
           </>
         ) : (
-          head('literal', `.${expr.field}`)
+          head('literal', `.${expr.field}`, 'another field or method', 'part')
         )}
       </>
     );
+  }
 
   const large = isLarge(children);
   const listed = children.length > 0 || brackets[1] !== ')' || add;
@@ -220,12 +231,13 @@ export function Operand({ expr, slot, path, ed, name, optional }: Omit<Child, 'k
       )}
       {open && (
         <OperandPicker
-          expr={expr}
+          expr={open === 'part' ? unchain(expr) : expr}
           slot={slot}
           path={path}
           ed={ed}
           optional={optional}
-          chain={open === 'chain'}
+          chain={open !== 'slot'}
+          unwrap={open === 'part'}
           onClose={close}
         />
       )}

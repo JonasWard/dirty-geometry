@@ -6,7 +6,7 @@ import type { ExprPath } from '@dirty-geometry/vec2/recording/expr';
 import { operations, type Operation, type Type } from '@dirty-geometry/vec2/schema/schema';
 import { assignable, isNumeric, members, roleOf, typeName } from '@dirty-geometry/vec2/schema/typing';
 import { DEFAULT_VALUES, defaultLiteral, literalShape } from '../defaults';
-import { callFunction, chain, changeOp, methodsOf, partsOf, wrapMath } from '../model/ops';
+import { callFunction, chain, changeOp, methodsOf, partsOf, unchain, wrapMath } from '../model/ops';
 import { operationLabel } from '../operations';
 import { useFavourites } from '../store';
 import { ValueEditor } from '../widgets';
@@ -75,6 +75,7 @@ export function OperandPicker({
   ed,
   optional,
   chain: chaining,
+  unwrap,
   onClose,
 }: {
   expr: Expr | undefined;
@@ -83,6 +84,8 @@ export function OperandPicker({
   ed: Editing;
   optional?: boolean;
   chain?: boolean;
+  /** Chaining in place of a field or item read off `expr`: offer to remove it, leaving `expr`. */
+  unwrap?: boolean;
   onClose: () => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -112,6 +115,8 @@ export function OperandPicker({
     };
   }, [onClose]);
 
+  /** What is left when the method call, field or item here is removed. */
+  const removable = unwrap ? expr : chaining ? undefined : unchain(expr);
   const put = (next: Expr | undefined) => {
     ed.set(path, next);
     onClose();
@@ -255,6 +260,13 @@ export function OperandPicker({
           </div>
         )}
       </div>
+      {removable !== undefined && (
+        <button type='button' className={`${action} mt-2 mr-1`} onClick={() => put(removable)}>
+          {unwrap || !(expr && typeof expr === 'object' && 'op' in expr)
+            ? 'remove'
+            : `remove ${operationLabel(expr.op).head}`}
+        </button>
+      )}
       {optional && expr !== undefined && !chaining && (
         <button type='button' className={`${action} mt-2`} onClick={() => put(undefined)}>
           leave out

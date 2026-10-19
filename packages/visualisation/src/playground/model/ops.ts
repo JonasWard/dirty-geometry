@@ -341,6 +341,19 @@ export function partsOf(type: Type): Part[] {
   return Array.from({ length: Math.min(...lengths) }, (_, index) => ({ index }));
 }
 
+/** The value a method call (`self`) or a field or item (`of`) is read from: what is left when it is removed. */
+export function unchain(e: Expr | undefined): Expr | undefined {
+  if (e === undefined || !isObj(e)) return undefined;
+  if ('of' in e) return e.of;
+  return 'op' in e && e.self !== undefined && !operationById.get(e.op)?.static ? e.self : undefined;
+}
+
+/** A field or item read off a new value: kept where the new value has it, else the new value alone. */
+export function replaceOf(e: { of: Expr } & Part, of: Expr, typeOf: (e: Expr) => Type): Expr {
+  const next = { ...e, of };
+  return typeOf(next) !== 'unknown' || typeOf(of) === 'unknown' ? next : of;
+}
+
 /** `current.id(…)`: a method or field of `current`, its required arguments defaulted. */
 export function chain(current: Expr, id: string, scope: Scope): Expr {
   const op = operationById.get(id);

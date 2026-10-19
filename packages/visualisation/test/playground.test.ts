@@ -94,6 +94,24 @@ describe('editing', () => {
     expect(ops.partsOf('number')).toEqual([]);
   });
 
+  test('a field or item is kept on a new value that has it, else dropped', () => {
+    const plate = STARTERS.find((s) => s.id === 'plate')!.build();
+    const t = typeOf(plate);
+    const subtract = plate.cells.find((c) => c.name === 'subtract')!.expr;
+    const polygons = { of: { ref: 'subtract' }, field: 'polygons' };
+    expect(ops.replaceOf(polygons, subtract, t)).toEqual({ of: subtract, field: 'polygons' });
+    expect(ops.replaceOf(polygons, { ref: 'outline' }, t)).toEqual({ ref: 'outline' });
+    expect(ops.replaceOf({ of: { ref: 'plate' }, index: 3 }, polygons, t)).toEqual({ of: polygons, index: 3 });
+    expect(ops.replaceOf(polygons, { ref: 'nothing' }, t)).toEqual({ of: { ref: 'nothing' }, field: 'polygons' });
+  });
+
+  test('removing a method call, field or item leaves the value it was read from', () => {
+    expect(ops.unchain({ op: 'Polygon2.area', self: { ref: 'outline' } })).toEqual({ ref: 'outline' });
+    expect(ops.unchain({ of: { ref: 'subtract' }, field: 'polygons' })).toEqual({ ref: 'subtract' });
+    expect(ops.unchain(vec(1, 2))).toBeUndefined();
+    expect(ops.unchain(3)).toBeUndefined();
+  });
+
   test('changing an operation keeps the arguments that still fit and puts the old expression in', () => {
     const scope = ops.scopeOf(base, 'b');
     const t = typeOf(base);

@@ -9,12 +9,11 @@ import {
 import { VisualisationLegend } from '../core/VisualisationLegend';
 import { CodeEditor } from './CodeEditor';
 import { EncodingPanel } from './EncodingPanel';
-import { StoreContext, useAnalysis, usePlayground, useStoreApi } from './hooks';
 import { JsonEditor } from './JsonEditor';
 import { CellsPanel, FunctionsPanel, InputsPanel } from './panels';
 import { PLAYGROUND_COLORS, PlaygroundCanvas } from './PlaygroundCanvas';
 import { STARTERS } from './starters';
-import { createPlaygroundStore, type Document } from './store';
+import { createPlaygroundStore, StoreContext, useAnalysis, usePlayground, useStoreApi, type Document } from './store';
 import { decodePlaygroundHash, isLegacyHash, readPlaygroundHash } from './url';
 
 type Mode = 'cells' | 'code' | 'json';
@@ -210,7 +209,7 @@ function PlaygroundView({ initialError }: { initialError?: string }) {
               items={[
                 { color: PLAYGROUND_COLORS.intermediate, label: 'Cells', shape: 'line' },
                 { color: PLAYGROUND_COLORS.outputs[0], label: 'Outputs (one colour each)', shape: 'line' },
-                { color: PLAYGROUND_COLORS.selected, label: 'Shown (◉)', shape: 'line' },
+                { color: PLAYGROUND_COLORS.selected, label: 'Selected (click a name)', shape: 'line' },
               ]}
             />
           </div>

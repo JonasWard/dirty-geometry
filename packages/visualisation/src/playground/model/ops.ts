@@ -4,9 +4,17 @@
  * writes its value there, and removing a function writes its body into the calls.
  */
 import type { Cell, Definition, Expr, Fn, Input } from '@dirty-geometry/vec2/recording/definition';
-import { getAt, mapExpr, setAt, uses, type ExprPath } from '@dirty-geometry/vec2/recording/expr';
-import { isOptional, isRest, operationById, slotType, type Type } from '@dirty-geometry/vec2/schema/schema';
-import { assignable, checkDefinition, nameProblem, parseTypeName } from '@dirty-geometry/vec2/schema/typing';
+import { mapExpr, setAt, type ExprPath } from '@dirty-geometry/vec2/recording/expr';
+import { isOptional, isRest, operationById, operations, slotType, type Type } from '@dirty-geometry/vec2/schema/schema';
+import {
+  assignable,
+  checkDefinition,
+  isClass,
+  members,
+  nameProblem,
+  parseTypeName,
+  roleOf,
+} from '@dirty-geometry/vec2/schema/typing';
 import { DEFAULT_NUMBER, DEFAULT_VALUES, defaultLiteral } from '../defaults';
 
 export type { ExprPath };
@@ -157,37 +165,6 @@ export function removeCell(definition: Definition, name: string): Definition {
   return mapCells(without, (c) => ({ ...c, expr: replaceIn(c.expr, refTo(name), () => cell.expr) }));
 }
 
-/** The expression at `path` in a cell becomes a cell of its own, just before it, and is referred to by name. */
-export function extractCell(definition: Definition, from: string, path: ExprPath, name?: string): Definition {
-  const cell = definition.cells[cellIndex(definition, from)]!;
-  const expr = getAt(cell.expr, path);
-  if (expr === undefined || path.length === 0) return definition;
-  const before = definition.cells[cellIndex(definition, from) - 1]?.name;
-  // Named after what it is (`vec2`), else after the parameter it stood in (`center`).
-  const param = [...path].reverse().find((key): key is string => typeof key === 'string' && key !== 'args');
-  const base = nameFor(expr) === 'value' && param ? param : nameFor(expr);
-  const extracted = name ?? freeName(definition, base);
-  const next = setCellExpr(definition, from, path, { ref: extracted });
-  if (before === undefined) {
-    checkName(next, extracted);
-    return { ...next, cells: [{ name: extracted, expr }, ...next.cells] };
-  }
-  return addCell(next, expr, { name: extracted, after: before });
-}
-
-/** Moves a cell one place up or down, unless that would put a use before what it uses. */
-export function moveCell(definition: Definition, name: string, by: -1 | 1): Definition {
-  const i = cellIndex(definition, name);
-  const j = i + by;
-  const [a, b] = by < 0 ? [definition.cells[j], definition.cells[i]] : [definition.cells[i], definition.cells[j]];
-  if (!a || !b) return definition;
-  if (uses(b.expr).refs.has(a.name)) throw new Error(`${b.name} uses ${a.name}, so it stays after it`);
-  const cells = [...definition.cells];
-  cells[i] = definition.cells[j]!;
-  cells[j] = definition.cells[i]!;
-  return { ...definition, cells };
-}
-
 // ---- functions ----
 
 export function addFunction(definition: Definition): Definition {
@@ -257,21 +234,6 @@ export function removeParam(definition: Definition, fnName: string, param: strin
   return mapCalls(next, fnName, ({ [param]: _, ...rest }) => rest);
 }
 
-export function renameParam(definition: Definition, fnName: string, from: string, to: string): Definition {
-  const problem = nameProblem(to);
-  if (problem) throw new Error(problem);
-  const fn = definition.functions.find((f) => f.name === fnName)!;
-  if (fn.params.some((p) => p.name === to)) throw new Error(`${to} is already a param`);
-  const next = mapFunction(definition, fnName, (f) => ({
-    ...f,
-    params: f.params.map((p) => (p.name === from ? { ...p, name: to } : p)),
-    body: replaceIn(f.body, refTo(from), () => ({ ref: to })),
-  }));
-  return mapCalls(next, fnName, (args) =>
-    Object.fromEntries(Object.entries(args).map(([k, v]) => [k === from ? to : k, v])),
-  );
-}
-
 export function setParamType(definition: Definition, fnName: string, param: string, type: string): Definition {
   parseTypeName(type);
   return mapFunction(definition, fnName, (f) => ({
@@ -282,8 +244,10 @@ export function setParamType(definition: Definition, fnName: string, param: stri
 
 // ---- expressions ----
 
-/** A fresh expression for a slot of `type`: the latest binding that fits, else a default literal. */
+/** A fresh expression for a slot of `type`: a number literal, the latest binding that fits, else a default literal. */
 export function defaultExpr(type: Type, scope: Scope): Expr | undefined {
+  // A number starts as a literal: the latest number in scope (an area, a count) is rarely the one meant.
+  if (roleOf(type)) return defaultLiteral(type);
   const binding = [...scope].reverse().find((b) => assignable(b.type, type));
   if (binding) return { ref: binding.name };
   return defaultLiteral(type);
@@ -328,6 +292,25 @@ export function changeOp(current: Expr | undefined, id: string, scope: Scope, ty
   }
   if (!op.static && self === undefined) self = defaultExpr(op.owner, scope);
   return { op: id, ...(self !== undefined && { self }), ...(Object.keys(args).length && { args }) };
+}
+
+/** The instance methods and fields of a value of `type` (what can be chained onto it). */
+export const methodsOf = (type: Type) => {
+  const owners = new Set(members(type).filter((m): m is string => typeof m === 'string' && isClass(m)));
+  return operations.filter((op) => owners.has(op.owner) && !op.static);
+};
+
+/** `current.id(…)`: a method or field of `current`, its required arguments defaulted. */
+export function chain(current: Expr, id: string, scope: Scope): Expr {
+  const op = operationById.get(id);
+  if (!op || op.static) throw new Error(`${id} is not a method`);
+  const args = Object.fromEntries(
+    op.params.flatMap(([name, slot]) => {
+      const fresh = isOptional(slot) || isRest(slot) ? undefined : defaultExpr(slotType(slot), scope);
+      return fresh === undefined ? [] : [[name, fresh]];
+    }),
+  );
+  return { op: id, self: current, ...(Object.keys(args).length && { args }) };
 }
 
 /** A call of user function `fn`, its arguments defaulted (`current` placed in the first param it fits). */

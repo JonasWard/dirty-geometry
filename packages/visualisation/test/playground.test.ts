@@ -68,23 +68,17 @@ describe('editing', () => {
     expect(outputs(noInput)).toEqual(outputs(base));
   });
 
-  test('extracting an expression makes a cell before it, and is undone by removing that cell', () => {
-    const extracted = ops.extractCell(base, 'b', ['args', 'other']);
-    expect(extracted.cells.map((c) => c.name)).toEqual(['a', 'other', 'b']);
-    expect(extracted.cells[1]).toEqual({ name: 'other', expr: { ref: 'a' } });
-    const nested = def({ cells: [{ name: 'c', expr: { op: 'Circle2.new', args: { center: vec(1, 2), radius: 1 } } }] });
-    const first = ops.extractCell(nested, 'c', ['args', 'center']);
-    expect(first.cells.map((c) => [c.name, c.expr])).toEqual([
-      ['vec2', vec(1, 2)],
-      ['c', { op: 'Circle2.new', args: { center: { ref: 'vec2' }, radius: 1 } }],
-    ]);
-    expect(ops.removeCell(first, 'vec2')).toEqual(nested);
-  });
-
-  test('a cell cannot move past what it uses', () => {
-    expect(() => ops.moveCell(base, 'b', -1)).toThrow(/b uses a/);
-    const free = ops.addCell(base, vec(1, 1), { name: 'c' });
-    expect(ops.moveCell(free, 'c', -1).cells.map((c) => c.name)).toEqual(['a', 'c', 'b']);
+  test('chaining calls a method on a value, its arguments defaulted', () => {
+    const scope = ops.scopeOf(base, 'b');
+    expect(ops.methodsOf('Vec2').some((op) => op.id === 'Vec2.scale')).toBe(true);
+    expect(ops.methodsOf('number')).toEqual([]);
+    expect(ops.chain(vec(1, 2), 'Vec2.scale', scope)).toEqual({
+      op: 'Vec2.scale',
+      self: vec(1, 2),
+      args: { factor: 1 },
+    });
+    expect(ops.chain({ ref: 'a' }, 'Vec2.x', scope)).toEqual({ op: 'Vec2.x', self: { ref: 'a' } });
+    expect(() => ops.chain(vec(1, 2), 'Vec2.center', scope)).toThrow(/not a method/);
   });
 
   test('changing an operation keeps the arguments that still fit and puts the old expression in', () => {
@@ -104,7 +98,7 @@ describe('editing', () => {
     });
     expect(ops.changeOp({ ref: 'a' }, 'Circle2.new', scope, t)).toEqual({
       op: 'Circle2.new',
-      args: { center: { ref: 'a' }, radius: { ref: 'w' } },
+      args: { center: { ref: 'a' }, radius: 1 },
     });
   });
 
@@ -113,18 +107,16 @@ describe('editing', () => {
     expect(d.functions).toEqual([{ name: 'f', params: [{ name: 'x', type: 'Coordinate' }], body: { ref: 'x' } }]);
     d = ops.setFunctionBody(d, 'f', [], vec({ ref: 'x' }, { ref: 'x' }));
     d = ops.setCellExpr(d, 'a', [], ops.callFunction(undefined, d.functions[0]!, ops.scopeOf(d, 'a'), typeOf(d)));
-    expect(d.cells[0]!.expr).toEqual({ call: 'f', args: { x: { ref: 'w' } } });
+    expect(d.cells[0]!.expr).toEqual({ call: 'f', args: { x: 1 } });
     expect(checkDefinition(d).issues).toEqual([]);
-    d = ops.renameParam(d, 'f', 'x', 'size');
-    expect(d.cells[0]!.expr).toEqual({ call: 'f', args: { size: { ref: 'w' } } });
     d = ops.addParam(d, 'f', 'Length');
-    expect(d.cells[0]!.expr).toEqual({ call: 'f', args: { size: { ref: 'w' }, x: 1 } });
+    expect(d.cells[0]!.expr).toEqual({ call: 'f', args: { x: 1, x2: 1 } });
     const withFn = d;
-    d = ops.removeParam(d, 'f', 'x');
-    expect(d.functions[0]!.params.map((p) => p.name)).toEqual(['size']);
+    d = ops.removeParam(d, 'f', 'x2');
+    expect(d.functions[0]!.params.map((p) => p.name)).toEqual(['x']);
     const inlined = ops.removeFunction(withFn, 'f');
     expect(inlined.functions).toEqual([]);
-    expect(inlined.cells[0]!.expr).toEqual(vec({ ref: 'w' }, { ref: 'w' }));
+    expect(inlined.cells[0]!.expr).toEqual(vec(1, 1));
     expect(outputs(inlined)).toEqual(outputs(withFn));
   });
 

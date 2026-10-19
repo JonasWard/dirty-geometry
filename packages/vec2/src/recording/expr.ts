@@ -26,10 +26,6 @@ export function* walk(e: Expr, path: ExprPath = []): Generator<{ path: ExprPath;
   for (const child of children(e)) yield* walk(child.expr, [...path, ...child.path]);
 }
 
-/** The expression at `path`, or undefined. */
-export const getAt = (e: Expr, path: ExprPath): Expr | undefined =>
-  path.reduce<any>((at, key) => (at === null || typeof at !== 'object' ? undefined : at[key]), e);
-
 /** `e` with the expression at `path` replaced (`undefined` removes an argument or field). */
 export function setAt(e: Expr, path: ExprPath, value: Expr | undefined): Expr {
   if (path.length === 0) return value ?? null;
@@ -56,17 +52,4 @@ export function mapExpr(e: Expr, f: (e: Expr) => Expr): Expr {
   let next = e;
   for (const child of children(e)) next = setAt(next, child.path, mapExpr(child.expr, f));
   return f(next);
-}
-
-/** The names `e` refers to (inputs, cells, params), and the user functions it calls. */
-export function uses(e: Expr): { refs: Set<string>; calls: Set<string> } {
-  const refs = new Set<string>();
-  const calls = new Set<string>();
-  for (const { expr } of walk(e)) {
-    if (expr && typeof expr === 'object' && !Array.isArray(expr)) {
-      if ('ref' in expr) refs.add(expr.ref);
-      if ('call' in expr) calls.add(expr.call);
-    }
-  }
-  return { refs, calls };
 }

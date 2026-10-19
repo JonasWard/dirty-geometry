@@ -15,8 +15,6 @@ export type Editing = {
   issues: ReadonlyMap<string, string[]>;
   /** Replace the expression at `path` (`undefined` leaves an argument out); `coalesce` merges quick edits into one undo step. */
   set: (path: ExprPath, e: Expr | undefined, options?: { coalesce?: string }) => void;
-  /** Make the expression at `path` a cell of its own (cells only). */
-  extract?: (path: ExprPath) => void;
   /** For labels: the cell or function being edited. */
   label: string;
 };

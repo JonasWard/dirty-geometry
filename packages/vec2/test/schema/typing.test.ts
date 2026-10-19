@@ -105,6 +105,17 @@ describe('checkDefinition', () => {
     ]);
   });
 
+  test('an output states its type, and its value fits it', () => {
+    const point = { op: 'Vec2.new', args: { x: 1, y: 2 } };
+    expect(messages(def({ cells: [{ name: 'p', expr: point, output: true }] }))).toEqual([
+      'p: an output declares its type',
+    ]);
+    expect(messages(def({ cells: [{ name: 'p', expr: point, output: true, type: 'Geometry2' }] }))).toEqual([]);
+    expect(messages(def({ cells: [{ name: 'p', expr: point, output: true, type: 'Polygon2' }] }))).toEqual([
+      'p: Vec2 does not fit the declared Polygon2',
+    ]);
+  });
+
   test('names', () => {
     expect(nameProblem('ok_1')).toBeUndefined();
     expect(nameProblem('1x')).toMatch(/not a name/);

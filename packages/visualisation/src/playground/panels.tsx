@@ -327,18 +327,35 @@ function CellRow({
       label: cell.name,
     };
   }, [cell.name, index, definition, analysis, edit]);
+  const outputs = useMemo(() => ops.outputTypes(ed.typeOf(cell.expr)), [ed, cell.expr]);
   return (
     <li className={`${row} ${selected ? 'border-amber-300 bg-amber-50/70' : ''}`} aria-label={`cell ${cell.name}`}>
       <div className='flex items-center gap-2'>
         <NameField name={cell.name} onRename={(to) => edit((d) => ops.rename(d, cell.name, to))} />
-        <label className='flex items-center gap-1 text-dg-subtle'>
-          <input
-            type='checkbox'
-            aria-label={`${cell.name} is an output`}
-            checked={cell.output === true}
-            onChange={(e) => edit((d) => ops.setCell(d, cell.name, { output: e.target.checked || undefined }))}
-          />
+        <label
+          className='flex items-center gap-1 text-dg-subtle'
+          title='An output is returned by the definition, with this type'
+        >
           output
+          <select
+            aria-label={`${cell.name} output type`}
+            className={selectClass}
+            value={cell.output ? (cell.type ?? '') : ''}
+            onChange={(e) =>
+              edit((d) =>
+                ops.setCell(
+                  d,
+                  cell.name,
+                  e.target.value ? { output: true, type: e.target.value } : { output: undefined, type: undefined },
+                ),
+              )
+            }
+          >
+            <option value=''>—</option>
+            {[...new Set([...(cell.output && cell.type ? [cell.type] : []), ...outputs])].map((t) => (
+              <option key={t}>{t}</option>
+            ))}
+          </select>
         </label>
         <button
           type='button'

@@ -255,6 +255,12 @@ function unionOf(list: Type[]): Type {
   return unique.length === 1 ? unique[0]! : { or: unique };
 }
 
+/** `type` without `null` (a result that may be null is declared as what it is otherwise). */
+export function nonNull(type: Type): Type {
+  const rest = members(type).filter((m) => m !== 'null');
+  return rest.length === 0 ? type : rest.length === 1 ? rest[0]! : { or: rest };
+}
+
 /** Where a problem is: an input, a function or a cell, and the path inside its expression. */
 export type Issue = { kind: 'input' | 'function' | 'cell'; name: string; path: (string | number)[]; message: string };
 export type FnType = { params: { name: string; type: Type }[]; returns: Type };
@@ -438,7 +444,7 @@ export function checkDefinition(definition: Definition): Analysis {
     if (cell.type !== undefined) {
       type = parse('cell', cell.name, cell.type);
       if (!assignable(inferred, type)) report([], `${typeName(inferred)} does not fit the declared ${cell.type}`);
-    }
+    } else if (cell.output) report([], 'an output declares its type');
     refs.set(cell.name, type);
   }
   return { refs, fns, issues };

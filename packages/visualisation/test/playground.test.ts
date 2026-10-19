@@ -6,9 +6,9 @@ import { operationById } from '@dirty-geometry/vec2/schema/schema';
 import { checkDefinition, typer, widen } from '@dirty-geometry/vec2/schema/typing';
 import { DEFAULT_VALUES } from '../src/playground/defaults';
 import * as ops from '../src/playground/model/ops';
-import { OPERATION_GROUPS } from '../src/playground/operations';
+import { DEFAULT_FAVOURITES } from '../src/playground/operations';
 import { STARTERS } from '../src/playground/starters';
-import { createPlaygroundStore } from '../src/playground/store';
+import { createPlaygroundStore, favourites } from '../src/playground/store';
 
 const def = (partial: Partial<Definition>): Definition => ({
   format: 'vec2-definition',
@@ -23,7 +23,12 @@ const base = def({
   inputs: [{ name: 'w', type: 'Coordinate', value: 2 }],
   cells: [
     { name: 'a', expr: vec({ ref: 'w' }, 0) },
-    { name: 'b', expr: { op: 'Vec2.add', self: { ref: 'a' }, args: { other: { ref: 'a' } } }, output: true },
+    {
+      name: 'b',
+      expr: { op: 'Vec2.add', self: { ref: 'a' }, args: { other: { ref: 'a' } } },
+      type: 'Vec2',
+      output: true,
+    },
   ],
 });
 const typeOf = (d: Definition) => (e: Expr) =>
@@ -32,8 +37,8 @@ const outputs = (d: Definition) =>
   JSON.parse(JSON.stringify(evaluate(d).outputs, (_, v) => (v?.toJson ? v.toJson() : v)));
 
 describe('playground data', () => {
-  test('every curated operation exists', () => {
-    expect(OPERATION_GROUPS.flatMap((g) => g.ops).filter((id) => !operationById.has(id))).toEqual([]);
+  test('every default favourite exists', () => {
+    expect(DEFAULT_FAVOURITES.filter((id) => !operationById.has(id))).toEqual([]);
   });
   test('every default value decodes', () => {
     for (const json of Object.values(DEFAULT_VALUES)) expect(() => defaultRegistry.decode(json)).not.toThrow();
@@ -164,5 +169,24 @@ describe('store', () => {
     expect(store.getState().encoding.hash).toMatch(/^4\//);
     store.getState().update({ auto: false, presets: { Coordinate: '±1@0.001' } });
     expect(store.getState().encoding.error).toBeDefined();
+  });
+});
+
+describe('choices', () => {
+  test('an output can declare its own type or any wider one', () => {
+    const polygon = ops.outputTypes('Polygon2');
+    expect(polygon[0]).toBe('Polygon2');
+    expect(polygon).toContain('Geometry2');
+    expect(polygon).not.toContain('Vec2');
+    expect(ops.outputTypes({ or: ['TriMesh2', 'null'] })[0]).toBe('TriMesh2');
+    expect(ops.outputTypes('number')).toEqual(expect.arrayContaining(['number', 'Coordinate', 'Length']));
+  });
+
+  test('favourites start as the defaults and toggle', () => {
+    expect(favourites.getState().ids).toContain('Vec2.new');
+    favourites.getState().toggle('Vec2.new');
+    expect(favourites.getState().ids).not.toContain('Vec2.new');
+    favourites.getState().toggle('Vec2.new');
+    expect(favourites.getState().ids).toContain('Vec2.new');
   });
 });

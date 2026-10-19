@@ -31,6 +31,8 @@ export const STAMP = hash(JSON.stringify([dense.fields, dense.templates]));
 const TEMPLATES = dense.templates as F[];
 const INDEX = new Map(TEMPLATES.map((t, i) => [t.name as string, i]));
 const ANY = TEMPLATES[INDEX.get('Any')!]!;
+/** The types a cell, an input or a function body can be packed as (and so declared as). */
+export const PACKABLE_TYPES: readonly string[] = Object.keys(ANY.variants).filter(Boolean);
 /** `MathJson` is template 0; the value templates end where `Any` starts. */
 const VALUE = { type: 'reference', name: 'value', ref: 0 };
 const VALUE_TEMPLATES = TEMPLATES.slice(0, INDEX.get('Any'));

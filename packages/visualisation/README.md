@@ -8,7 +8,7 @@ The react-three-fiber display layer for `@dirty-geometry/vec2` geometry. It has 
 
 - `playground/`: the `/lab/vec2/playground/` editor (`@dirty-geometry/visualisation/playground`) for vec2 definitions (version 4: inputs, functions and cells of expressions):
   - `model/`: pure edits (`ops.ts`: rename, remove a cell into its uses, change an operation keeping its arguments, chain a method onto a value, function params), and the code view (`print.ts` writes a definition as a TypeScript module that runs against vec2, `parse.ts` reads it back; printing and parsing round-trip);
-  - `editor/`: the expression editor, one slot per argument, each with a picker that offers only what fits the slot's type (a name, a literal, an operation or user function, arithmetic), and a `.` on each value to chain a method onto it;
+  - `editor/`: the expression editor, one slot per argument, each with a picker that offers only what fits the slot's type (a name, a literal, an operation or user function, arithmetic; operations in the schema's folders, starred favourites first), and a `.` on each value to chain a method onto it;
   - `store.ts`: the state (zustand), with undo/redo, automatic number ranges and the densing URL (`#/4/<options>/<definition>`; older links are upgraded);
   - a canvas of every input's and cell's geometry, and the encoding panel.
 

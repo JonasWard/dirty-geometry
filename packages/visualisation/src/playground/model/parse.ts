@@ -275,6 +275,8 @@ export function parseDefinition(text: string): Definition {
   const inputs: { name: string; type: string; value: Node; from: number; to: number }[] = [];
   const cells: { name: string; type?: string; node: Node; from: number; to: number }[] = [];
   let outputs: Token[] = [];
+  /** The return type's fields: each output and its declared type. */
+  const declared = new Map<string, { type: string; token: Token }>();
   let seen = false;
   while (peek().kind !== 'end') {
     if (eat('import')) {
@@ -300,6 +302,16 @@ export function parseDefinition(text: string): Definition {
         if (!eat(',')) break;
       }
       expect(')');
+      if (eat(':')) {
+        expect('{', 'the outputs and their types: { name: Type; … }');
+        while (!is('}')) {
+          const field = name('an output name');
+          expect(':', `":" and the type of ${field.text}`);
+          declared.set(field.text, { type: typeText([';', ',', '}']), token: field });
+          if (!eat(';') && !eat(',')) break;
+        }
+        expect('}');
+      }
       expect('{');
       while (eat('const')) {
         const cell = name('a cell name');
@@ -508,10 +520,22 @@ export function parseDefinition(text: string): Definition {
     refs.set(cell.name, cell.type ? parseTypeName(cell.type) : typeOf(expr, refs));
     return { name: cell.name, expr, ...(cell.type && { type: cell.type }) };
   });
+  // Outputs: what `return { … }` lists, typed by the return type (`definition(…): { name: Type }`).
   for (const output of outputs) {
     const cell = outCells.find((c) => c.name === output.text);
     if (!cell) error(`${output.text} is not a cell; only cells are outputs`, output.from, output.to);
+    const type = declared.get(output.text);
+    if (!type)
+      error(
+        `${output.text} needs its type in the return type: definition(…): { ${output.text}: Type }`,
+        output.from,
+        output.to,
+      );
     cell!.output = true;
+    cell!.type = type!.type;
   }
+  for (const [field, { token }] of declared)
+    if (!outputs.some((o) => o.text === field))
+      error(`${field} is in the return type but not returned`, token.from, token.to);
   return { format: 'vec2-definition', version: 4, inputs: outInputs, functions: outFunctions, cells: outCells };
 }

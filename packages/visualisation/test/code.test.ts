@@ -27,7 +27,7 @@ describe('printing and parsing', () => {
   test('the plate prints as a function of its inputs, one const per cell', () => {
     const code = printDefinition(plate());
     expect(code).toContain(
-      "import { Aabb2, Boolean2, Circle2, Polygon2, Vec2 } from '@dirty-geometry/vec2/schema/bindings';",
+      "import { Aabb2, Boolean2, Circle2, Polygon2, TriMesh2, Vec2 } from '@dirty-geometry/vec2/schema/bindings';",
     );
     expect(code).toContain(
       'export function definition(\n  width: Coordinate = 6,\n  height: Coordinate = 4,\n  holeRadius: Length = 1,\n',
@@ -68,10 +68,10 @@ describe('printing and parsing', () => {
       '  return new Vec2(x, y * 2);',
       '}',
       '',
-      'export function definition(w: Coordinate = 2, origin: Vec2 = value({ type: "Vec2", x: 0, y: 0 })) {',
+      'export function definition(w: Coordinate = 2, origin: Vec2 = value({ type: "Vec2", x: 0, y: 0 })): { p: Vec2; d: Length } {',
       '  const p = at(w - 1, -(w + 1) / 2);',
       '  const frame = new Frame2(undefined, undefined, p);',
-      '  const d: Length = p.distance(origin) * -1.5;',
+      '  const d = p.distance(origin) * -1.5;',
       '  const box = Aabb2.fromPoints(p, origin, ...[]);',
       '  return { p, d };',
       '}',
@@ -106,6 +106,16 @@ describe('printing and parsing', () => {
     expect(parseError(wrap('  const a = b;')).message).toMatch(/b is not defined here/);
     expect(parseError(wrap('  const a = new Vec2(1, 2).add;')).message).toMatch(/add is a method/);
     expect(parseError(wrap('  const a = 1 +;')).message).toMatch(/Expected an expression/);
+    const typed = (returns: string, body: string) => `export function definition()${returns} {\n${body}\n}\n`;
+    expect(parseError(typed('', '  const a = 1;\n  return { a };')).message).toMatch(
+      /a needs its type in the return type/,
+    );
+    expect(parseError(typed(': { a: number; b: number }', '  const a = 1;\n  return { a };')).message).toMatch(
+      /b is in the return type but not returned/,
+    );
+    expect(parseDefinition(typed(': { a: Length }', '  const a = 1;\n  return { a };')).cells).toEqual([
+      { name: 'a', expr: 1, type: 'Length', output: true },
+    ]);
     expect(parseError('const a = 1;').message).toMatch(/Expected "import", "function" or "export function"/);
     const { from, to } = parseError(wrap('  const a = new Vec2(1, 2).nope();'));
     expect(wrap('  const a = new Vec2(1, 2).nope();').slice(from, to)).toBe('nope');

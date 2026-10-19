@@ -3,7 +3,7 @@
  * expression that uses it; every other node becomes a cell, in node order, so cells only refer to earlier ones.
  */
 import { isRest, operationById, slotType, type Type } from '../../schema/schema';
-import { nameProblem, roleOf } from '../../schema/typing';
+import { checkDefinition, nameProblem, nonNull, roleOf, typeName } from '../../schema/typing';
 import type { Cell, Definition, Expr, Input } from './definition';
 import { DefinitionError } from './definition';
 import type { ArgV3, DefinitionV3, NodeV3, SourceV3 } from './v3';
@@ -163,5 +163,12 @@ export function fromV3(definition: DefinitionV3): Definition {
     for (const alias of names)
       cells.push({ name: unique(alias), expr: { ref: inputNames.get(key.slice(6))! }, output: true });
   }
-  return { format: 'vec2-definition', version: 4, inputs, functions: [], cells };
+  // Outputs state their type: the one each output's value has.
+  const migrated: Definition = { format: 'vec2-definition', version: 4, inputs, functions: [], cells };
+  const { refs } = checkDefinition(migrated);
+  for (const cell of cells) {
+    const type = refs.get(cell.name);
+    if (cell.output && type && type !== 'unknown') cell.type = typeName(nonNull(type));
+  }
+  return migrated;
 }

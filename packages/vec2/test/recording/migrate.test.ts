@@ -33,6 +33,13 @@ describe('fromV3', () => {
       'mesh*',
       'area*',
     ]);
+    expect(definition.cells.filter((c) => c.output).map((c) => `${c.name}: ${c.type}`)).toEqual([
+      'outline: Polygon2',
+      'hole: Polygon2',
+      'plate: Polygon2[]',
+      'mesh: TriMesh2',
+      'area: number',
+    ]);
     const hole = definition.cells.find((cell) => cell.name === 'hole')!.expr as any;
     expect(hole.op).toBe('Polygon2.fromCircle2');
     expect(hole.args.segments).toEqual({ ref: 'holeSegments' });

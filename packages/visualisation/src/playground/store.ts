@@ -15,6 +15,7 @@ import {
   type NumericOptions,
 } from '@dirty-geometry/vec2/schema/dense/definition';
 import { choosePresets, quantisationReport } from './presets';
+import { DEFAULT_FAVOURITES } from './operations';
 import { encodePlaygroundHash } from './url';
 
 /** What undo restores. `auto`: the presets follow the definition (cheapest exact ones) until the user picks one. */
@@ -140,3 +141,29 @@ export function useAnalysis(definition: Definition): { analysis: Analysis; evalu
     return { analysis, evaluation };
   }, [definition]);
 }
+
+// ---- favourite operations, per viewer ----
+
+const FAVOURITES_KEY = 'dirty-geometry.playground.favourites';
+const readFavourites = (): string[] => {
+  try {
+    const saved = JSON.parse(localStorage.getItem(FAVOURITES_KEY) ?? 'null');
+    return Array.isArray(saved) ? saved.filter((id): id is string => typeof id === 'string') : [...DEFAULT_FAVOURITES];
+  } catch {
+    return [...DEFAULT_FAVOURITES];
+  }
+};
+/** The viewer's favourite operations (kept in this browser), listed first in the picker. */
+export const favourites = createStore<{ ids: string[]; toggle: (id: string) => void }>()((set, get) => ({
+  ids: readFavourites(),
+  toggle: (id) => {
+    const ids = get().ids.includes(id) ? get().ids.filter((x) => x !== id) : [...get().ids, id];
+    set({ ids });
+    try {
+      localStorage.setItem(FAVOURITES_KEY, JSON.stringify(ids));
+    } catch {
+      // storage may be unavailable (private windows); favourites then last for this visit
+    }
+  },
+}));
+export const useFavourites = () => useStore(favourites);

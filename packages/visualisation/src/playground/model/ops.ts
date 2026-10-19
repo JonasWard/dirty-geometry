@@ -12,9 +12,12 @@ import {
   isClass,
   members,
   nameProblem,
+  nonNull,
   parseTypeName,
   roleOf,
+  typeName,
 } from '@dirty-geometry/vec2/schema/typing';
+import { PACKABLE_TYPES } from '@dirty-geometry/vec2/schema/dense/definition';
 import { DEFAULT_NUMBER, DEFAULT_VALUES, defaultLiteral } from '../defaults';
 
 export type { ExprPath };
@@ -292,6 +295,18 @@ export function changeOp(current: Expr | undefined, id: string, scope: Scope, ty
   }
   if (!op.static && self === undefined) self = defaultExpr(op.owner, scope);
   return { op: id, ...(self !== undefined && { self }), ...(Object.keys(args).length && { args }) };
+}
+
+const packable = new Map(PACKABLE_TYPES.map((name) => [name, parseTypeName(name)]));
+/** The types an output whose value is `inferred` can declare: its own first, then every wider one (`Geometry2`). */
+export function outputTypes(inferred: Type): string[] {
+  if (inferred === 'unknown') return [];
+  const own = nonNull(inferred);
+  const wider = [...packable].filter(([, type]) => assignable(own, type)).map(([name]) => name);
+  // Plain names only (a class, a named type, a number type): unions read badly as a choice.
+  return [...new Set([typeName(own), ...wider.filter((name) => /^\w+(\[\])?$/.test(name))])].filter((name) =>
+    packable.has(name),
+  );
 }
 
 /** The instance methods and fields of a value of `type` (what can be chained onto it). */

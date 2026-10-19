@@ -5,6 +5,7 @@
 import type { Definition, Expr, Fn } from '@dirty-geometry/vec2/recording/definition';
 import { walk } from '@dirty-geometry/vec2/recording/expr';
 import { isRest, NUMBER_TYPES, operationById } from '@dirty-geometry/vec2/schema/schema';
+import { checkDefinition, members, typer } from '@dirty-geometry/vec2/schema/typing';
 
 export const BINDINGS = '@dirty-geometry/vec2/schema/bindings';
 const WIDTH = 100;
@@ -196,16 +197,27 @@ export function printDefinition(definition: Definition): string {
     out.push('', `function ${fn.name}(${params}) {`, `  return ${fit(expr(fn.body, fns), '  ')};`, '}');
   }
   const inputs = definition.inputs.map((input) => `${input.name}: ${input.type} = ${expr(input.value, fns).flat}`);
-  const head = `export function definition(${inputs.join(', ')}) {`;
+  const outputs = definition.cells.filter((cell) => cell.output);
+  // The outputs are the return type: `definition(…): { plate: Polygon2[]; area: number }`.
+  const fields = outputs.map((cell) => `${cell.name}: ${cell.type ?? 'unknown'}`);
+  const returns = fields.length ? `{ ${fields.join('; ')} }` : '{}';
+  const broken = `{\n${fields.map((f) => `  ${f};`).join('\n')}\n}`;
+  const head = `export function definition(${inputs.join(', ')}): ${returns} {`;
+  const tail = `): ${`): ${returns} {`.length <= WIDTH ? returns : broken} {`;
   out.push(
     '',
-    head.length <= WIDTH ? head : `export function definition(\n${inputs.map((i) => `  ${i},`).join('\n')}\n) {`,
+    head.length <= WIDTH ? head : `export function definition(\n${inputs.map((i) => `  ${i},`).join('\n')}\n${tail}`,
   );
+  // An output declared without the `null` its value may be gets a `!`, as TypeScript wants (it reads back the same).
+  const { refs, fns: signatures } = checkDefinition(definition);
+  const nullable = (e: Expr) =>
+    members(typer([], 'cell', '').typeOf(e, { refs, fns: signatures })).some((m) => m === 'null');
   for (const cell of definition.cells) {
-    const start = `  const ${cell.name}${cell.type ? `: ${cell.type}` : ''} = `;
-    out.push(`${start}${fit(expr(cell.expr, fns), '  ')};`);
+    const start = `  const ${cell.name}${cell.type && !cell.output ? `: ${cell.type}` : ''} = `;
+    const value = expr(cell.expr, fns);
+    out.push(`${start}${fit(cell.output && nullable(cell.expr) ? postfix(value, '!') : value, '  ')};`);
   }
-  const outputs = definition.cells.filter((cell) => cell.output).map((cell) => cell.name);
-  out.push(outputs.length ? `  return { ${outputs.join(', ')} };` : '  return {};', '}', '');
+  const returned = outputs.map((cell) => cell.name);
+  out.push(returned.length ? `  return { ${returned.join(', ')} };` : '  return {};', '}', '');
   return out.join('\n');
 }

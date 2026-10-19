@@ -3,7 +3,7 @@
  *
  * Expressions nest: an operation's arguments are expressions, so `new Circle2(new Vec2(1, 2), r)` is one cell. A cell
  * may refer to the inputs and to earlier cells by name; a function body only to its own params (and earlier
- * functions). Cells flagged `output` are the definition's result.
+ * functions). Cells flagged `output` are the definition's result; each declares its `type`.
  */
 export type Literal = string | number | boolean | null;
 export type MathOp = '+' | '-' | '*' | '/';

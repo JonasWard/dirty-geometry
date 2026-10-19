@@ -54,7 +54,7 @@ The core (`operations/helpers/cdt/`) is an adjacency mesh with walking point loc
 
 ## Definitions
 
-A definition (version 4) says _how_ values are made, as data: typed **inputs**, user **functions**, and named **cells**, each holding one expression. Cells flagged `output` are the result.
+A definition (version 4) says _how_ values are made, as data: typed **inputs**, user **functions**, and named **cells**, each holding one expression. Cells flagged `output` are the result, each with its declared `type`.
 
 ```ts
 import type { Definition } from '@dirty-geometry/vec2/recording/definition';
@@ -86,6 +86,7 @@ const definition: Definition = {
         self: { op: 'Vec2.new', args: { x: 1, y: 0 } },
         args: { factor: { op: 'Line2.length', self: { ref: 'line' } } },
       },
+      type: 'Vec2',
       output: true,
     },
   ],

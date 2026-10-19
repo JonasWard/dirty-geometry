@@ -3,11 +3,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Expr, MathOp } from '@dirty-geometry/vec2/recording/definition';
 import type { ExprPath } from '@dirty-geometry/vec2/recording/expr';
-import { operations, type Type } from '@dirty-geometry/vec2/schema/schema';
+import { operations, type Operation, type Type } from '@dirty-geometry/vec2/schema/schema';
 import { assignable, isNumeric, members, roleOf, typeName } from '@dirty-geometry/vec2/schema/typing';
 import { DEFAULT_VALUES, defaultLiteral, literalShape } from '../defaults';
 import { callFunction, chain, changeOp, methodsOf, wrapMath } from '../model/ops';
-import { OPERATION_GROUPS, operationLabel } from '../operations';
+import { operationLabel } from '../operations';
+import { useFavourites } from '../store';
 import { ValueEditor } from '../widgets';
 import type { Editing } from './context';
 
@@ -19,7 +20,47 @@ const choice =
   'block w-full truncate rounded px-1.5 py-0.5 text-left font-mono text-[11px] hover:bg-dg-sky-100 focus:bg-dg-sky-100 focus:outline-none';
 const action =
   'rounded border border-dg-border px-1.5 py-0.5 text-[11px] hover:border-dg-steel-600 hover:text-dg-steel-600';
-const CURATED = OPERATION_GROUPS.flatMap((group) => group.ops);
+/** Operations as the schema's folders: `geometry › regions › Polygon2 › fromCircle2`. */
+type Folder = { folders: Map<string, Folder>; ops: Operation[]; count: number };
+function treeOf(ops: Operation[]): Folder {
+  const root: Folder = { folders: new Map(), ops: [], count: 0 };
+  for (const op of ops) {
+    let node = root;
+    node.count++;
+    for (const key of op.path.slice(0, -1)) {
+      if (!node.folders.has(key)) node.folders.set(key, { folders: new Map(), ops: [], count: 0 });
+      node = node.folders.get(key)!;
+      node.count++;
+    }
+    node.ops.push(op);
+  }
+  return root;
+}
+function FolderView({
+  folder,
+  open,
+  item,
+}: {
+  folder: Folder;
+  open: boolean;
+  item: (op: Operation) => React.ReactNode;
+}) {
+  return (
+    <>
+      {[...folder.folders].map(([name, sub]) => (
+        <details key={name} open={open}>
+          <summary className='cursor-pointer px-1 font-mono text-[11px] text-dg-subtle hover:text-dg-ink'>
+            {name} <span className='text-[10px]'>{sub.count}</span>
+          </summary>
+          <div className='border-l border-dg-border pl-2'>
+            <FolderView folder={sub} open={open} item={item} />
+          </div>
+        </details>
+      ))}
+      {folder.ops.map(item)}
+    </>
+  );
+}
 const isMath = (e: Expr | undefined): e is { math: MathOp; args: [Expr, Expr] } =>
   !!e && typeof e === 'object' && 'math' in e && e.math !== 'neg';
 
@@ -58,6 +99,7 @@ export function OperandPicker({
         : 'value',
   );
   const [query, setQuery] = useState('');
+  const favourites = useFavourites();
 
   useEffect(() => {
     const outside = (event: MouseEvent) => ref.current && !ref.current.contains(event.target as Node) && onClose();
@@ -74,20 +116,39 @@ export function OperandPicker({
     ed.set(path, next);
     onClose();
   };
-  /** Operations (or, chaining, methods) matching the search: user functions and the curated ones first. */
+  /** Operations (or, chaining, methods) matching the search: user functions, favourites, then the folders. */
   const listed = useMemo(() => {
     const q = query.trim().toLowerCase();
     const pool =
       chaining && expr !== undefined ? methodsOf(ed.typeOf(expr)) : operations.filter((op) => fits(op.returns));
-    const ops = pool
-      .filter((op) => !q || op.id.toLowerCase().includes(q))
-      .sort((a, b) => Number(!CURATED.includes(a.id)) - Number(!CURATED.includes(b.id)));
+    const ops = pool.filter((op) => !q || op.id.toLowerCase().includes(q));
     const fns = chaining
       ? []
       : ed.fns.filter((fn) => (!q || fn.name.includes(q)) && fits(ed.typeOf({ call: fn.name })));
-    return { fns, ops: ops.slice(0, 60), more: Math.max(0, ops.length - 60) };
+    return { fns, ops, tree: treeOf(ops) };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query, chaining, expr, slot, ed]);
+  const item = (op: Operation) => {
+    const { head, owner } = operationLabel(op.id);
+    const starred = favourites.ids.includes(op.id);
+    const pick = () => put(chaining ? chain(expr!, op.id, ed.scope) : changeOp(expr, op.id, ed.scope, ed.typeOf));
+    return (
+      <div key={op.id} className='flex items-center'>
+        <button
+          type='button'
+          aria-label={`${starred ? 'unmark' : 'mark'} ${op.id} as favourite`}
+          className={`px-0.5 text-[11px] ${starred ? 'text-amber-500' : 'text-dg-border hover:text-amber-500'}`}
+          onClick={() => favourites.toggle(op.id)}
+        >
+          ★
+        </button>
+        <button type='button' className={choice} onClick={pick} title={op.id}>
+          {owner && !chaining && <span className='text-dg-subtle'>{owner}</span>}
+          {head}
+        </button>
+      </div>
+    );
+  };
 
   const operationList = (
     <div>
@@ -109,17 +170,14 @@ export function OperandPicker({
           {fn.name}({fn.params.map((p) => p.name).join(', ')})
         </button>
       ))}
-      {listed.ops.map((op) => {
-        const { head, owner } = operationLabel(op.id);
-        const pick = () => put(chaining ? chain(expr!, op.id, ed.scope) : changeOp(expr, op.id, ed.scope, ed.typeOf));
-        return (
-          <button key={op.id} type='button' className={choice} onClick={pick} title={op.id}>
-            {owner && !chaining && <span className='text-dg-subtle'>{owner}</span>}
-            {head}
-          </button>
-        );
-      })}
-      {listed.more > 0 && <p className='px-1.5 text-dg-subtle'>{listed.more} more: search to narrow</p>}
+      {listed.ops.filter((op) => favourites.ids.includes(op.id)).map(item)}
+      {chaining ? (
+        listed.ops.filter((op) => !favourites.ids.includes(op.id)).map(item)
+      ) : (
+        <div className='mt-1 border-t border-dg-border pt-1'>
+          <FolderView folder={listed.tree} open={query.trim() !== ''} item={item} />
+        </div>
+      )}
     </div>
   );
 

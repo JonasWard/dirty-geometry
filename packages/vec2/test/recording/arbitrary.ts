@@ -5,7 +5,7 @@
 import type { Definition, Expr, Fn } from '../../src/recording/definition';
 import dense from '../../schema/vec2.dense.json';
 import { isKind, isOptional, isRest, operations, slotType, type Type } from '../../schema/schema';
-import { assignable, isNumeric, members, roleOf, typeName, typer, widen } from '../../schema/typing';
+import { assignable, isNumeric, members, nonNull, roleOf, typeName, typer, widen } from '../../schema/typing';
 
 export const rng = (seed: number) => () => {
   seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
@@ -155,11 +155,15 @@ export function arbitraryDefinition(seed: number, size = 4): Definition {
     const name = `c${cells.length}`;
     // An empty list says nothing about its items: it needs a declared type.
     const declare = (isNumeric(type) && rand() < 0.5) || (Array.isArray(e) && e.length === 0);
+    const output = rand() < 0.4;
+    // An output states its type: the declared one, else its value's.
+    const own = declare ? undefined : output ? typeName(nonNull(typeOf(e, scope))) : undefined;
     cells.push({
       name,
+      ...(own && { type: own }),
       expr: e,
       ...(declare && { type: typeName(type) }),
-      ...(rand() < 0.4 && { output: true as const }),
+      ...(output && { output: true as const }),
     });
     scope.push({ name, type: declare ? type : typeOf(e, scope) });
   }

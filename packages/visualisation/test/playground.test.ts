@@ -86,6 +86,14 @@ describe('editing', () => {
     expect(() => ops.chain(vec(1, 2), 'Vec2.center', scope)).toThrow(/not a method/);
   });
 
+  test('fields and items can be read off object, tuple and list values', () => {
+    expect(ops.partsOf('Boolean2Result')).toEqual([{ field: 'polygons' }, { field: 'triMesh' }]);
+    expect(ops.partsOf({ tuple: ['Vec2', 'Vec2'] })).toEqual([{ index: 0 }, { index: 1 }]);
+    expect(ops.partsOf(['Polygon2'])).toEqual([{ index: 0 }]);
+    expect(ops.partsOf('Vec2')).toEqual([]);
+    expect(ops.partsOf('number')).toEqual([]);
+  });
+
   test('changing an operation keeps the arguments that still fit and puts the old expression in', () => {
     const scope = ops.scopeOf(base, 'b');
     const t = typeOf(base);

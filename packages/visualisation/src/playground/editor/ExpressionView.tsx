@@ -7,7 +7,7 @@ import { isOptional, isRest, operationById, slotType, type Type } from '@dirty-g
 import { members, parseTypeName, roleOf } from '@dirty-geometry/vec2/schema/typing';
 import { literalShape } from '../defaults';
 import { describeJson } from '../describe';
-import { methodsOf } from '../model/ops';
+import { methodsOf, partsOf } from '../model/ops';
 import { operationLabel } from '../operations';
 import { NumberInput } from '../widgets';
 import { pathKey, type Editing } from './context';
@@ -149,15 +149,28 @@ export function Operand({ expr, slot, path, ed, name, optional }: Omit<Child, 'k
     body = (
       <>
         <Operand expr={expr.of} slot='unknown' path={at('of')} ed={ed} />
-        {head('literal', 'index' in expr ? `[${expr.index}]` : `.${expr.field}`)}
+        {'index' in expr ? (
+          <>
+            <span className={punct}>[</span>
+            <NumberInput
+              label={`${label} index`}
+              value={expr.index}
+              onChange={(v) => ed.set(at('index'), Math.max(0, Math.round(v)))}
+              narrow
+            />
+            {head('literal', ']', 'change')}
+          </>
+        ) : (
+          head('literal', `.${expr.field}`)
+        )}
       </>
     );
 
   const large = isLarge(children);
   const listed = children.length > 0 || brackets[1] !== ')' || add;
-  // A chain grows from any value with methods: `.` appends one (`x.scale(…)`).
+  // A chain grows from any value with methods or parts: `.` appends one (`x.scale(…)`, `x.polygons`, `x[0]`).
   const chain = expr !== undefined && typeof expr === 'object' && expr !== null && !Array.isArray(expr);
-  const methods = chain && methodsOf(ed.typeOf(expr)).length > 0;
+  const methods = chain && (methodsOf(ed.typeOf(expr)).length > 0 || partsOf(ed.typeOf(expr)).length > 0);
   return (
     <span className='group/operand relative inline-flex flex-wrap items-center gap-0.5 align-top'>
       {name && expr !== undefined && <span className='text-[10px] text-dg-subtle'>{name}</span>}
@@ -198,7 +211,7 @@ export function Operand({ expr, slot, path, ed, name, optional }: Omit<Child, 'k
         <button
           type='button'
           aria-label={`chain on ${label}`}
-          title='Call a method on this value'
+          title='Read a field or item, or call a method on this value'
           className={`${token} ${KIND.ghost} opacity-0 group-hover/operand:opacity-100 focus:opacity-100`}
           onClick={() => setOpen('chain')}
         >

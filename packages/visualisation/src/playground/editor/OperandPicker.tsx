@@ -6,7 +6,7 @@ import type { ExprPath } from '@dirty-geometry/vec2/recording/expr';
 import { operations, type Operation, type Type } from '@dirty-geometry/vec2/schema/schema';
 import { assignable, isNumeric, members, roleOf, typeName } from '@dirty-geometry/vec2/schema/typing';
 import { DEFAULT_VALUES, defaultLiteral, literalShape } from '../defaults';
-import { callFunction, chain, changeOp, methodsOf, wrapMath } from '../model/ops';
+import { callFunction, chain, changeOp, methodsOf, partsOf, wrapMath } from '../model/ops';
 import { operationLabel } from '../operations';
 import { useFavourites } from '../store';
 import { ValueEditor } from '../widgets';
@@ -125,7 +125,9 @@ export function OperandPicker({
     const fns = chaining
       ? []
       : ed.fns.filter((fn) => (!q || fn.name.includes(q)) && fits(ed.typeOf({ call: fn.name })));
-    return { fns, ops, tree: treeOf(ops) };
+    const parts = chaining && expr !== undefined ? partsOf(ed.typeOf(expr)) : [];
+    const label = (p: (typeof parts)[number]) => ('field' in p ? `.${p.field}` : `[${p.index}]`);
+    return { fns, ops, tree: treeOf(ops), parts: parts.filter((p) => !q || label(p).toLowerCase().includes(q)), label };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query, chaining, expr, slot, ed]);
   const item = (op: Operation) => {
@@ -155,7 +157,7 @@ export function OperandPicker({
       <input
         autoFocus
         aria-label='search operations'
-        placeholder={chaining ? 'search methods' : 'search, e.g. Vec2.add'}
+        placeholder={chaining ? 'search fields and methods' : 'search, e.g. Vec2.add'}
         className='mb-1 w-full rounded border border-dg-border px-1.5 py-0.5 font-mono text-[11px]'
         value={query}
         onChange={(event) => setQuery(event.target.value)}
@@ -168,6 +170,11 @@ export function OperandPicker({
           onClick={() => put(callFunction(expr, fn, ed.scope, ed.typeOf))}
         >
           {fn.name}({fn.params.map((p) => p.name).join(', ')})
+        </button>
+      ))}
+      {listed.parts.map((p) => (
+        <button key={listed.label(p)} type='button' className={choice} onClick={() => put({ of: expr!, ...p })}>
+          {listed.label(p)}
         </button>
       ))}
       {listed.ops.filter((op) => favourites.ids.includes(op.id)).map(item)}
@@ -190,7 +197,7 @@ export function OperandPicker({
     >
       <div className='mb-1 flex items-center justify-between gap-1'>
         <span className='truncate font-mono text-[10px] text-dg-subtle'>
-          {chaining ? `methods of ${typeName(ed.typeOf(expr!))}` : any ? 'any value' : typeName(slot)}
+          {chaining ? `on ${typeName(ed.typeOf(expr!))}` : any ? 'any value' : typeName(slot)}
         </span>
         <button type='button' aria-label='close' className='px-1 text-dg-subtle hover:text-dg-ink' onClick={onClose}>
           ✕

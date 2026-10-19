@@ -20,9 +20,15 @@ export const PLAYGROUND_COLORS = {
 
 type Drawn = { name: string; geometry: Geometry2; role: 'intermediate' | 'output' | 'selected'; color: string };
 
-/** Geometries of a node value: the value itself, or the geometries in an array value. */
+/** Geometries of a node value: the value itself, or the geometries in its items or (plain object) fields. */
 const geometriesOf = (value: unknown): Geometry2[] =>
-  isGeometry2(value) ? [value] : Array.isArray(value) ? value.filter(isGeometry2) : [];
+  isGeometry2(value)
+    ? [value]
+    : Array.isArray(value)
+      ? value.flatMap(geometriesOf)
+      : value !== null && typeof value === 'object' && Object.getPrototypeOf(value) === Object.prototype
+        ? Object.values(value).flatMap(geometriesOf)
+        : [];
 
 const rows = [[{ name: 'Result' }]] as const;
 

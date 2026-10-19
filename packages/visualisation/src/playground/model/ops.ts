@@ -5,7 +5,15 @@
  */
 import type { Cell, Definition, Expr, Fn, Input } from '@dirty-geometry/vec2/recording/definition';
 import { mapExpr, setAt, type ExprPath } from '@dirty-geometry/vec2/recording/expr';
-import { isOptional, isRest, operationById, operations, slotType, type Type } from '@dirty-geometry/vec2/schema/schema';
+import {
+  isKind,
+  isOptional,
+  isRest,
+  operationById,
+  operations,
+  slotType,
+  type Type,
+} from '@dirty-geometry/vec2/schema/schema';
 import {
   assignable,
   checkDefinition,
@@ -314,6 +322,24 @@ export const methodsOf = (type: Type) => {
   const owners = new Set(members(type).filter((m): m is string => typeof m === 'string' && isClass(m)));
   return operations.filter((op) => owners.has(op.owner) && !op.static);
 };
+
+/** A field or an item that can be read off a value: `x.polygons`, `x[0]`. */
+export type Part = { field: string } | { index: number };
+const isFields = (t: Type): t is Record<string, unknown> =>
+  !!t && typeof t === 'object' && !Array.isArray(t) && !['or', 'enum', 'tuple', 'record'].some((k) => isKind(t, k));
+/** The fields of an object value (`Boolean2Result`), or the items of a tuple, or the first item of a list. */
+export function partsOf(type: Type): Part[] {
+  const ms = members(type).filter((m) => m !== 'null');
+  if (!ms.length) return [];
+  if (ms.every(isFields))
+    return Object.keys(ms[0]!)
+      .filter((field) => ms.every((m) => field in m))
+      .map((field) => ({ field }));
+  const lengths = ms.map((m) =>
+    Array.isArray(m) ? 1 : isKind(m, 'tuple') ? (m as { tuple: Type[] }).tuple.length : 0,
+  );
+  return Array.from({ length: Math.min(...lengths) }, (_, index) => ({ index }));
+}
 
 /** `current.id(…)`: a method or field of `current`, its required arguments defaulted. */
 export function chain(current: Expr, id: string, scope: Scope): Expr {

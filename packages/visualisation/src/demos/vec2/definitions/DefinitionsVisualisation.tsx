@@ -5,7 +5,7 @@ import { useMemo, useState } from 'react';
 import { Vec2 } from '@dirty-geometry/vec2/core/vec2';
 import type { Polygon2 } from '@dirty-geometry/vec2/geometry/regions/polygon2';
 import type { TriMesh2 } from '@dirty-geometry/vec2/geometry/regions/tri-mesh2';
-import { definitionGraph, type DefinitionGraph } from '../../../playground/graph';
+import { definitionGraph, type DefinitionGraph } from './graph';
 import { evaluateDefinition } from '@dirty-geometry/vec2/recording/replay';
 import { plateDefaults, recordPlate, type PlateParams } from '@dirty-geometry/vec2/examples/definitions/plate';
 import { fitPointsToFrame, frameCorners, labelPosition, vec2ToTuple } from '../../../core/frame';
@@ -21,6 +21,7 @@ const sliders: { key: keyof PlateParams; label: string; min: number; max: number
   { key: 'height', label: 'height', min: 2, max: 8, step: 0.1 },
   { key: 'holeRadius', label: 'holeRadius', min: 0.2, max: 1.8, step: 0.05 },
   { key: 'holeX', label: 'holeX', min: 0.2, max: 0.8, step: 0.01 },
+  { key: 'holeSegments', label: 'holeSegments', min: 3, max: 32, step: 1 },
 ];
 
 /** Fixed framing for the largest plate, so changing a param visibly changes the drawing. */
@@ -79,7 +80,7 @@ function ResultCell({ replay, offset }: { replay: Replay; offset: Vec2 }) {
 type DisplayNode = { id: string; label: string; kind: string; outputs: string[]; depth: number; row: number };
 
 /**
- * Display-only grouping: sibling nodes with the same operation at the same depth (the 16 hole vertices)
+ * Display-only grouping: sibling nodes with the same operation at the same depth
  * are drawn as one `op ×n` node. The definition itself keeps every node.
  */
 function groupGraph(graph: DefinitionGraph): { nodes: DisplayNode[]; edges: [string, string, boolean][] } {

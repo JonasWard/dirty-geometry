@@ -1,6 +1,6 @@
-/** Replays a recorded definition by name: every node runs on real values, with optional param overrides. */
+/** Replays a recorded (version 3) definition by name: every node runs on real values, with optional param overrides. */
 import { defaultRegistry } from '../io/default-registry';
-import type { Arg, Definition, Node, Source } from './definition';
+import type { ArgV3 as Arg, DefinitionV3 as Definition, NodeV3 as Node, SourceV3 as Source } from './v3';
 import { DefinitionError, fail as raise } from './definition';
 import { classTable, helperTable, mapValues, typeOf } from './runtime';
 

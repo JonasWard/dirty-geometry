@@ -5,6 +5,7 @@ import { useMemo } from 'react';
 import type { Vec2 } from '@dirty-geometry/vec2/core/vec2';
 import { isGeometry2, type Geometry2 } from '@dirty-geometry/vec2/geometry/kinds';
 import type { Definition } from '@dirty-geometry/vec2/recording/definition';
+import type { Evaluation } from '@dirty-geometry/vec2/recording/evaluate';
 import { fitPointsToFrame, frameCorners, labelPosition } from '../core/frame';
 import { ScenarioGridVisualisation } from '../core/ScenarioGridVisualisation';
 import { GeometryRender } from '../geometry/components/GeometryRender';
@@ -17,49 +18,61 @@ export const PLAYGROUND_COLORS = {
   selected: '#ffd84d',
 } as const;
 
-type Drawn = { node: string; geometry: Geometry2; role: 'intermediate' | 'output' | 'selected'; color: string };
+type Drawn = { name: string; geometry: Geometry2; role: 'intermediate' | 'output' | 'selected'; color: string };
 
-/** Geometries of a node value: the value itself, or the geometries in an array value. */
+/** Geometries of a node value: the value itself, or the geometries in its items or (plain object) fields. */
 const geometriesOf = (value: unknown): Geometry2[] =>
-  isGeometry2(value) ? [value] : Array.isArray(value) ? value.filter(isGeometry2) : [];
+  isGeometry2(value)
+    ? [value]
+    : Array.isArray(value)
+      ? value.flatMap(geometriesOf)
+      : value !== null && typeof value === 'object' && Object.getPrototypeOf(value) === Object.prototype
+        ? Object.values(value).flatMap(geometriesOf)
+        : [];
 
 const rows = [[{ name: 'Result' }]] as const;
 
-/** Every node's geometry: intermediates faint, outputs bold, the selected node highlighted. */
+/** The value of an input or a cell. */
+export const valueOf = (evaluation: Evaluation, name: string): unknown => {
+  const cell = evaluation.cells.get(name);
+  return cell ? ('value' in cell ? cell.value : undefined) : evaluation.inputs.get(name);
+};
+
+/** Every input's and cell's geometry: intermediates faint, outputs bold, the selected one highlighted. */
 export function PlaygroundCanvas({
   definition,
-  values,
+  evaluation,
   selected,
 }: {
   definition: Definition;
-  values: ReadonlyMap<string, unknown>;
+  evaluation: Evaluation;
   selected: string | null;
 }) {
   const drawn = useMemo((): Drawn[] => {
-    const outputIndex = new Map(Object.values(definition.outputs).map((node, index) => [node, index]));
+    const outputs = definition.cells.filter((cell) => cell.output).map((cell) => cell.name);
     const items: Drawn[] = [];
-    for (const node of definition.nodes) {
-      const output = outputIndex.get(node.id);
-      const role = node.id === selected ? 'selected' : output !== undefined ? 'output' : 'intermediate';
+    for (const { name } of [...definition.inputs, ...definition.cells]) {
+      const output = outputs.indexOf(name);
+      const role = name === selected ? 'selected' : output >= 0 ? 'output' : 'intermediate';
       const color =
         role === 'selected'
           ? PLAYGROUND_COLORS.selected
           : role === 'output'
-            ? PLAYGROUND_COLORS.outputs[output! % PLAYGROUND_COLORS.outputs.length]!
+            ? PLAYGROUND_COLORS.outputs[output % PLAYGROUND_COLORS.outputs.length]!
             : PLAYGROUND_COLORS.intermediate;
-      for (const geometry of geometriesOf(values.get(node.id))) items.push({ node: node.id, geometry, role, color });
+      for (const geometry of geometriesOf(valueOf(evaluation, name))) items.push({ name, geometry, role, color });
     }
     // Draw intermediates first so outputs and the selection sit on top.
     const order = { intermediate: 0, output: 1, selected: 2 } as const;
     return items.sort((a, b) => order[a.role] - order[b.role]);
-  }, [definition, values, selected]);
+  }, [definition, evaluation, selected]);
 
   const fit = useMemo(() => {
     const anchors = frameAnchorPoints(drawn.map((item) => item.geometry));
     return fitPointsToFrame(anchors.length > 0 ? anchors : []);
   }, [drawn]);
 
-  const selectedValue = selected ? values.get(selected) : undefined;
+  const selectedValue = selected ? valueOf(evaluation, selected) : undefined;
 
   return (
     <ScenarioGridVisualisation
@@ -70,8 +83,8 @@ export function PlaygroundCanvas({
           <Line points={frameCorners(offset)} color='#3a4150' lineWidth={1} />
           {drawn.map((item, index) => (
             <GeometryRender
-              key={`${item.node}-${index}`}
-              keyPrefix={`${item.node}-${index}`}
+              key={`${item.name}-${index}`}
+              keyPrefix={`${item.name}-${index}`}
               geometry={item.geometry}
               fit={fit}
               offset={offset}

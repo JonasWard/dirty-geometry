@@ -1,4 +1,4 @@
-import type { Source } from './definition';
+import type { SourceV3 as Source } from './v3';
 
 /** A recorded number / string / boolean that remembers its source; arithmetic on it gives plain literals. */
 export class Scalar<T extends number | string | boolean = number> {

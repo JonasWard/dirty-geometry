@@ -1,7 +1,7 @@
 import { expect, test } from 'bun:test';
 import { createRecorder } from '@dirty-geometry/vec2/recording/recorder';
-import { recordPlate, PLATE_HOLE_SEGMENTS } from '@dirty-geometry/vec2/examples/definitions/plate';
-import { definitionGraph } from '../src/playground/graph';
+import { recordPlate } from '@dirty-geometry/vec2/examples/definitions/plate';
+import { definitionGraph } from '../src/demos/vec2/definitions/graph';
 
 test('definitionGraph layers nodes by their longest input chain and keeps edge roles', () => {
   const rec = createRecorder();
@@ -23,16 +23,15 @@ test('definitionGraph layers nodes by their longest input chain and keeps edge r
   expect(graph.depth).toBe(4);
 });
 
-test('the plate graph has one layer of hole vertices and names its outputs', () => {
+test('the plate graph samples its hole in one node and names its outputs', () => {
   const graph = definitionGraph(recordPlate());
-  const evaluations = graph.nodes.filter((node) => node.op === 'Circle2.evaluate');
-  expect(evaluations).toHaveLength(PLATE_HOLE_SEGMENTS);
-  expect(new Set(evaluations.map((node) => node.depth)).size).toBe(1);
+  expect(graph.nodes.filter((node) => node.op === 'Polygon2.fromCircle2')).toHaveLength(1);
   expect(graph.nodes.filter((node) => node.kind === 'param').map((node) => node.label)).toEqual([
     'width',
     'height',
     'holeRadius',
     'holeX',
+    'holeSegments',
   ]);
   expect(graph.nodes.flatMap((node) => node.outputs).sort()).toEqual(['area', 'hole', 'mesh', 'outline', 'plate']);
 });

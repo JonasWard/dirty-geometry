@@ -1,5 +1,6 @@
-import type { Length, Parameter, Tolerance } from '../../core/numbers';
+import type { Index, Length, Parameter, Tolerance } from '../../core/numbers';
 import type { Mat3 } from '../../core/mat3';
+import type { Circle2 } from './circle2';
 import { Aabb2 } from '../../bounds/aabb2';
 import { Epsilon } from '../../core/epsilon';
 import { Vec2, type Vec2Json } from '../../core/vec2';
@@ -7,6 +8,9 @@ import { segmentsFromVertices } from '../curves/segments';
 import { Line2 } from '../primitives/line2';
 
 const segmentsCache = new WeakMap<Polygon2, readonly Line2[]>();
+
+/** How a polygon sampled from a circle sits on it: see {@link Polygon2.fromCircle2}. */
+export type CircleFit = 'inscription' | 'circumscription' | 'sameArea';
 
 /** Closed polygon: consecutive vertex pairs plus a segment from last to first. */
 export class Polygon2 {
@@ -33,6 +37,29 @@ export class Polygon2 {
       throw new Error('Polygon2.fromAabb2 requires finite bounds');
     }
     return new Polygon2(box.corners());
+  }
+
+  /**
+   * A regular polygon of `segments` vertices around `circle`, counter-clockwise from angle 0. `fit`: the vertices on
+   * the circle (`inscription`), the edges touching it (`circumscription`), or the same area as the circle (`sameArea`).
+   */
+  static fromCircle2(circle: Circle2, segments: Index, fit: CircleFit = 'inscription'): Polygon2 {
+    if (!Number.isInteger(segments) || segments < 3) {
+      throw new Error('Polygon2.fromCircle2 needs a whole number of at least three segments');
+    }
+    const step = (2 * Math.PI) / segments;
+    const scale =
+      fit === 'circumscription'
+        ? 1 / Math.cos(step / 2)
+        : fit === 'sameArea'
+          ? Math.sqrt((2 * Math.PI) / (segments * Math.sin(step)))
+          : 1;
+    const r = circle.radius * scale;
+    return new Polygon2(
+      Array.from({ length: segments }, (_, i) =>
+        circle.center.add(new Vec2(r * Math.cos(i * step), r * Math.sin(i * step))),
+      ),
+    );
   }
 
   /** Number of boundary segments (`vertices.length`). Parameter domain is `[0, n]`. */

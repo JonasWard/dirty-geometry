@@ -75,7 +75,7 @@
       "graph": "Graphen: Wegsuche, Kantenmengen und Halbkanten-Netze."
     },
     "playground": "Spielwiese",
-    "playgroundIntro": "Baue eine vec2-Definition mit Auswahllisten, als JSON oder als TypeScript. Jede Zwischengeometrie wird gezeichnet, und die ganze Definition steckt als densing-Zeichenkette im Link.",
+    "playgroundIntro": "Baue eine vec2-Definition aus Eingaben, eigenen Funktionen und Zellen; jede Zelle ist ein Ausdruck, direkt oder als Code bearbeitet. Die Geometrie jeder Zelle wird gezeichnet, und die ganze Definition steckt als densing-Zeichenkette im Link.",
     "openPlayground": "Spielwiese öffnen"
   }
 }

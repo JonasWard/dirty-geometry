@@ -1,5 +1,5 @@
 /** The literal forms an operand type admits, and the literal a new operand starts with. */
-import type { Arg } from '@dirty-geometry/vec2/recording/definition';
+import type { Expr } from '@dirty-geometry/vec2/recording/definition';
 import { classJson, isKind, NUMBER_TYPES, resolve, type Slot, type Type } from '@dirty-geometry/vec2/schema/schema';
 
 /** What literal forms a type admits, merged over unions; `number` is the number type (`Coordinate`, `Radians`, …). */
@@ -82,7 +82,7 @@ export const DEFAULT_VALUES: Readonly<Record<string, unknown>> = {
   CellCollection: { type: 'CellCollection', cells: [{ type: 'GridCell2', i: 0, j: 0 }] },
 };
 
-const DEFAULT_NUMBER: Readonly<Record<string, number>> = {
+export const DEFAULT_NUMBER: Readonly<Record<string, number>> = {
   Coordinate: 1,
   Length: 1,
   Parameter: 0.5,
@@ -90,7 +90,7 @@ const DEFAULT_NUMBER: Readonly<Record<string, number>> = {
 };
 
 /** The literal a new operand of `type` starts with, or `undefined` when it can only be a node. */
-export function defaultLiteral(type: Type): Arg | undefined {
+export function defaultLiteral(type: Type): Expr | undefined {
   const shape = literalShape(type);
   if (shape.values?.length) return { value: DEFAULT_VALUES[shape.values[0]!] ?? DEFAULT_VALUES.Vec2 };
   if (shape.number) return DEFAULT_NUMBER[shape.number] ?? 0;

@@ -75,7 +75,7 @@
       "graph": "Graphs: path search, edge-subset helpers and half-edge meshes."
     },
     "playground": "Playground",
-    "playgroundIntro": "Build a vec2 definition with dropdowns, as JSON or as TypeScript. Every intermediate geometry is drawn, and the whole definition lives in the link as a densing string.",
+    "playgroundIntro": "Build a vec2 definition from inputs, your own functions and cells, each cell one expression edited in place or as code. Every cell's geometry is drawn, and the whole definition lives in the link as a densing string.",
     "openPlayground": "Open the playground"
   }
 }

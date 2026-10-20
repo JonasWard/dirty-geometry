@@ -1,5 +1,5 @@
 /**
- * The playground URL: `<options>/<definition>`, both densing strings. Options carry the custom presets;
+ * The playground URL: `4/<options>/<definition>`, both densing strings. Options carry the custom presets;
  * the large definition schema is rebuilt from them, so it never travels in the URL.
  */
 import { array, densing, enumArray, enumeration, int, object, optional, schema, undensing } from 'densing';
@@ -73,17 +73,40 @@ export function decodeOptions(text: string): NumericOptions {
 }
 
 export type PlaygroundState = { options: NumericOptions; presets: ActivePresets; definition: Definition };
+/** The first segment of a version 4 hash; a version 3 link has no version segment. */
+export const HASH_VERSION = '4';
 
-/** `<options>/<definition>` for the URL hash. */
+/** `4/<options>/<definition>` for the URL hash. */
 export function encodePlaygroundHash(state: PlaygroundState): string {
   const schema = createDefinitionSchema(state.options);
-  return `${encodeOptions(state.options)}/${encodeDefinition(state.definition, state.presets, schema)}`;
+  return `${HASH_VERSION}/${encodeOptions(state.options)}/${encodeDefinition(state.definition, state.presets, schema)}`;
 }
 
+const segments = (hash: string) => hash.replace(/^#?\/?/, '').split('/');
+/** Whether a hash is a link from before version 4 (`<options>/<definition>`), which `readPlaygroundHash` upgrades. */
+export const isLegacyHash = (hash: string) => segments(hash).length === 2;
+
+/** A version 4 hash. */
 export function decodePlaygroundHash(hash: string): PlaygroundState {
-  const [options, definition] = hash.replace(/^#?\/?/, '').split('/');
-  if (!options || !definition) throw new Error('The link has no definition');
+  const [version, options, definition] = segments(hash);
+  if (version !== HASH_VERSION || !options || !definition) throw new Error('The link has no definition');
   const decodedOptions = decodeOptions(options);
   const decoded = decodeDefinition(definition, createDefinitionSchema(decodedOptions));
   return { options: decodedOptions, presets: decoded.presets, definition: decoded.definition };
+}
+
+/**
+ * Any playground hash. A version 3 link is decoded with the frozen version 3 schema (loaded only then) and turned
+ * into cells; its presets are kept where the number types still exist.
+ */
+export async function readPlaygroundHash(hash: string): Promise<PlaygroundState & { upgraded: boolean }> {
+  if (!isLegacyHash(hash)) return { ...decodePlaygroundHash(hash), upgraded: false };
+  const [options, definition] = segments(hash) as [string, string];
+  const [{ decodeDefinitionV3 }, { fromV3 }] = await Promise.all([
+    import('@dirty-geometry/vec2/schema/dense/v3/decode'),
+    import('@dirty-geometry/vec2/recording/migrate'),
+  ]);
+  const decodedOptions = decodeOptions(options);
+  const decoded = decodeDefinitionV3(definition, decodedOptions);
+  return { options: decodedOptions, presets: decoded.presets, definition: fromV3(decoded.definition), upgraded: true };
 }

@@ -40,6 +40,8 @@ import {
 import { Intersection2 } from '../src/operations/intersection2';
 import { Overlap2 } from '../src/operations/overlap2';
 import { RectilinearGrid2 } from '../src/operations/rectilinear-grid2';
+import { defaultRegistry } from '../src/io/default-registry';
+import type { MathJson } from '../src/io/deserialise';
 
 /** The recordable vec2 classes by name. */
 export const classes = {
@@ -88,3 +90,51 @@ export const helpers = {
   resolveDouglasPeuckerTolerances,
   triangulateConstrained,
 } as const;
+
+/** Every class and helper by name, for code that imports them (the playground prints such code). */
+export {
+  Aabb2,
+  Angle,
+  Axis,
+  Boolean2,
+  Circle2,
+  ConstrainedDelaunay,
+  Contains2,
+  DouglasPeucker,
+  Epsilon,
+  Frame2,
+  Grid2,
+  GridCell2,
+  GridCell2Collection,
+  GridLine2,
+  GridPolygon2,
+  GridPolyline2,
+  GridRectangle2,
+  Hesse2,
+  InfiniteLine2,
+  Intersection2,
+  Interval2,
+  Line2,
+  Mat3,
+  Overlap2,
+  Polygon2,
+  Polyline2,
+  Ray2,
+  RectilinearGrid2,
+  TriMesh2,
+  Vec2,
+  axisDirection,
+  constraintEdge,
+  constraintEdgeEndpoints,
+  convexHullLoop,
+  directionDelta,
+  emptyCdtStats,
+  ensureAxisAlignedPolygonPath,
+  isAxisAlignedPolygonPath,
+  resolveDouglasPeuckerTolerances,
+  triangulateConstrained,
+};
+export type { Coordinate, Length, Radians, Parameter, Integer, Index, Tolerance } from '../src/core/numbers';
+
+/** A vec2 value from its JSON (`toJson()`): how printed code writes a stored value. */
+export const value = (json: MathJson): any => defaultRegistry.decode(json);

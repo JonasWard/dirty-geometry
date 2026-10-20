@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import { RecordingError } from '../../src/recording/definition';
 import { createRecorder } from '../../src/recording/recorder';
 import { Scalar } from '../../src/recording/scalar';
-import type { Definition } from '../../src/recording/definition';
+import type { DefinitionV3 as Definition } from '../../src/recording/v3';
 import { evaluateDefinition } from '../../src/recording/replay';
 import { Line2 } from '../../src/geometry/primitives/line2';
 import { Vec2 } from '../../src/core/vec2';

@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import { createRecorder } from '../../src/recording/recorder';
 import { DefinitionError } from '../../src/recording/definition';
 import { evaluateDefinition } from '../../src/recording/replay';
-import type { Definition } from '../../src/recording/definition';
+import type { DefinitionV3 as Definition } from '../../src/recording/v3';
 import { ConstrainedDelaunay } from '../../src/operations/constrained-delaunay';
 import { Vec2 } from '../../src/core/vec2';
 import { recordPlate } from '../../examples/definitions/plate';
@@ -91,7 +91,11 @@ describe('replay', () => {
     expect(toJson((wide.hole as { vertices: Vec2[] }).vertices[0])).toEqual({ type: 'Vec2', x: 6.5, y: 2 });
     expect(toJson(wide)).not.toEqual(toJson(base));
     expect(
-      toJson(evaluateDefinition(viaText(recordPlate({ width: 10, height: 4, holeRadius: 1.5, holeX: 0.5 }))).outputs),
+      toJson(
+        evaluateDefinition(
+          viaText(recordPlate({ width: 10, height: 4, holeRadius: 1.5, holeX: 0.5, holeSegments: 16 })),
+        ).outputs,
+      ),
     ).toEqual(toJson(wide));
   });
 

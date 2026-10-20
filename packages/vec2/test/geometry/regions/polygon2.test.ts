@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test';
+import { Circle2 } from '../../../src/geometry/regions/circle2';
 import { Polygon2 } from '../../../src/geometry/regions/polygon2';
 import { Vec2 } from '../../../src/core/vec2';
 import { expectClose, expectVec2Close } from '../../testHelpers';
@@ -153,5 +154,32 @@ describe('Polygon2', () => {
   test('corner ties return multiple parameters', () => {
     const params = square.closestParametersForPoint(new Vec2(10, 0));
     expect(params).toEqual([1, 1]);
+  });
+});
+
+describe('Polygon2.fromCircle2', () => {
+  const circle = new Circle2(new Vec2(1, -2), 2);
+  const dist = (v: Vec2) => v.subtract(circle.center).length();
+
+  test('inscription: the vertices lie on the circle, counter-clockwise from angle 0', () => {
+    const polygon = Polygon2.fromCircle2(circle, 6);
+    expect(polygon.vertices).toHaveLength(6);
+    polygon.vertices.forEach((v) => expectClose(dist(v), 2));
+    expectVec2Close(polygon.vertices[0]!, new Vec2(3, -2));
+    expect(polygon.signedArea()).toBeGreaterThan(0);
+  });
+
+  test('circumscription: the edges touch the circle', () => {
+    const polygon = Polygon2.fromCircle2(circle, 8, 'circumscription');
+    polygon.segments().forEach((s) => expectClose(dist(s.evaluate(0.5)), 2));
+  });
+
+  test('sameArea: the area of the circle', () => {
+    expectClose(Polygon2.fromCircle2(circle, 5, 'sameArea').area(), circle.area());
+  });
+
+  test('needs a whole number of at least three segments', () => {
+    expect(() => Polygon2.fromCircle2(circle, 2)).toThrow();
+    expect(() => Polygon2.fromCircle2(circle, 4.5)).toThrow();
   });
 });

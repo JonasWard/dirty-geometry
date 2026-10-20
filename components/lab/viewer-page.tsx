@@ -1,6 +1,7 @@
 import Breadcrumbs from "@/components/breadcrumbs";
 import { BackHome } from "@/components/lab/lab-hub";
 import { ViewerClient } from "@/components/lab/playground-client";
+import { basePath } from "@/config";
 import { getLocale, getPath, getPlaygroundPath, getTranslations } from "@/utilities/l10n";
 import Link from "next/link";
 
@@ -25,7 +26,7 @@ export default function ViewerPage({ locale }: { locale?: string }) {
         </h1>
         <p className="text-dg-muted leading-relaxed max-w-4xl">{t.lab.viewerIntro}</p>
       </div>
-      <ViewerClient />
+      <ViewerClient playgroundHref={`${basePath}${getPlaygroundPath(activeLocale)}`} />
       <BackHome
         locale={activeLocale}
         extra={

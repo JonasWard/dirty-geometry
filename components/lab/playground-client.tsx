@@ -13,12 +13,15 @@ const Viewer = dynamic(() => import("@dirty-geometry/visualisation/playground").
   loading: () => <div className="h-[70vh] min-h-[420px] w-full border border-dg-border bg-[#0b0d12]" />,
 });
 
-/** The editor; its "open viewer" link goes to the viewer below it (relative, so a base path is kept). */
-export default function PlaygroundClient() {
-  return <Playground viewerHref="viewer/" />;
+/**
+ * The editor. `viewerHref` is the viewer's full path (base path included): a relative link would depend on the
+ * page's URL ending in "/", which a static host need not keep.
+ */
+export default function PlaygroundClient({ viewerHref }: { viewerHref: string }) {
+  return <Playground viewerHref={viewerHref} />;
 }
 
-/** The viewer of a playground link; "edit in the playground" goes back up one level. */
-export function ViewerClient() {
-  return <Viewer playgroundHref="../" />;
+/** The viewer of a playground link; `playgroundHref` is the playground's full path (base path included). */
+export function ViewerClient({ playgroundHref }: { playgroundHref: string }) {
+  return <Viewer playgroundHref={playgroundHref} />;
 }

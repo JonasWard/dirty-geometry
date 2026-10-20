@@ -19,7 +19,7 @@ const nextConfig = {
   // In dev, this prevents dynamic-segment export errors on unknown URLs.
   ...(isProduction ? { output: "export" } : {}),
   ...(basePath ? { basePath } : {}),
-  // Export every route as <route>/index.html, which any static host (Render, GitHub Pages) serves.
+  // Export every route as <route>/index.html, which any static host (Render) serves.
   trailingSlash: true,
   env: { NEXT_PUBLIC_BASE_URL: baseUrl },
   // Workspace packages ship TypeScript source; let Next compile them.

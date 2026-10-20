@@ -100,6 +100,15 @@ export function removeInput(definition: Definition, name: string): Definition {
   return mapCells(without, (cell) => ({ ...cell, expr: replaceIn(cell.expr, refTo(name), () => input.value) }));
 }
 
+/** The definition with some inputs' values replaced (the viewer's tweaks); the others keep their own. */
+export function withInputValues(definition: Definition, values: Readonly<Record<string, Expr>>): Definition {
+  if (!definition.inputs.some((input) => input.name in values)) return definition;
+  return {
+    ...definition,
+    inputs: definition.inputs.map((input) => (input.name in values ? { ...input, value: values[input.name]! } : input)),
+  };
+}
+
 // ---- cells ----
 
 /** Adds a cell holding `expr` (after `after`, or at the end). */
@@ -176,6 +185,22 @@ export function removeCell(definition: Definition, name: string): Definition {
   return mapCells(without, (c) => ({ ...c, expr: replaceIn(c.expr, refTo(name), () => cell.expr) }));
 }
 
+/** `list` with the item at `from` moved to `to` (clamped); the same list when it stays where it is. */
+function move<T>(list: T[], from: number, to: number): T[] {
+  const target = Math.max(0, Math.min(list.length - 1, to));
+  if (from < 0 || from === target) return list;
+  const next = [...list];
+  const [item] = next.splice(from, 1);
+  next.splice(target, 0, item!);
+  return next;
+}
+
+/** Moves a cell to `to`. A cell moved above a cell it uses keeps the reference, which the type check reports. */
+export function moveCell(definition: Definition, name: string, to: number): Definition {
+  const cells = move(definition.cells, cellIndex(definition, name), to);
+  return cells === definition.cells ? definition : { ...definition, cells };
+}
+
 // ---- functions ----
 
 export function addFunction(definition: Definition): Definition {
@@ -190,6 +215,16 @@ const mapFunction = (definition: Definition, name: string, f: (fn: Fn) => Fn): D
 });
 export const setFunctionBody = (definition: Definition, name: string, path: ExprPath, expr: Expr | undefined) =>
   mapFunction(definition, name, (fn) => ({ ...fn, body: setAt(fn.body, path, expr) }));
+
+/** Moves a function to `to` (a function may only call the ones before it). */
+export function moveFunction(definition: Definition, name: string, to: number): Definition {
+  const functions = move(
+    definition.functions,
+    definition.functions.findIndex((f) => f.name === name),
+    to,
+  );
+  return functions === definition.functions ? definition : { ...definition, functions };
+}
 
 /** `fn`'s body with its params replaced by `args`. */
 const inline = (fn: Fn, args: Record<string, Expr> = {}) =>

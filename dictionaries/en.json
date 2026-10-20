@@ -76,6 +76,8 @@
     },
     "playground": "Playground",
     "playgroundIntro": "Build a vec2 definition from inputs, your own functions and cells, each cell one expression edited in place or as code. Every cell's geometry is drawn, and the whole definition lives in the link as a densing string.",
-    "openPlayground": "Open the playground"
+    "openPlayground": "Open the playground",
+    "viewer": "Viewer",
+    "viewerIntro": "Play with the inputs of a playground definition and see its outputs. The values from the playground are the defaults; changes here stay in this page. Hover an output to highlight it, or hide and show it."
   }
 }

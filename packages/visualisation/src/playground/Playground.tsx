@@ -13,8 +13,9 @@ import { JsonEditor } from './JsonEditor';
 import { CellsPanel, FunctionsPanel, InputsPanel } from './panels';
 import { PLAYGROUND_COLORS, PlaygroundCanvas } from './PlaygroundCanvas';
 import { STARTERS } from './starters';
-import { createPlaygroundStore, StoreContext, useAnalysis, usePlayground, useStoreApi, type Document } from './store';
-import { decodePlaygroundHash, isLegacyHash, readPlaygroundHash } from './url';
+import { currentHash, initialDocument } from './location';
+import { createPlaygroundStore, StoreContext, useAnalysis, usePlayground, useStoreApi } from './store';
+import { isLegacyHash, readPlaygroundHash } from './url';
 
 type Mode = 'cells' | 'code' | 'json';
 const MODES: Record<Mode, string> = { cells: 'Cells', code: 'Code', json: 'JSON' };
@@ -26,38 +27,24 @@ const tab = (active: boolean) =>
   }`;
 const button =
   'rounded border border-dg-border px-2 py-0.5 text-xs hover:border-dg-steel-600 hover:text-dg-steel-600 disabled:opacity-40';
-const starter = (): Document => ({ definition: STARTERS[0]!.build(), options: {}, presets: {}, auto: true });
-const currentHash = () => (typeof window === 'undefined' ? '' : window.location.hash.replace(/^#\/?/, ''));
-
-/** The state to start with: a version 4 link right away (an older link is read once the page is up), else a starter. */
-function initialDocument(): { document: Document; error?: string } {
-  const hash = currentHash();
-  if (!hash || isLegacyHash(hash)) return { document: starter() };
-  try {
-    // A shared link keeps the presets it was written with.
-    return { document: { ...decodePlaygroundHash(hash), auto: false } };
-  } catch (error) {
-    return { document: starter(), error: `Could not read the link: ${(error as Error).message}` };
-  }
-}
 
 /**
  * The vec2 playground: a definition is inputs, functions and cells, each cell one expression edited in place (or as
  * code, or as JSON). Every cell's geometry is drawn, and the whole definition lives in the link as a densing string.
  */
-export function Playground() {
+export function Playground({ viewerHref }: { viewerHref?: string } = {}) {
   const [{ store, error }] = useState(() => {
     const { document, error } = initialDocument();
     return { store: createPlaygroundStore(document), error };
   });
   return (
     <StoreContext.Provider value={store}>
-      <PlaygroundView initialError={error} />
+      <PlaygroundView initialError={error} viewerHref={viewerHref} />
     </StoreContext.Provider>
   );
 }
 
-function PlaygroundView({ initialError }: { initialError?: string }) {
+function PlaygroundView({ initialError, viewerHref }: { initialError?: string; viewerHref?: string }) {
   const store = useStoreApi();
   const definition = usePlayground((s) => s.definition);
   const options = usePlayground((s) => s.options);
@@ -187,6 +174,15 @@ function PlaygroundView({ initialError }: { initialError?: string }) {
             ))}
           </select>
         </label>
+        {viewerHref && (
+          <a
+            className={button}
+            href={encoding.hash ? `${viewerHref}#/${encoding.hash}` : viewerHref}
+            title='Play with the inputs of this definition'
+          >
+            open viewer ↗
+          </a>
+        )}
       </div>
 
       <div className='grid gap-4 xl:grid-cols-[minmax(0,6fr)_minmax(0,5fr)]'>

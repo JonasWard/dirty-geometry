@@ -5,6 +5,7 @@ import { defaultRegistry } from '@dirty-geometry/vec2/io/default-registry';
 import { operationById } from '@dirty-geometry/vec2/schema/schema';
 import { checkDefinition, typer, widen } from '@dirty-geometry/vec2/schema/typing';
 import { DEFAULT_VALUES } from '../src/playground/defaults';
+import { drawnItems, outputColor, PLAYGROUND_COLORS } from '../src/playground/draw';
 import * as ops from '../src/playground/model/ops';
 import { DEFAULT_FAVOURITES } from '../src/playground/operations';
 import { STARTERS } from '../src/playground/starters';
@@ -214,5 +215,87 @@ describe('choices', () => {
     expect(favourites.getState().ids).not.toContain('Vec2.new');
     favourites.getState().toggle('Vec2.new');
     expect(favourites.getState().ids).toContain('Vec2.new');
+  });
+});
+
+describe('reordering', () => {
+  const three = def({
+    inputs: base.inputs,
+    cells: [...base.cells, { name: 'c', expr: vec(1, 2) }],
+    functions: [
+      { name: 'f', params: [{ name: 'x', type: 'Coordinate' }], body: { ref: 'x' } },
+      { name: 'g', params: [{ name: 'x', type: 'Coordinate' }], body: { call: 'f', args: { x: { ref: 'x' } } } },
+    ],
+  });
+  const names = (list: { name: string }[]) => list.map((item) => item.name);
+
+  test('a cell moves to a new place and keeps its contents', () => {
+    const moved = ops.moveCell(three, 'c', 0);
+    expect(names(moved.cells)).toEqual(['c', 'a', 'b']);
+    expect(moved.cells[0]).toBe(three.cells[2]!);
+    expect(names(ops.moveCell(three, 'a', 2).cells)).toEqual(['b', 'c', 'a']);
+  });
+
+  test('a move past either end stops there; staying put changes nothing', () => {
+    expect(names(ops.moveCell(three, 'a', -5).cells)).toEqual(['a', 'b', 'c']);
+    expect(names(ops.moveCell(three, 'a', 99).cells)).toEqual(['b', 'c', 'a']);
+    expect(ops.moveCell(three, 'b', 1)).toBe(three);
+    expect(() => ops.moveCell(three, 'nope', 0)).toThrow();
+  });
+
+  test('a cell moved above one it uses is reported, and fine again once moved back', () => {
+    const broken = ops.moveCell(three, 'b', 0);
+    expect(checkDefinition(broken).issues.map((issue) => issue.message)).toContain('a is not defined here');
+    expect(checkDefinition(ops.moveCell(broken, 'b', 1)).issues).toEqual([]);
+  });
+
+  test('functions move the same way', () => {
+    const moved = ops.moveFunction(three, 'g', 0);
+    expect(names(moved.functions)).toEqual(['g', 'f']);
+    expect(checkDefinition(moved).issues.length).toBeGreaterThan(0);
+    expect(ops.moveFunction(three, 'f', 0)).toBe(three);
+  });
+
+  test('a move is one undo step', () => {
+    const store = createPlaygroundStore({ definition: three, options: {}, presets: {}, auto: true });
+    store.getState().commit(ops.moveCell(three, 'c', 0));
+    expect(names(store.getState().definition.cells)).toEqual(['c', 'a', 'b']);
+    store.getState().undo();
+    expect(names(store.getState().definition.cells)).toEqual(['a', 'b', 'c']);
+  });
+});
+
+describe('viewer', () => {
+  const shown = def({
+    inputs: [{ name: 'w', type: 'Coordinate', value: 2 }],
+    cells: [
+      { name: 'a', expr: vec({ ref: 'w' }, 0) },
+      { name: 'b', expr: vec(0, { ref: 'w' }), type: 'Vec2', output: true },
+      { name: 'c', expr: vec(1, 1), type: 'Vec2', output: true },
+    ],
+  });
+
+  test('tweaked input values replace only those inputs', () => {
+    expect(ops.withInputValues(shown, {})).toBe(shown);
+    const tweaked = ops.withInputValues(shown, { w: 5 });
+    expect(tweaked.inputs[0]!.value).toBe(5);
+    expect(shown.inputs[0]!.value).toBe(2);
+    expect(outputs(tweaked).b).toEqual(
+      outputs(def({ ...shown, inputs: [{ name: 'w', type: 'Coordinate', value: 5 }] })).b,
+    );
+  });
+
+  test('outputs keep their colour; hidden ones and intermediates can be left out but stay framed', () => {
+    const evaluation = evaluate(shown);
+    const all = drawnItems(shown, evaluation);
+    expect(all.drawn.map((item) => item.name)).toEqual(['a', 'b', 'c']);
+    expect(all.drawn.find((item) => item.name === 'c')!.color).toBe(outputColor(1));
+
+    const outputsOnly = drawnItems(shown, evaluation, { intermediates: false, hidden: new Set(['b']) });
+    expect(outputsOnly.drawn.map((item) => item.name)).toEqual(['c']);
+    expect(outputsOnly.framed).toHaveLength(2);
+
+    const hovered = drawnItems(shown, evaluation, { intermediates: false, selected: 'a' });
+    expect(hovered.drawn.at(-1)).toMatchObject({ name: 'a', role: 'selected', color: PLAYGROUND_COLORS.selected });
   });
 });

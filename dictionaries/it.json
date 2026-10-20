@@ -76,6 +76,8 @@
     },
     "playground": "Playground",
     "playgroundIntro": "Costruisci una definizione vec2 da input, funzioni tue e celle, ognuna un’espressione modificata sul posto o come codice. La geometria di ogni cella viene disegnata e l’intera definizione sta nel link come stringa densing.",
-    "openPlayground": "Apri il playground"
+    "openPlayground": "Apri il playground",
+    "viewer": "Visualizzatore",
+    "viewerIntro": "Gioca con gli input di una definizione del playground e guardane gli output. I valori del playground sono quelli predefiniti; le modifiche fatte qui restano in questa pagina. Passa sopra un output per evidenziarlo, oppure nascondilo e mostralo."
   }
 }

@@ -1,8 +1,7 @@
 import Breadcrumbs from "@/components/breadcrumbs";
 import { BackHome } from "@/components/lab/lab-hub";
 import PlaygroundClient from "@/components/lab/playground-client";
-import { basePath } from "@/config";
-import { getLocale, getPath, getTranslations, getViewerPath } from "@/utilities/l10n";
+import { getLocale, getPath, getTranslations } from "@/utilities/l10n";
 import Link from "next/link";
 
 /** `/lab/vec2/playground/`: the interactive definition builder. */
@@ -23,7 +22,7 @@ export default function PlaygroundPage({ locale }: { locale?: string }) {
         <h1 className="text-2xl font-bold mb-2">vec2 {t.lab.playground}</h1>
         <p className="text-dg-muted leading-relaxed max-w-4xl">{t.lab.playgroundIntro}</p>
       </div>
-      <PlaygroundClient viewerHref={`${basePath}${getViewerPath(activeLocale)}`} />
+      <PlaygroundClient />
       <BackHome
         locale={activeLocale}
         extra={

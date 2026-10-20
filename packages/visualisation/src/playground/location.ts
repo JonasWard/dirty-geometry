@@ -1,4 +1,4 @@
-/** Reading the playground's state from the page's link, shared by the playground and the viewer. */
+/** The playground's state from the definition part of its link. */
 import { STARTERS } from './starters';
 import type { Document } from './store';
 import { decodePlaygroundHash, isLegacyHash } from './url';
@@ -6,12 +6,11 @@ import { decodePlaygroundHash, isLegacyHash } from './url';
 /** The first starter, for a page opened without a link. */
 export const starter = (): Document => ({ definition: STARTERS[0]!.build(), options: {}, presets: {}, auto: true });
 
-/** The page's hash without `#/`. */
-export const currentHash = () => (typeof window === 'undefined' ? '' : window.location.hash.replace(/^#\/?/, ''));
-
-/** The state to start with: a version 4 link right away (an older link is read once the page is up), else a starter. */
-export function initialDocument(): { document: Document; error?: string } {
-  const hash = currentHash();
+/**
+ * The state to start with from a link's definition (`4/<options>/<definition>`): a version 4 link right away (an
+ * older link is read once the page is up), else a starter.
+ */
+export function initialDocument(hash: string): { document: Document; error?: string } {
   if (!hash || isLegacyHash(hash)) return { document: starter() };
   try {
     // A shared link keeps the presets it was written with.

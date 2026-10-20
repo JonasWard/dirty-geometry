@@ -27,7 +27,7 @@ bun run dev
 | --- | --- |
 | `/lab/` | Hub: every demo of both libraries |
 | `/lab/vec2/`, `/lab/graph/` | One library's demos |
-| `/lab/vec2/playground/` | Build a vec2 definition as cells of expressions (edited in place, as code or as JSON) with your own functions; the state is a densing string in the URL |
+| `/lab/vec2/playground/` | Build a vec2 definition as cells of expressions (edited in place, as code or as JSON) with your own functions; the state is a densing string in the URL hash: `#/edit/<definition>`, or `#/view/<definition>/<values>` for the View tab (only the input values change, and the changed ones follow the definition) |
 | `/lab/vec2/<demo>/`, `/lab/graph/<demo>/` | One demo, e.g. `/lab/vec2/curves/`, `/lab/graph/path-search/`, `/lab/vec2/definitions/` (recorded definitions) |
 
 Localized copies live under `/de/`, `/fr/` and `/it/`. Old `/lab#/<demo>` links redirect to the demo's page. Scenario data comes from `@dirty-geometry/vec2/examples` and `@dirty-geometry/graph/examples`.

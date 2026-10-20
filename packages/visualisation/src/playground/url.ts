@@ -112,14 +112,31 @@ export async function readPlaygroundHash(hash: string): Promise<PlaygroundState 
   return { options: decodedOptions, presets: decoded.presets, definition: fromV3(decoded.definition), upgraded: true };
 }
 
-// ---- the viewer's values ----
+// ---- the page's hash: which view, the definition, the viewer's values ----
 
-/** A viewer link: the playground link (`4/<options>/<definition>`, the defaults) and, after it, the changed values. */
-export function splitViewerHash(hash: string): { link: string; values?: string } {
-  const parts = segments(hash);
-  if (parts.length <= 3 || isLegacyHash(hash)) return { link: parts.join('/') };
-  return { link: parts.slice(0, 3).join('/'), values: parts[3] || undefined };
+export type View = 'edit' | 'view';
+/** `state`: the definition (`4/<options>/<definition>`, or an older link); `values`: the viewer's changed values. */
+export type ParsedHash = { view: View; state: string; values?: string };
+
+const isView = (text: string | undefined): text is View => text === 'edit' || text === 'view';
+
+/**
+ * `#/edit/<state>` or `#/view/<state>[/<values>]`. A link without a view (`#/4/…`, or an older `#/<options>/…`)
+ * opens the editor, or the viewer when it carries values.
+ */
+export function parseHash(hash: string): ParsedHash {
+  const parts = segments(hash).filter(Boolean);
+  const view = isView(parts[0]) ? parts.shift() : undefined;
+  // Version 4 is `4/<options>/<definition>`; an older link is `<options>/<definition>`.
+  const length = parts[0] === HASH_VERSION ? 3 : 2;
+  const state = parts.slice(0, length).join('/');
+  const values = parts[length] || undefined;
+  return { view: (view as View | undefined) ?? (values ? 'view' : 'edit'), state, ...(values ? { values } : {}) };
 }
+
+/** The hash for a view of `state`; only the viewer carries values. */
+export const formatHash = (view: View, state: string, values?: string) =>
+  `#/${view}/${state}${view === 'view' && values ? `/${values}` : ''}`;
 
 /**
  * Changed input values as a densing string: a definition holding only those inputs, packed with the cheapest exact

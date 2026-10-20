@@ -1,5 +1,7 @@
 'use client';
 
+import type { View } from './url';
+
 /** The look of a toolbar tab, shared by the editor modes and the Edit | View switch. */
 export const tab = (active: boolean) =>
   `border px-3 py-1 text-xs tracking-widest uppercase ${
@@ -8,26 +10,24 @@ export const tab = (active: boolean) =>
       : 'border-dg-border text-dg-subtle hover:border-dg-steel-600'
   }`;
 
-/**
- * Edit | View: the playground and its viewer as two tabs of one page. The other page opens on the same definition
- * (`href` already carries its link); without an `href` the switch is left out.
- */
-export function ModeSwitch({ page, href }: { page: 'edit' | 'view'; href?: string }) {
-  if (href === undefined) return null;
-  const item = (which: 'edit' | 'view', label: string, title: string) =>
-    which === page ? (
-      <span className={tab(true)} aria-current='page'>
-        {label}
-      </span>
-    ) : (
-      <a className={tab(false)} href={href} title={title}>
-        {label}
-      </a>
-    );
+/** Edit | View: the editor, or only the inputs' values to play with. Both are views of one page and one link. */
+export function ModeSwitch({ view, onChange }: { view: View; onChange: (view: View) => void }) {
+  const item = (which: View, label: string, title: string) => (
+    <button
+      type='button'
+      role='tab'
+      aria-selected={view === which}
+      className={tab(view === which)}
+      title={title}
+      onClick={() => onChange(which)}
+    >
+      {label}
+    </button>
+  );
   return (
-    <nav className='flex' aria-label='Playground page'>
+    <div className='flex' role='tablist' aria-label='Playground view'>
       {item('edit', 'Edit', 'Change the inputs, functions and cells')}
       {item('view', 'View', 'Play with the input values only')}
-    </nav>
+    </div>
   );
 }

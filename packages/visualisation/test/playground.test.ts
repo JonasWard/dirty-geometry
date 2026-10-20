@@ -11,7 +11,8 @@ import {
   decodeViewerValues,
   encodePlaygroundHash,
   encodeViewerValues,
-  splitViewerHash,
+  formatHash,
+  parseHash,
 } from '../src/playground/url';
 import * as ops from '../src/playground/model/ops';
 import { DEFAULT_FAVOURITES } from '../src/playground/operations';
@@ -333,12 +334,24 @@ describe('viewer link', () => {
     expect(read.w!.type).toBe('Coordinate');
   });
 
-  test('the playground link is the first part; the playground still reads a viewer link', () => {
+  test('the hash names the view; the viewer keeps its values after the definition', () => {
     const values = encodeViewerValues({}, [{ ...definition.inputs[0]!, value: 5 }]);
-    expect(splitViewerHash(`${link}/${values}`)).toEqual({ link, values });
-    expect(splitViewerHash(link)).toEqual({ link });
-    expect(splitViewerHash('a/b')).toEqual({ link: 'a/b' });
-    expect(decodePlaygroundHash(`${link}/${values}`).definition).toEqual(decodePlaygroundHash(link).definition);
+    expect(formatHash('edit', link)).toBe(`#/edit/${link}`);
+    expect(formatHash('edit', link, values)).toBe(`#/edit/${link}`);
+    expect(formatHash('view', link, values)).toBe(`#/view/${link}/${values}`);
+    expect(formatHash('view', link)).toBe(`#/view/${link}`);
+    expect(parseHash(`#/view/${link}/${values}`)).toEqual({ view: 'view', state: link, values });
+    expect(parseHash(`#/edit/${link}`)).toEqual({ view: 'edit', state: link });
+    expect(parseHash(`#/view/${link}`)).toEqual({ view: 'view', state: link });
+  });
+
+  test('older links open the editor (the viewer when they carry values); no hash is an empty state', () => {
+    expect(parseHash(`#/${link}`)).toEqual({ view: 'edit', state: link });
+    expect(parseHash(`#/${link}/abc`)).toEqual({ view: 'view', state: link, values: 'abc' });
+    expect(parseHash('#/opts/def')).toEqual({ view: 'edit', state: 'opts/def' });
+    expect(parseHash('')).toEqual({ view: 'edit', state: '' });
+    expect(parseHash('#/view')).toEqual({ view: 'view', state: '' });
+    expect(decodePlaygroundHash(parseHash(`#/view/${link}/x`).state).definition).toEqual(definition);
   });
 
   test('plain-value outputs are listed, not drawn, and take no colour', () => {

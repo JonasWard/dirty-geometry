@@ -75,9 +75,7 @@
       "graph": "Graphs: path search, edge-subset helpers and half-edge meshes."
     },
     "playground": "Playground",
-    "playgroundIntro": "Build a vec2 definition from inputs, your own functions and cells, each cell one expression edited in place or as code. Every cell's geometry is drawn, and the whole definition lives in the link as a densing string.",
-    "openPlayground": "Open the playground",
-    "viewer": "Viewer",
-    "viewerIntro": "Play with the inputs of a playground definition and see its outputs. The playground's values are the defaults; the values you change are kept in the link, so it can be shared as it is. Hover an output to highlight it, or hide and show it."
+    "playgroundIntro": "Build a vec2 definition from inputs, your own functions and cells, each cell one expression edited in place or as code. Every cell's geometry is drawn, and the whole definition lives in the link as a densing string. Its View tab leaves only the input values to play with, kept in the link as well.",
+    "openPlayground": "Open the playground"
   }
 }

@@ -189,8 +189,8 @@ export function Operand({ expr, slot, path, ed, name, optional }: Omit<Child, 'k
       {listed && brackets[0] !== '' && <span className={punct}>{brackets[0]}</span>}
       {(children.length > 0 || add) && (
         <span className={large ? 'flex w-full flex-col gap-0.5 border-l border-dg-border pl-3' : 'contents'}>
-          {children.map((child, i) => (
-            <span key={child.key} className='inline-flex items-center'>
+          {children.map(({ key, ...child }, i) => (
+            <span key={key} className='inline-flex items-center'>
               <Operand {...child} ed={ed} />
               {add && (
                 <button

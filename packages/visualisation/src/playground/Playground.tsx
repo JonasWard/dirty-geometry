@@ -10,6 +10,7 @@ import { VisualisationLegend } from '../core/VisualisationLegend';
 import { CodeEditor } from './CodeEditor';
 import { EncodingPanel } from './EncodingPanel';
 import { JsonEditor } from './JsonEditor';
+import { ModeSwitch, tab } from './ModeSwitch';
 import { CellsPanel, FunctionsPanel, InputsPanel } from './panels';
 import { PLAYGROUND_COLORS, PlaygroundCanvas } from './PlaygroundCanvas';
 import { STARTERS } from './starters';
@@ -19,12 +20,6 @@ import { isLegacyHash, readPlaygroundHash } from './url';
 
 type Mode = 'cells' | 'code' | 'json';
 const MODES: Record<Mode, string> = { cells: 'Cells', code: 'Code', json: 'JSON' };
-const tab = (active: boolean) =>
-  `border px-3 py-1 text-xs tracking-widest uppercase ${
-    active
-      ? 'border-dg-navy-900 bg-dg-navy-900 text-dg-sky-200'
-      : 'border-dg-border text-dg-subtle hover:border-dg-steel-600'
-  }`;
 const button =
   'rounded border border-dg-border px-2 py-0.5 text-xs hover:border-dg-steel-600 hover:text-dg-steel-600 disabled:opacity-40';
 
@@ -123,6 +118,9 @@ function PlaygroundView({ initialError, viewerHref }: { initialError?: string; v
         </div>
       )}
       <div className='flex flex-wrap items-center gap-2'>
+        {/* The viewer opens the last link that could be written (an edit may not encode for a moment). */}
+        <ModeSwitch page='edit' href={viewerHref && `${viewerHref}#/${encoding.hash ?? currentHash()}`} />
+        {viewerHref && <span aria-hidden='true' className='mx-1 h-5 w-px bg-dg-border' />}
         <div className='flex gap-1' role='tablist' aria-label='Editor mode'>
           {(Object.keys(MODES) as Mode[]).map((m) => (
             <button
@@ -174,15 +172,6 @@ function PlaygroundView({ initialError, viewerHref }: { initialError?: string; v
             ))}
           </select>
         </label>
-        {viewerHref && (
-          <a
-            className={button}
-            href={encoding.hash ? `${viewerHref}#/${encoding.hash}` : viewerHref}
-            title='Play with the inputs of this definition'
-          >
-            open viewer ↗
-          </a>
-        )}
       </div>
 
       <div className='grid gap-4 xl:grid-cols-[minmax(0,6fr)_minmax(0,5fr)]'>

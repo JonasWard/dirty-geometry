@@ -1,67 +1,146 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
-import type { Expr, Input } from '@dirty-geometry/vec2/recording/definition';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
+import type { Definition, Expr, Input } from '@dirty-geometry/vec2/recording/definition';
+import type { NumericOptions } from '@dirty-geometry/vec2/schema/dense/definition';
 import { VisualisationLegend } from '../core/VisualisationLegend';
 import { describeValue } from './describe';
+import { drawableOutputs, isPlainType } from './draw';
 import { currentHash, initialDocument } from './location';
+import { ModeSwitch } from './ModeSwitch';
 import { withInputValues } from './model/ops';
 import { InputValueEditor } from './panels';
 import { outputColor, PLAYGROUND_COLORS, PlaygroundCanvas } from './PlaygroundCanvas';
 import { useAnalysis } from './store';
-import { isLegacyHash, readPlaygroundHash } from './url';
+import {
+  decodeViewerValues,
+  encodePlaygroundHash,
+  encodeViewerValues,
+  isLegacyHash,
+  readPlaygroundHash,
+  splitViewerHash,
+} from './url';
 
 const panel = 'rounded-md border border-dg-border bg-white/60 p-3 text-xs';
 const heading = 'text-xs font-bold tracking-widest text-dg-subtle uppercase';
 const button =
   'rounded border border-dg-border px-2 py-0.5 text-xs hover:border-dg-steel-600 hover:text-dg-steel-600 disabled:opacity-40';
+const textButton =
+  'text-[11px] text-dg-subtle hover:text-dg-steel-600 disabled:opacity-40 disabled:hover:text-dg-subtle';
 const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
 
+type Loaded = { definition: Definition; options: NumericOptions; link: string };
+type Values = Record<string, Expr>;
+
+/** The changed values of a viewer link that still fit the definition (same input, same type). */
+function readValues(text: string | undefined, { definition, options }: Loaded): { values: Values; error?: string } {
+  if (!text) return { values: {} };
+  try {
+    const stored = decodeViewerValues(text, options);
+    const values: Values = {};
+    for (const input of definition.inputs) {
+      const value = stored[input.name];
+      if (value && value.type === input.type && !same(value.value, input.value)) values[input.name] = value.value;
+    }
+    return { values };
+  } catch (error) {
+    return { values: {}, error: `The changed values in the link could not be read: ${(error as Error).message}` };
+  }
+}
+
+/** The inputs whose value differs from the definition's, with that value. */
+const changedInputs = (definition: Definition, values: Values): Input[] =>
+  definition.inputs.flatMap((input) =>
+    input.name in values && !same(values[input.name], input.value) ? [{ ...input, value: values[input.name]! }] : [],
+  );
+
 /**
- * A definition from a playground link, to play with: only the inputs' values change (the link's values are the
- * defaults and the link is left as it is), and the outputs can be hidden, shown and hovered.
+ * A definition from a playground link, to play with: only the inputs' values change. The link keeps the
+ * playground's values as the defaults and the changed ones after them, so a viewer link opens as it was left.
+ * Outputs with geometry can be hidden, shown and hovered; plain values (numbers, flags, text) are listed.
  */
 export function Viewer({ playgroundHref }: { playgroundHref?: string } = {}) {
-  const [initial] = useState(initialDocument);
-  const [definition, setDefinition] = useState(initial.document.definition);
-  const [hash, setHash] = useState(currentHash);
+  const [initial] = useState(() => {
+    const { document, error } = initialDocument();
+    const { link, values } = splitViewerHash(currentHash());
+    const loaded = { definition: document.definition, options: document.options, link };
+    const read = readValues(values, loaded);
+    return { loaded, values: read.values, error: error ?? read.error };
+  });
+  const [loaded, setLoaded] = useState<Loaded>(initial.loaded);
+  const [values, setValues] = useState<Values>(initial.values);
   const [notice, setNotice] = useState<string | undefined>(initial.error);
-  const [values, setValues] = useState<Record<string, Expr>>({});
   const [hidden, setHidden] = useState<ReadonlySet<string>>(() => new Set());
   const [hovered, setHovered] = useState<string | null>(null);
   const [intermediates, setIntermediates] = useState<boolean | undefined>(undefined);
+  const lastHash = useRef<string>(currentHash());
+  const { definition, options, link } = loaded;
 
-  // Another definition: an older link (its decoder loads on demand) or a link pasted into this tab.
-  const open = (next: string) =>
-    readPlaygroundHash(next).then(
+  // Another definition: an older link (its decoder loads on demand and it is rewritten as a current one), or a
+  // link pasted into this tab.
+  const open = (hash: string) => {
+    const split = splitViewerHash(hash);
+    return readPlaygroundHash(split.link).then(
       (state) => {
-        setDefinition(state.definition);
-        setHash(next);
-        setValues({});
+        let next = split.link;
+        if (state.upgraded)
+          try {
+            next = encodePlaygroundHash(state);
+          } catch {
+            // keep the old link; the playground upgrades it too
+          }
+        const fresh = { definition: state.definition, options: state.options, link: next };
+        const read = readValues(split.values, fresh);
+        setLoaded(fresh);
+        setValues(read.values);
         setHidden(new Set());
         setIntermediates(undefined);
-        setNotice(undefined);
+        setNotice(read.error);
       },
       (failure: Error) => setNotice(`Could not read the link: ${failure.message}`),
     );
+  };
   useEffect(() => {
-    const now = currentHash();
-    if (now && isLegacyHash(now)) void open(now);
+    if (isLegacyHash(link)) void open(currentHash());
     const onHashChange = () => {
       const next = currentHash();
-      if (next) void open(next);
+      if (next && next !== lastHash.current) {
+        lastHash.current = next;
+        void open(next);
+      }
     };
     window.addEventListener('hashchange', onHashChange);
     return () => window.removeEventListener('hashchange', onHashChange);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // The link with the changed values; a value no range can hold keeps the last link that could be written.
+  const changed = useMemo(() => changedInputs(definition, values), [definition, values]);
+  const encoded = useMemo((): { hash?: string; error?: string } => {
+    if (!changed.length || isLegacyHash(link)) return { hash: link };
+    try {
+      return { hash: `${link}/${encodeViewerValues(options, changed)}` };
+    } catch (error) {
+      return { error: (error as Error).message };
+    }
+  }, [changed, link, options]);
+  useEffect(() => {
+    const { hash } = encoded;
+    if (hash === undefined || hash === lastHash.current) return;
+    const timer = setTimeout(() => {
+      lastHash.current = hash;
+      window.history.replaceState(null, '', `#/${hash}`);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [encoded]);
 
   const tweaked = useMemo(() => withInputValues(definition, values), [definition, values]);
   const { evaluation } = useAnalysis(tweaked);
-  const outputs = definition.cells.filter((cell) => cell.output);
-  // Without outputs there is nothing else to draw, so the other cells are shown.
-  const showIntermediates = intermediates ?? outputs.length === 0;
-  const changed = (input: Input) => input.name in values && !same(values[input.name], input.value);
-  const anyChanged = definition.inputs.some(changed);
+  const drawable = drawableOutputs(definition);
+  const plain = definition.cells.filter((cell) => cell.output && isPlainType(cell.type));
+  // Without drawable outputs there is nothing else to draw, so the other cells are shown.
+  const showIntermediates = intermediates ?? drawable.length === 0;
+  const changedNames = new Set(changed.map((input) => input.name));
   // A hidden output shows while it is hovered.
   const drawnHidden = useMemo(
     () => (hovered && hidden.has(hovered) ? new Set([...hidden].filter((name) => name !== hovered)) : hidden),
@@ -73,6 +152,10 @@ export function Viewer({ playgroundHref }: { playgroundHref?: string } = {}) {
       if (!next.delete(name)) next.add(name);
       return next;
     });
+  const result = (name: string) => {
+    const cell = evaluation.cells.get(name);
+    return cell && 'error' in cell ? { error: cell.error } : { text: describeValue(cell?.value) };
+  };
 
   return (
     <div className='space-y-3'>
@@ -84,32 +167,42 @@ export function Viewer({ playgroundHref }: { playgroundHref?: string } = {}) {
           </button>
         </div>
       )}
+      <div className='flex flex-wrap items-center gap-2'>
+        <ModeSwitch page='view' href={playgroundHref && `${playgroundHref}#/${link}`} />
+        {playgroundHref !== undefined && <span aria-hidden='true' className='mx-1 h-5 w-px bg-dg-border' />}
+        <button
+          type='button'
+          className={button}
+          disabled={changed.length === 0}
+          onClick={() => setValues({})}
+          title="Back to the playground's values"
+        >
+          ↺ reset values
+        </button>
+        <span className='text-xs text-dg-subtle'>
+          {changed.length === 0 ? 'the playground’s values' : `${changed.length} changed · kept in the link`}
+        </span>
+        {encoded.error && (
+          <span className='text-xs text-amber-700' title={encoded.error}>
+            a value is out of range; the link keeps the last one that fit
+          </span>
+        )}
+      </div>
+
       <div className='grid gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(0,5fr)]'>
         <div className='min-w-0 space-y-4'>
           <section className={panel} aria-label='Inputs'>
-            <div className='mb-2 flex items-center justify-between gap-2'>
-              <h3 className={heading}>Inputs</h3>
-              <button type='button' className={button} disabled={!anyChanged} onClick={() => setValues({})}>
-                reset to defaults
-              </button>
-            </div>
+            <h3 className={`${heading} mb-2`}>Inputs</h3>
             {definition.inputs.length === 0 && <p className='text-dg-subtle'>This definition has no inputs.</p>}
             <ul className='space-y-1.5'>
-              {tweaked.inputs.map((input, i) => {
-                const original = definition.inputs[i]!;
-                const isChanged = changed(original);
+              {tweaked.inputs.map((input) => {
+                const isChanged = changedNames.has(input.name);
                 return (
-                  <li key={input.name} className='flex flex-wrap items-center gap-2'>
+                  <li key={input.name} className='flex flex-wrap items-center gap-2' title={input.type}>
                     <span className='min-w-16 font-mono font-semibold'>
                       {input.name}
-                      {isChanged && (
-                        <span className='text-dg-sky-600' title='Changed from the default'>
-                          {' '}
-                          •
-                        </span>
-                      )}
+                      {isChanged && <span className='text-dg-sky-600'> •</span>}
                     </span>
-                    <span className='text-dg-subtle'>{input.type}</span>
                     <InputValueEditor
                       input={input}
                       onChange={(value) => setValues((current) => ({ ...current, [input.name]: value }))}
@@ -119,7 +212,7 @@ export function Viewer({ playgroundHref }: { playgroundHref?: string } = {}) {
                         type='button'
                         className='px-1 text-dg-subtle hover:text-dg-steel-600'
                         aria-label={`reset ${input.name}`}
-                        title='Back to the default'
+                        title="Back to the playground's value"
                         onClick={() => setValues(({ [input.name]: _, ...rest }) => rest)}
                       >
                         ↺
@@ -132,38 +225,43 @@ export function Viewer({ playgroundHref }: { playgroundHref?: string } = {}) {
           </section>
 
           <section className={panel} aria-label='Outputs'>
-            <div className='mb-2 flex flex-wrap items-center gap-2'>
+            <div className='mb-1.5 flex items-center gap-3'>
               <h3 className={heading}>Outputs</h3>
-              <button
-                type='button'
-                className={`${button} ml-auto`}
-                disabled={hidden.size === 0}
-                onClick={() => setHidden(new Set())}
-              >
-                show all
-              </button>
-              <button
-                type='button'
-                className={button}
-                disabled={outputs.length === 0 || outputs.every((cell) => hidden.has(cell.name))}
-                onClick={() => setHidden(new Set(outputs.map((cell) => cell.name)))}
-              >
-                hide all
-              </button>
+              {drawable.length > 1 && (
+                <>
+                  <button
+                    type='button'
+                    className={`${textButton} ml-auto`}
+                    disabled={hidden.size === 0}
+                    onClick={() => setHidden(new Set())}
+                  >
+                    show all
+                  </button>
+                  <button
+                    type='button'
+                    className={textButton}
+                    disabled={drawable.every((cell) => hidden.has(cell.name))}
+                    onClick={() => setHidden(new Set(drawable.map((cell) => cell.name)))}
+                  >
+                    hide all
+                  </button>
+                </>
+              )}
             </div>
-            {outputs.length === 0 && (
+            {drawable.length + plain.length === 0 && (
               <p className='text-dg-subtle'>This definition has no outputs; its cells are drawn instead.</p>
             )}
-            <ul className='space-y-1' onMouseLeave={() => setHovered(null)}>
-              {outputs.map((cell, i) => {
-                const result = evaluation.cells.get(cell.name);
+            <ul onMouseLeave={() => setHovered(null)}>
+              {drawable.map((cell, i) => {
                 const isHidden = hidden.has(cell.name);
+                const r = result(cell.name);
                 return (
                   <li
                     key={cell.name}
                     aria-label={`output ${cell.name}`}
-                    className={`flex items-start gap-2 rounded border px-2 py-1 ${
-                      hovered === cell.name ? 'border-amber-300 bg-amber-50/70' : 'border-dg-border/60 bg-white/70'
+                    title={cell.type}
+                    className={`flex items-center gap-2 rounded px-1 py-0.5 ${
+                      hovered === cell.name ? 'bg-amber-100/80' : ''
                     } ${isHidden ? 'opacity-50' : ''}`}
                     onMouseEnter={() => setHovered(cell.name)}
                   >
@@ -173,30 +271,52 @@ export function Viewer({ playgroundHref }: { playgroundHref?: string } = {}) {
                       aria-checked={!isHidden}
                       aria-label={`${isHidden ? 'show' : 'hide'} ${cell.name}`}
                       title={isHidden ? 'Show' : 'Hide'}
-                      className='mt-0.5 flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-sm border'
+                      className='h-3 w-3 shrink-0 rounded-sm border-2'
                       style={{
                         borderColor: outputColor(i),
                         backgroundColor: isHidden ? 'transparent' : outputColor(i),
                       }}
                       onClick={() => toggle(cell.name)}
                     />
-                    <span className='min-w-0 flex-1'>
-                      <span className='font-mono font-semibold'>{cell.name}</span>{' '}
-                      <span className='text-dg-subtle'>{cell.type}</span>
-                      <span
-                        className={`block truncate font-mono text-[11px] ${
-                          result && 'error' in result ? 'text-red-600' : 'text-dg-subtle'
-                        }`}
-                        title={result && 'error' in result ? result.error : describeValue(result?.value)}
-                      >
-                        {result && 'error' in result ? result.error : `→ ${describeValue(result?.value)}`}
-                      </span>
+                    <span className='font-mono font-semibold'>{cell.name}</span>
+                    <span
+                      className={`ml-auto min-w-0 truncate font-mono text-[11px] ${
+                        'error' in r ? 'text-red-600' : 'text-dg-subtle'
+                      }`}
+                      title={'error' in r ? r.error : r.text}
+                    >
+                      {'error' in r ? r.error : r.text}
                     </span>
                   </li>
                 );
               })}
             </ul>
-            <label className='mt-2 flex items-center gap-1.5 text-dg-subtle'>
+            {plain.length > 0 && (
+              <dl
+                aria-label='Values'
+                className={`grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-0.5 px-1 font-mono ${
+                  drawable.length ? 'mt-1.5 border-t border-dg-border/60 pt-1.5' : ''
+                }`}
+              >
+                {plain.map((cell) => {
+                  const r = result(cell.name);
+                  return (
+                    <Fragment key={cell.name}>
+                      <dt className='font-semibold' title={cell.type}>
+                        {cell.name}
+                      </dt>
+                      <dd
+                        className={`truncate text-right tabular-nums ${'error' in r ? 'text-red-600' : ''}`}
+                        title={'error' in r ? r.error : r.text}
+                      >
+                        {'error' in r ? r.error : r.text}
+                      </dd>
+                    </Fragment>
+                  );
+                })}
+              </dl>
+            )}
+            <label className='mt-2 flex items-center gap-1.5 text-[11px] text-dg-subtle'>
               <input
                 type='checkbox'
                 checked={showIntermediates}
@@ -205,12 +325,6 @@ export function Viewer({ playgroundHref }: { playgroundHref?: string } = {}) {
               also draw the other cells and inputs
             </label>
           </section>
-
-          {playgroundHref && (
-            <a className={button} href={hash ? `${playgroundHref}#/${hash}` : playgroundHref}>
-              ← edit in the playground
-            </a>
-          )}
         </div>
 
         <div className='min-w-0 xl:sticky xl:top-20 xl:self-start'>

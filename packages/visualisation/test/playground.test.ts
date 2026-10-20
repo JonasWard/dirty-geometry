@@ -5,7 +5,14 @@ import { defaultRegistry } from '@dirty-geometry/vec2/io/default-registry';
 import { operationById } from '@dirty-geometry/vec2/schema/schema';
 import { checkDefinition, typer, widen } from '@dirty-geometry/vec2/schema/typing';
 import { DEFAULT_VALUES } from '../src/playground/defaults';
-import { drawnItems, outputColor, PLAYGROUND_COLORS } from '../src/playground/draw';
+import { drawableOutputs, drawnItems, isPlainType, outputColor, PLAYGROUND_COLORS } from '../src/playground/draw';
+import {
+  decodePlaygroundHash,
+  decodeViewerValues,
+  encodePlaygroundHash,
+  encodeViewerValues,
+  splitViewerHash,
+} from '../src/playground/url';
 import * as ops from '../src/playground/model/ops';
 import { DEFAULT_FAVOURITES } from '../src/playground/operations';
 import { STARTERS } from '../src/playground/starters';
@@ -297,5 +304,55 @@ describe('viewer', () => {
 
     const hovered = drawnItems(shown, evaluation, { intermediates: false, selected: 'a' });
     expect(hovered.drawn.at(-1)).toMatchObject({ name: 'a', role: 'selected', color: PLAYGROUND_COLORS.selected });
+  });
+});
+
+describe('viewer link', () => {
+  const definition = def({
+    inputs: [
+      { name: 'w', type: 'Coordinate', value: 2 },
+      { name: 'on', type: 'boolean', value: false },
+      { name: 'p', type: 'Vec2', value: { value: { type: 'Vec2', x: 1, y: 2 } } },
+    ],
+    cells: [{ name: 'a', expr: vec({ ref: 'w' }, 0), type: 'Vec2', output: true }],
+  });
+  const link = encodePlaygroundHash({ definition, options: {}, presets: {} });
+
+  test('changed values round-trip, also outside the range the definition was packed with', () => {
+    const changed = [
+      { ...definition.inputs[0]!, value: 87.25 },
+      { ...definition.inputs[1]!, value: true },
+      { ...definition.inputs[2]!, value: { value: { type: 'Vec2', x: -3.5, y: 40 } } },
+    ];
+    const text = encodeViewerValues({}, changed);
+    expect(text).not.toContain('/');
+    const read = decodeViewerValues(text, {});
+    expect(read.w!.value).toBe(87.25);
+    expect(read.on!.value).toBe(true);
+    expect(read.p!.value).toEqual({ value: { type: 'Vec2', x: -3.5, y: 40 } });
+    expect(read.w!.type).toBe('Coordinate');
+  });
+
+  test('the playground link is the first part; the playground still reads a viewer link', () => {
+    const values = encodeViewerValues({}, [{ ...definition.inputs[0]!, value: 5 }]);
+    expect(splitViewerHash(`${link}/${values}`)).toEqual({ link, values });
+    expect(splitViewerHash(link)).toEqual({ link });
+    expect(splitViewerHash('a/b')).toEqual({ link: 'a/b' });
+    expect(decodePlaygroundHash(`${link}/${values}`).definition).toEqual(decodePlaygroundHash(link).definition);
+  });
+
+  test('plain-value outputs are listed, not drawn, and take no colour', () => {
+    expect(['Length', 'number', 'number[]', 'boolean', 'string', 'Index[]'].every(isPlainType)).toBe(true);
+    expect(['Polygon2', 'Vec2[]', 'Geometry2', undefined].some(isPlainType)).toBe(false);
+    const mixed = def({
+      cells: [
+        { name: 'n', expr: 3, type: 'number', output: true },
+        { name: 'v', expr: vec(1, 1), type: 'Vec2', output: true },
+      ],
+    });
+    expect(drawableOutputs(mixed).map((cell) => cell.name)).toEqual(['v']);
+    const { drawn } = drawnItems(mixed, evaluate(mixed));
+    expect(drawn).toHaveLength(1);
+    expect(drawn[0]!.color).toBe(outputColor(0));
   });
 });

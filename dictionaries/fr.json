@@ -78,6 +78,6 @@
     "playgroundIntro": "Construisez une définition vec2 à partir d’entrées, de vos propres fonctions et de cellules, chaque cellule étant une expression modifiée sur place ou sous forme de code. La géométrie de chaque cellule est dessinée, et toute la définition tient dans le lien sous forme de chaîne densing.",
     "openPlayground": "Ouvrir le bac à sable",
     "viewer": "Visionneuse",
-    "viewerIntro": "Jouez avec les entrées d’une définition du bac à sable et voyez ses sorties. Les valeurs du bac à sable sont celles par défaut ; les changements faits ici restent sur cette page. Survolez une sortie pour la mettre en évidence, ou masquez-la et affichez-la."
+    "viewerIntro": "Jouez avec les entrées d’une définition du bac à sable et voyez ses sorties. Les valeurs du bac à sable sont celles par défaut ; les valeurs modifiées sont gardées dans le lien, qui se partage tel quel. Survolez une sortie pour la mettre en évidence, ou masquez-la et affichez-la."
   }
 }

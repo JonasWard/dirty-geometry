@@ -3,7 +3,7 @@
  * the large definition schema is rebuilt from them, so it never travels in the URL.
  */
 import { array, densing, enumArray, enumeration, int, object, optional, schema, undensing } from 'densing';
-import type { Definition } from '@dirty-geometry/vec2/recording/definition';
+import type { Definition, Input } from '@dirty-geometry/vec2/recording/definition';
 import { NUMBER_TYPES } from '@dirty-geometry/vec2/schema/schema';
 import {
   createDefinitionSchema,
@@ -12,6 +12,7 @@ import {
 } from '@dirty-geometry/vec2/schema/dense/definition';
 import type { NumericPreset as CustomPreset } from 'densing';
 import type { ActivePresets, NumericOptions } from '@dirty-geometry/vec2/schema/dense/definition';
+import { choosePresets } from './presets';
 
 const NAME_CHARS = [...'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_$-.@±'];
 const NUMBER_CHARS = [...'0123456789.-e'];
@@ -109,4 +110,35 @@ export async function readPlaygroundHash(hash: string): Promise<PlaygroundState 
   const decodedOptions = decodeOptions(options);
   const decoded = decodeDefinitionV3(definition, decodedOptions);
   return { options: decodedOptions, presets: decoded.presets, definition: fromV3(decoded.definition), upgraded: true };
+}
+
+// ---- the viewer's values ----
+
+/** A viewer link: the playground link (`4/<options>/<definition>`, the defaults) and, after it, the changed values. */
+export function splitViewerHash(hash: string): { link: string; values?: string } {
+  const parts = segments(hash);
+  if (parts.length <= 3 || isLegacyHash(hash)) return { link: parts.join('/') };
+  return { link: parts.slice(0, 3).join('/'), values: parts[3] || undefined };
+}
+
+/**
+ * Changed input values as a densing string: a definition holding only those inputs, packed with the cheapest exact
+ * presets for them (stored in the string), so a value may leave the range the definition itself was packed with.
+ */
+export function encodeViewerValues(options: NumericOptions, inputs: readonly Input[]): string {
+  const schema = createDefinitionSchema(options);
+  const definition: Definition = {
+    format: 'vec2-definition',
+    version: 4,
+    inputs: [...inputs],
+    functions: [],
+    cells: [],
+  };
+  return encodeDefinition(definition, choosePresets(definition, {}, schema), schema);
+}
+
+/** The values written by `encodeViewerValues`, by input name. */
+export function decodeViewerValues(text: string, options: NumericOptions): Record<string, Input> {
+  const { definition } = decodeDefinition(text, createDefinitionSchema(options));
+  return Object.fromEntries(definition.inputs.map((input) => [input.name, input]));
 }

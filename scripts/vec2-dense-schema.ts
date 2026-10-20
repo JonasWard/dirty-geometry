@@ -10,7 +10,7 @@
  *     `Aabb2 | Vec2`): a reference (`input`, `cell`, `param`), a function call (`fn`), an item or field of another
  *     value (`index`, `field`), a stored value (`value`), arithmetic (`math`, `neg`, numbers only), the literal shapes
  *     the type allows, and every operation whose result fits, keyed by its id (`Vec2.add`);
- *   - one **object template per operation signature** (`(self: Vec2, other: Vec2)`): `self` (instance members), then
+ *   - one **object template per operation signature**, named by its index (`"77"`): `self` (instance members), then
  *     one field per parameter, typed by that parameter's expression union;
  *   - `Any`: an expression of any type, keyed by the type's name (cell roots, function bodies, `of`, function args).
  * - `fields`: stamp, inputs, functions and cells. Every union's discriminator is `type`.
@@ -162,11 +162,16 @@ export function renderDenseSchema({ numbers, types, modules }: Schema): string {
     }
     return { type: 'reference', name, ref: index.get(key) };
   };
-  /** A union variant: an object template, shared by every variant with the same fields. */
+  /** A union variant: an object template, shared by every variant with the same fields. `name` may be built from the
+   * template's index. */
   const shared = new Map<string, number>();
-  const variant = (name: string, fields: Field[]): number => {
+  const variant = (name: string | ((index: number) => string), fields: Field[]): number => {
     const key = JSON.stringify(fields);
-    if (!shared.has(key)) shared.set(key, templates.push({ type: 'object', name, fields }) - 1);
+    if (!shared.has(key)) {
+      const at = templates.length;
+      templates.push({ type: 'object', name: typeof name === 'string' ? name : name(at), fields });
+      shared.set(key, at);
+    }
     return shared.get(key)!;
   };
   const variants = (type: Type, list: Record<string, Field[]>) =>
@@ -300,7 +305,7 @@ export function renderDenseSchema({ numbers, types, modules }: Schema): string {
         ...Object.fromEntries(fitting.map((op) => [op.id, call(op)])),
       });
     });
-  /** An operation's arguments: `self` (instance members), then its params; named after its signature. */
+  /** An operation's arguments: `self` (instance members), then its params; named by its index. */
   const call = (op: Op): number => {
     const slots: [string, any][] = [...(op.isStatic ? [] : [['self', op.owner] as [string, any]]), ...op.params];
     const fields = slots.map(([param, slot]) =>
@@ -310,12 +315,7 @@ export function renderDenseSchema({ numbers, types, modules }: Schema): string {
           ? { type: 'optional', name: param, field: expr(param, slot.type) }
           : expr(param, slot),
     );
-    const signature = slots.map(([param, slot]) =>
-      slot?.rest
-        ? `...${param}: ${typeName(slot.type)}[]`
-        : `${param}${slot?.optional ? '?' : ''}: ${typeName(slotType(slot))}`,
-    );
-    return variant(`(${signature.join(', ')})`, fields);
+    return variant(String, fields);
   };
 
   // Every type an expression may have at a root: results, parameters, inputs, and lists of values.

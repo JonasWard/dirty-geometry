@@ -6,7 +6,7 @@ export default function DemoCard({ demo, href }: { demo: DemoMeta; href: string 
   return (
     <Link
       href={href}
-      className="group block border border-dg-border p-5 hover:border-dg-steel-600 transition-colors duration-200"
+      className="group block border border-dg-border p-4 hover:border-dg-steel-600 transition-colors duration-200"
     >
       <p className="text-[10px] font-bold tracking-[0.3em] uppercase text-dg-sky-600 mb-2">{demo.label}</p>
       <h3 className="text-base font-bold mb-2 group-hover:text-dg-steel-600 transition-colors duration-200">

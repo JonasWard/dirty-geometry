@@ -1,4 +1,5 @@
 import PlaygroundPage from "@/components/lab/playground-page";
+import { labCrumbs } from "@/components/lab/crumbs";
 import Main from "@/components/main";
 import { defaultLocale } from "@/config";
 import { getTranslations } from "@/utilities/l10n";
@@ -15,7 +16,7 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default function Playground() {
   return (
-    <Main locale={defaultLocale} page="vec2">
+    <Main locale={defaultLocale} page="vec2" wide crumbs={labCrumbs(defaultLocale, { library: "vec2", playground: true })}>
       <PlaygroundPage locale={defaultLocale} />
     </Main>
   );

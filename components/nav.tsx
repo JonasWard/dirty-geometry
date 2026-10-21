@@ -1,58 +1,35 @@
-import { locales, Page, pages } from "@/config";
+import { pages, type Page } from "@/config";
 import { getLocale, getPath, getTranslations } from "@/utilities/l10n";
 import Link from "next/link";
 
-const List = ({
-  items,
-}: {
-  items: { active: boolean; href: string; text: string }[];
-}) => {
-  return (
-    <div className="flex items-center gap-4">
-      {items.map(({ active, href, text }) => (
-        <Link
-          className={`text-xs tracking-widest uppercase font-medium transition-colors duration-200 ${
-            active
-              ? "text-dg-navy-900"
-              : "text-dg-subtle hover:text-dg-steel-600"
-          }`}
-          href={href}
-          key={text}
-        >
-          {text}
-        </Link>
-      ))}
-    </div>
-  );
-};
-
-const Nav = ({
+/** The site's pages, in a row (header) or a column (menu). */
+export default function PageLinks({
   locale,
   page,
+  vertical = false,
+  className = "",
 }: {
   locale: string | undefined;
   page: Page;
-}) => {
+  vertical?: boolean;
+  className?: string;
+}) {
   const activeLocale = getLocale(locale);
   const t = getTranslations(activeLocale);
   return (
-    <nav className="flex flex-col items-end gap-2">
-      <List
-        items={locales.map((l) => ({
-          active: l === activeLocale,
-          href: getPath(l, page),
-          text: l,
-        }))}
-      />
-      <List
-        items={pages.map((p) => ({
-          active: p === page,
-          href: getPath(activeLocale, p),
-          text: t.pages[p],
-        }))}
-      />
+    <nav aria-label="Pages" className={`flex ${vertical ? "flex-col gap-2" : "items-center gap-4"} ${className}`}>
+      {pages.map((p) => (
+        <Link
+          key={p}
+          href={getPath(activeLocale, p)}
+          aria-current={p === page ? "page" : undefined}
+          className={`text-xs tracking-widest uppercase font-medium transition-colors duration-200 ${
+            p === page ? "text-dg-navy-900" : "text-dg-subtle hover:text-dg-steel-600"
+          }`}
+        >
+          {t.pages[p]}
+        </Link>
+      ))}
     </nav>
   );
-};
-
-export default Nav;
+}

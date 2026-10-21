@@ -1,6 +1,7 @@
 import FrameBody from '@/components/entries/frame-body/content';
 import { defaultLocale } from '@/config';
 import { Metadata } from 'next';
+import { pageCrumbs } from "@/components/lab/crumbs";
 import Main from '@/components/main';
 
 export const metadata: Metadata = {
@@ -10,7 +11,7 @@ export const metadata: Metadata = {
 
 export default function FramePage() {
   return (
-    <Main locale={defaultLocale} page="frame">
+    <Main locale={defaultLocale} page="frame" crumbs={pageCrumbs(defaultLocale, "frame")}>
       <FrameBody />
     </Main>
   );

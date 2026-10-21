@@ -1,5 +1,6 @@
 import LibraryIndex from "@/components/lab/library-index";
 import { libraryMetadata, libraryParams, requireLibrary } from "@/components/lab/lab-routes";
+import { labCrumbs } from "@/components/lab/crumbs";
 import Main from "@/components/main";
 import { Metadata } from "next";
 
@@ -17,7 +18,7 @@ export default async function Library({ params }: Readonly<Props>) {
   const { locale, library: raw } = await params;
   const library = requireLibrary(raw);
   return (
-    <Main locale={locale} page={library}>
+    <Main locale={locale} page={library} crumbs={labCrumbs(locale, { library })}>
       <LibraryIndex locale={locale} library={library} />
     </Main>
   );

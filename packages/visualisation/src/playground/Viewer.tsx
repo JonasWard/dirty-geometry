@@ -222,8 +222,8 @@ export function ViewerPanel({
         </section>
       </div>
 
-      <div className='min-w-0 xl:sticky xl:top-20 xl:self-start'>
-        <div className='relative h-[70vh] min-h-[420px] w-full overflow-hidden border border-dg-border bg-[#0b0d12]'>
+      <div className='min-w-0 xl:sticky xl:top-16 xl:self-start'>
+        <div className='relative isolate h-[70vh] min-h-[420px] w-full overflow-hidden border border-dg-border bg-[#0b0d12]'>
           <PlaygroundCanvas
             definition={tweaked}
             evaluation={evaluation}

@@ -26,7 +26,8 @@ export function DemoViewer({ library, id, className }: { library: string; id: st
   return (
     <div
       className={
-        className ?? 'relative h-[75vh] min-h-[480px] w-full overflow-hidden border border-dg-border bg-[#0b0d12]'
+        className ??
+        'relative isolate h-[75vh] min-h-[480px] w-full overflow-hidden border border-dg-border bg-[#0b0d12]'
       }
     >
       <Suspense fallback={null}>{mountedKey === key ? view.render() : null}</Suspense>

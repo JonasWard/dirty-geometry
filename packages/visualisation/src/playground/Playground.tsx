@@ -265,8 +265,8 @@ function PlaygroundView({
               {mode === 'json' && <JsonEditor definition={definition} onChange={commit} />}
             </div>
 
-            <div className='min-w-0 space-y-4 xl:sticky xl:top-20 xl:self-start'>
-              <div className='relative h-[60vh] min-h-[420px] w-full overflow-hidden border border-dg-border bg-[#0b0d12]'>
+            <div className='min-w-0 space-y-4 xl:sticky xl:top-16 xl:self-start'>
+              <div className='relative isolate h-[60vh] min-h-[420px] w-full overflow-hidden border border-dg-border bg-[#0b0d12]'>
                 <PlaygroundCanvas definition={definition} evaluation={evaluation} selected={selected} />
                 <VisualisationLegend
                   items={[

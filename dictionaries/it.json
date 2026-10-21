@@ -1,4 +1,7 @@
 {
+  "nav": {
+    "menu": "Menu"
+  },
   "pages": {
     "home": "Home",
     "about": "Chi sono",

@@ -1,13 +1,9 @@
 import { describe, expect, test } from 'bun:test';
 import type { Definition } from '@dirty-geometry/vec2/recording/definition';
-import { fromV3 } from '@dirty-geometry/vec2/recording/migrate';
-import type { DefinitionV3 } from '@dirty-geometry/vec2/recording/v3';
 import { encodeDefinition } from '@dirty-geometry/vec2/schema/dense/definition';
 import { choosePresets, quantisationReport } from '../src/playground/presets';
-import { decodePlaygroundHash, encodePlaygroundHash, isLegacyHash, readPlaygroundHash } from '../src/playground/url';
-import fixtureJson from '../../vec2/test/schema/dense/v3/fixtures.json';
+import { decodeAppState, encodeAppState } from '../src/playground/url';
 
-const fixtures = fixtureJson as unknown as { name: string; url: string; definition: DefinitionV3 }[];
 const point = (x: number, y: number): Definition => ({
   format: 'vec2-definition',
   version: 4,
@@ -41,21 +37,9 @@ describe('playground URL', () => {
       presets: { Coordinate: 'site' },
       definition: point(123.25, -40),
     };
-    const hash = encodePlaygroundHash(state);
-    expect(hash).toMatch(/^4\/[\w-]+\/[\w-]+$/);
-    expect(isLegacyHash(hash)).toBe(false);
-    const decoded = decodePlaygroundHash(`#/${hash}`);
+    const decoded = decodeAppState(encodeAppState(state));
     expect(decoded.options).toEqual(state.options);
     expect(decoded.presets).toMatchObject({ Coordinate: 'site' });
     expect(decoded.definition).toEqual(state.definition);
-  });
-
-  test.each(fixtures.map((f) => [f.name, f] as const))('a version 3 link (%s) opens as cells', async (_, fixture) => {
-    expect(isLegacyHash(fixture.url)).toBe(true);
-    const state = await readPlaygroundHash(`#/${fixture.url}`);
-    expect(state.upgraded).toBe(true);
-    expect(state.definition).toEqual(fromV3(fixture.definition));
-    // and it is written back as a version 4 link
-    expect(decodePlaygroundHash(encodePlaygroundHash(state)).definition).toEqual(state.definition);
   });
 });

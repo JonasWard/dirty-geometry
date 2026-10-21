@@ -10,13 +10,13 @@ import { VisualisationLegend } from '../core/VisualisationLegend';
 import { CodeEditor } from './CodeEditor';
 import { EncodingPanel } from './EncodingPanel';
 import { JsonEditor } from './JsonEditor';
-import { ModeSwitch, tab } from './ModeSwitch';
+import { ModeSwitch, tab, type View } from './ModeSwitch';
 import { CellsPanel, FunctionsPanel, InputsPanel } from './panels';
 import { PLAYGROUND_COLORS, PlaygroundCanvas } from './PlaygroundCanvas';
 import { STARTERS } from './starters';
 import { initialDocument } from './location';
 import { createPlaygroundStore, StoreContext, useAnalysis, usePlayground, useStoreApi } from './store';
-import { encodeViewerValues, formatHash, isLegacyHash, parseHash, readPlaygroundHash, type View } from './url';
+import { decodeAppState, encodeViewState, formatHash, parseHash } from './url';
 import { changedInputs, readValues, ViewerPanel, type Values } from './Viewer';
 
 type Mode = 'cells' | 'code' | 'json';
@@ -27,24 +27,21 @@ const button =
 /**
  * The vec2 playground: a definition is inputs, functions and cells, each cell one expression edited in place (or as
  * code, or as JSON). Every cell's geometry is drawn, and the whole definition lives in the link as a densing string.
- * Its View tab leaves only the inputs' values to change. The link names the view: `#/edit/<definition>`, or
- * `#/view/<definition>/<values>` with the changed values after the definition (which keeps the editor's values).
+ * Its View tab leaves only the inputs' values to change. The link is `#/<app>` for the editor and `#/<app>/<view>`
+ * for the View tab: the app state is the definition (with the editor's values), the view state the input values.
  */
 export function Playground() {
   const [initial] = useState(() => {
     const parsed = parseHash(typeof window === 'undefined' ? '' : window.location.hash);
-    const { document, error } = initialDocument(parsed.state);
-    const read = readValues(parsed.values, document.options);
-    return { store: createPlaygroundStore(document), parsed, values: read.values, error: error ?? read.error };
+    const { document, error } = initialDocument(parsed.app);
+    // A link that cannot be read opens the starter in the editor; its view part means nothing then.
+    const read = error ? { values: {} } : readValues(parsed.view, document.options);
+    const view: View = parsed.view && !error ? 'view' : 'edit';
+    return { store: createPlaygroundStore(document), view, values: read.values, error: error ?? read.error };
   });
   return (
     <StoreContext.Provider value={initial.store}>
-      <PlaygroundView
-        initialError={initial.error}
-        initialView={initial.parsed.view}
-        initialValues={initial.values}
-        legacy={isLegacyHash(initial.parsed.state) ? initial.parsed.state : undefined}
-      />
+      <PlaygroundView initialError={initial.error} initialView={initial.view} initialValues={initial.values} />
     </StoreContext.Provider>
   );
 }
@@ -53,13 +50,10 @@ function PlaygroundView({
   initialError,
   initialView,
   initialValues,
-  legacy,
 }: {
   initialError?: string;
   initialView: View;
   initialValues: Values;
-  /** An older link, read once the page is up. */
-  legacy?: string;
 }) {
   const store = useStoreApi();
   const definition = usePlayground((s) => s.definition);
@@ -79,38 +73,21 @@ function PlaygroundView({
   // What this page last wrote to (or read from) the URL, and in which view.
   const lastHash = useRef(typeof window === 'undefined' ? '' : window.location.hash);
   const lastView = useRef(initialView);
-  // Bumped when the URL was changed from outside, so it is rewritten in the current form.
+  // Bumped when the URL was changed from outside, so it is rewritten as this page writes it.
   const [visited, setVisited] = useState(0);
 
-  // The viewer's changed values, and the link they are kept in (a value no range holds keeps the last link).
+  // The viewer's changed values, and the view state: every input's value (a value no range holds keeps the last link).
   const changed = useMemo(() => changedInputs(definition, values), [definition, values]);
   const stored = useMemo((): { text?: string; error?: string } => {
-    if (view !== 'view' || changed.length === 0) return {};
+    if (view !== 'view') return {};
+    const inputs = definition.inputs.map((input) => changed.find((c) => c.name === input.name) ?? input);
     try {
-      return { text: encodeViewerValues(options, changed) };
+      return { text: encodeViewState(options, inputs) };
     } catch (error) {
       return { error: (error as Error).message };
     }
-  }, [view, changed, options]);
-  const target = encoding.hash && !stored.error ? formatHash(view, encoding.hash, stored.text) : undefined;
-
-  // A link's definition: version 4 is read at once; an older one is read (its decoder loads on demand) and upgraded.
-  const open = (state: string, mode: 'push' | 'reset') =>
-    readPlaygroundHash(state).then(
-      (read) => {
-        store.getState().load({ ...read, auto: false }, mode);
-        setNotice(read.upgraded ? 'This link was made by an earlier playground; its steps are now cells.' : undefined);
-        return read;
-      },
-      (failure: Error) => {
-        setNotice(`Could not read the link: ${failure.message}`);
-        return undefined;
-      },
-    );
-  useEffect(() => {
-    if (legacy) void open(legacy, 'reset');
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [view, definition, changed, options]);
+  const target = encoding.hash && !stored.error ? formatHash(encoding.hash, stored.text) : undefined;
 
   // Keep the URL in step: switching the view adds a history entry (so Back switches back), edits replace it.
   useEffect(() => {
@@ -133,25 +110,32 @@ function PlaygroundView({
       if (hash === lastHash.current) return;
       lastHash.current = hash;
       const parsed = parseHash(hash);
-      lastView.current = parsed.view;
-      setView(parsed.view);
-      const take = (loadedOptions: typeof options) => {
-        const read = readValues(parsed.values, loadedOptions);
-        setValues(read.values);
-        if (read.error) setNotice(read.error);
-      };
-      if (parsed.state && parsed.state !== store.getState().encoding.hash)
-        void open(parsed.state, 'push').then((read) => read && take(read.options));
-      else {
-        take(store.getState().options);
-        // Same definition: nothing reloads, so rewrite the link (an older form) here.
-        setVisited((n) => n + 1);
+      let loadedOptions = store.getState().options;
+      if (parsed.app && parsed.app !== store.getState().encoding.hash) {
+        try {
+          const read = decodeAppState(parsed.app);
+          store.getState().load({ ...read, auto: false }, 'push');
+          loadedOptions = read.options;
+          setNotice(undefined);
+        } catch (error) {
+          // Keep what is open; the next write puts its link back.
+          setNotice(`Could not read the link: ${(error as Error).message}`);
+          setVisited((n) => n + 1);
+          return;
+        }
       }
+      const next: View = parsed.view ? 'view' : 'edit';
+      lastView.current = next;
+      setView(next);
+      const read = readValues(parsed.view, loadedOptions);
+      setValues(read.values);
+      if (read.error) setNotice(read.error);
+      // Rewrite the link as this page writes it (when the load changed nothing, no edit does).
+      setVisited((n) => n + 1);
     };
     window.addEventListener('hashchange', onHashChange);
     return () => window.removeEventListener('hashchange', onHashChange);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [store]);
 
   // Undo and redo, unless a text field has the keys.
   useEffect(() => {

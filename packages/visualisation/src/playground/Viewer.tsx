@@ -10,7 +10,7 @@ import { withInputValues } from './model/ops';
 import { InputValueEditor } from './panels';
 import { outputColor, PLAYGROUND_COLORS, PlaygroundCanvas } from './PlaygroundCanvas';
 import { useAnalysis } from './store';
-import { decodeViewerValues } from './url';
+import { decodeViewState } from './url';
 
 const panel = 'rounded-md border border-dg-border bg-white/60 p-3 text-xs';
 const heading = 'text-xs font-bold tracking-widest text-dg-subtle uppercase';
@@ -25,9 +25,9 @@ export type Values = Record<string, Input>;
 export function readValues(text: string | undefined, options: NumericOptions): { values: Values; error?: string } {
   if (!text) return { values: {} };
   try {
-    return { values: decodeViewerValues(text, options) };
+    return { values: decodeViewState(text, options) };
   } catch (error) {
-    return { values: {}, error: `The changed values in the link could not be read: ${(error as Error).message}` };
+    return { values: {}, error: `The input values in the link could not be read: ${(error as Error).message}` };
   }
 }
 

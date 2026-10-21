@@ -7,10 +7,10 @@ import { checkDefinition, typer, widen } from '@dirty-geometry/vec2/schema/typin
 import { DEFAULT_VALUES } from '../src/playground/defaults';
 import { drawableOutputs, drawnItems, isPlainType, outputColor, PLAYGROUND_COLORS } from '../src/playground/draw';
 import {
-  decodePlaygroundHash,
-  decodeViewerValues,
-  encodePlaygroundHash,
-  encodeViewerValues,
+  decodeAppState,
+  decodeViewState,
+  encodeAppState,
+  encodeViewState,
   formatHash,
   parseHash,
 } from '../src/playground/url';
@@ -201,7 +201,7 @@ describe('store', () => {
     expect(store.getState().active.Coordinate).toBe('0..10@1');
     store.getState().commit(ops.setInput(base, 'w', { value: -2.5 }));
     expect(store.getState().active.Coordinate).toBe('±10@0.01');
-    expect(store.getState().encoding.hash).toMatch(/^4\//);
+    expect(decodeAppState(store.getState().encoding.hash!).definition).toEqual(store.getState().definition);
     store.getState().update({ auto: false, presets: { Coordinate: '±1@0.001' } });
     expect(store.getState().encoding.error).toBeDefined();
   });
@@ -317,41 +317,54 @@ describe('viewer link', () => {
     ],
     cells: [{ name: 'a', expr: vec({ ref: 'w' }, 0), type: 'Vec2', output: true }],
   });
-  const link = encodePlaygroundHash({ definition, options: {}, presets: {} });
+  const app = encodeAppState({ definition, options: {}, presets: {} });
 
-  test('changed values round-trip, also outside the range the definition was packed with', () => {
-    const changed = [
+  test('the app state is the definition alone; custom ranges go in front of it after a dot', () => {
+    expect(app).toMatch(/^[\w-]+$/);
+    expect(decodeAppState(app).definition).toEqual(definition);
+    const custom = {
+      options: { custom: { Coordinate: { site: { min: -500, max: 500, precision: 0.25 } } } },
+      presets: { Coordinate: 'site' },
+      definition,
+    };
+    const text = encodeAppState(custom);
+    expect(text).toMatch(/^[\w-]+\.[\w-]+$/);
+    const read = decodeAppState(text);
+    expect(read.options).toEqual(custom.options);
+    expect(read.presets).toMatchObject({ Coordinate: 'site' });
+    expect(read.definition).toEqual(definition);
+    expect(() => decodeAppState('')).toThrow();
+    expect(() => decodeAppState('a.b.c')).toThrow();
+  });
+
+  test('input values round-trip, also outside the range the definition was packed with', () => {
+    const inputs = [
       { ...definition.inputs[0]!, value: 87.25 },
       { ...definition.inputs[1]!, value: true },
       { ...definition.inputs[2]!, value: { value: { type: 'Vec2', x: -3.5, y: 40 } } },
     ];
-    const text = encodeViewerValues({}, changed);
-    expect(text).not.toContain('/');
-    const read = decodeViewerValues(text, {});
+    const text = encodeViewState({}, inputs);
+    expect(text).toMatch(/^[\w-]+$/);
+    const read = decodeViewState(text, {});
     expect(read.w!.value).toBe(87.25);
     expect(read.on!.value).toBe(true);
     expect(read.p!.value).toEqual({ value: { type: 'Vec2', x: -3.5, y: 40 } });
     expect(read.w!.type).toBe('Coordinate');
   });
 
-  test('the hash names the view; the viewer keeps its values after the definition', () => {
-    const values = encodeViewerValues({}, [{ ...definition.inputs[0]!, value: 5 }]);
-    expect(formatHash('edit', link)).toBe(`#/edit/${link}`);
-    expect(formatHash('edit', link, values)).toBe(`#/edit/${link}`);
-    expect(formatHash('view', link, values)).toBe(`#/view/${link}/${values}`);
-    expect(formatHash('view', link)).toBe(`#/view/${link}`);
-    expect(parseHash(`#/view/${link}/${values}`)).toEqual({ view: 'view', state: link, values });
-    expect(parseHash(`#/edit/${link}`)).toEqual({ view: 'edit', state: link });
-    expect(parseHash(`#/view/${link}`)).toEqual({ view: 'view', state: link });
+  test('#/<app> is the editor, #/<app>/<view> the View tab', () => {
+    const view = encodeViewState({}, definition.inputs);
+    expect(formatHash(app)).toBe(`#/${app}`);
+    expect(formatHash(app, view)).toBe(`#/${app}/${view}`);
+    expect(parseHash(`#/${app}`)).toEqual({ app });
+    expect(parseHash(`#/${app}/${view}`)).toEqual({ app, view });
+    expect(parseHash(formatHash(app, view))).toEqual({ app, view });
+    expect(parseHash('')).toEqual({ app: '' });
+    expect(parseHash(`#${app}`)).toEqual({ app });
   });
 
-  test('older links open the editor (the viewer when they carry values); no hash is an empty state', () => {
-    expect(parseHash(`#/${link}`)).toEqual({ view: 'edit', state: link });
-    expect(parseHash(`#/${link}/abc`)).toEqual({ view: 'view', state: link, values: 'abc' });
-    expect(parseHash('#/opts/def')).toEqual({ view: 'edit', state: 'opts/def' });
-    expect(parseHash('')).toEqual({ view: 'edit', state: '' });
-    expect(parseHash('#/view')).toEqual({ view: 'view', state: '' });
-    expect(decodePlaygroundHash(parseHash(`#/view/${link}/x`).state).definition).toEqual(definition);
+  test('older links are not read', () => {
+    expect(() => decodeAppState(parseHash(`#/4/EA/${app}`).app)).toThrow();
   });
 
   test('plain-value outputs are listed, not drawn, and take no colour', () => {

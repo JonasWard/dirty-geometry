@@ -1,6 +1,7 @@
 'use client';
 
-import type { View } from './url';
+/** The editor, or the View tab with only the input values to change. */
+export type View = 'edit' | 'view';
 
 /** The look of a toolbar tab, shared by the editor modes and the Edit | View switch. */
 export const tab = (active: boolean) =>

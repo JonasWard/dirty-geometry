@@ -37,19 +37,19 @@ export default function NotFoundPage() {
   return (
     <div className="min-h-screen bg-dg-canvas text-dg-ink">
       <header className="sticky top-0 z-50 bg-dg-canvas/95 backdrop-blur-sm border-b border-dg-border">
-        <div className="max-w-[1400px] mx-auto w-full px-6 md:px-12 py-4 flex items-center justify-between">
+        <div className="max-w-[1400px] mx-auto w-full px-4 md:px-8 h-12 flex items-center justify-between">
           <Link
             href={getPath(locale, "home")}
             className="flex items-center gap-3 hover:opacity-70 transition-opacity"
           >
-            <Logo />
+            <Logo size={28} />
             <span className="text-sm font-bold tracking-[0.2em] uppercase hidden sm:inline">
               dirty-geometry
             </span>
           </Link>
         </div>
       </header>
-      <main className="px-8 md:px-16 lg:px-24 py-24">
+      <main className="px-4 md:px-8 py-8 md:py-12">
         <div className="max-w-[1400px] mx-auto w-full">
           <div className="max-w-2xl">
             <p className="text-xs font-bold tracking-[0.45em] uppercase mb-6 text-dg-sky-600">
@@ -69,7 +69,7 @@ export default function NotFoundPage() {
             </Link>
 
             <nav
-              className="mt-16 pt-12 border-t border-dg-border"
+              className="mt-10 pt-8 border-t border-dg-border"
               aria-label="Languages"
             >
               <p className="text-xs font-bold tracking-[0.35em] uppercase mb-4 text-dg-subtle">

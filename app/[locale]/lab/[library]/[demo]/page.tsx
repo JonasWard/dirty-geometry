@@ -1,5 +1,6 @@
 import DemoPage from "@/components/lab/demo-page";
 import { demoMetadata, demoParams, requireDemo } from "@/components/lab/lab-routes";
+import { labCrumbs } from "@/components/lab/crumbs";
 import Main from "@/components/main";
 import { Metadata } from "next";
 
@@ -17,7 +18,7 @@ export default async function Demo({ params }: Readonly<Props>) {
   const { locale, library, demo: id } = await params;
   const demo = requireDemo(library, id);
   return (
-    <Main locale={locale} page={demo.library}>
+    <Main locale={locale} page={demo.library} crumbs={labCrumbs(locale, { library: demo.library, demo: demo.id })}>
       <DemoPage locale={locale} demo={demo} />
     </Main>
   );

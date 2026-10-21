@@ -1,4 +1,5 @@
 import PlaygroundPage from "@/components/lab/playground-page";
+import { labCrumbs } from "@/components/lab/crumbs";
 import Main from "@/components/main";
 import { getTranslations } from "@/utilities/l10n";
 import { Metadata } from "next";
@@ -18,7 +19,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function Playground({ params }: Readonly<Props>) {
   const { locale } = await params;
   return (
-    <Main locale={locale} page="vec2">
+    <Main locale={locale} page="vec2" wide crumbs={labCrumbs(locale, { library: "vec2", playground: true })}>
       <PlaygroundPage locale={locale} />
     </Main>
   );

@@ -1,36 +1,26 @@
-import Logo from "@/components/logo";
-import Nav from "@/components/nav";
+import type { Crumb } from "@/components/breadcrumbs";
+import SiteHeader from "@/components/site-header";
 import { Page } from "@/config";
-import { getLocale, getPath } from "@/utilities/l10n";
-import Link from "next/link";
 
+/** A page with the site header; `wide` drops the content's width cap (tools like the playground). */
 export default function Main({
   children,
   locale,
   page,
+  crumbs,
+  wide = false,
 }: {
   children: React.ReactNode;
   locale: string | undefined;
   page: Page;
+  crumbs?: readonly Crumb[];
+  wide?: boolean;
 }) {
   return (
     <div className="min-h-screen bg-dg-canvas text-dg-ink">
-      <header className="sticky top-0 z-50 bg-dg-canvas/95 backdrop-blur-sm border-b border-dg-border">
-        <div className="max-w-[1400px] mx-auto w-full px-6 md:px-12 py-4 flex items-center justify-between">
-          <Link
-            href={getPath(getLocale(locale), "home")}
-            className="flex items-center gap-3 hover:opacity-70 transition-opacity"
-          >
-            <Logo />
-            <span className="text-sm font-bold tracking-[0.2em] uppercase hidden sm:inline">
-              dirty-geometry
-            </span>
-          </Link>
-          <Nav locale={locale} page={page} />
-        </div>
-      </header>
-      <main className="px-8 md:px-16 lg:px-24 py-24">
-        <div className="max-w-[1400px] mx-auto w-full">{children}</div>
+      <SiteHeader locale={locale} page={page} crumbs={crumbs} wide={wide} />
+      <main className="px-4 md:px-8 py-6 md:py-8">
+        <div className={wide ? "w-full" : "max-w-[1400px] mx-auto w-full"}>{children}</div>
       </main>
     </div>
   );

@@ -52,7 +52,8 @@ export function collectConstraintSources(geometries: TriangulateGeometries, slac
   const { segments, lines, steiner } = partitionGeometries(geometries);
   const registry = new PointRegistry(Math.abs(slack.value));
   for (const point of steiner) registry.add(point);
-  return packSources(registry, segments, lines, slack);
+  const ends = segments.map((segment) => [registry.add(segment.from), registry.add(segment.to)] as const);
+  return packSources(registry, segments, ends, lines, slack);
 }
 
 /**
@@ -68,30 +69,41 @@ export function packIndexed(
   const registry = new PointRegistry(Math.abs(slack.value));
   const ids = points.map((point) => registry.add(point));
   const segments: Line2[] = [];
+  const ends: (readonly [number, number])[] = [];
   for (const input of constraints) {
     const [ia, ib] = typeof input === 'number' ? constraintEdgeEndpoints(input) : input;
     if (ia < 0 || ib < 0 || ia >= points.length || ib >= points.length)
       throw new Error('Constraint index out of range');
-    if (ids[ia] !== ids[ib]) segments.push(new Line2(points[ia]!, points[ib]!));
+    if (ids[ia] === ids[ib]) continue;
+    segments.push(new Line2(points[ia]!, points[ib]!));
+    ends.push([ids[ia]!, ids[ib]!]);
   }
-  return packSources(registry, segments, [], slack);
+  return packSources(registry, segments, ends, [], slack);
 }
 
-/** Chains along every carrier, intersected, emitted as non-crossing constraints. */
+/**
+ * Chains along every carrier, intersected, emitted as non-crossing constraints. `ends[k]` holds the registry
+ * ids of segment `k`'s endpoints.
+ */
 function packSources(
   registry: PointRegistry,
   segments: readonly Line2[],
+  ends: readonly (readonly [number, number])[],
   lines: readonly InfiniteLine2[],
   slack: Epsilon,
 ): BuiltConstraintSources {
-  const finite = segments.map((segment) => ({
-    hits: [registry.add(segment.from), registry.add(segment.to)],
+  const finite = segments.map((segment, k) => ({
+    hits: [ends[k]![0], ends[k]![1]],
     origin: segment.from,
     direction: segment.to.subtract(segment.from),
   }));
   const infinite: HitChain[] = lines.map((line) => ({ hits: [], origin: line.through, direction: line.direction }));
 
   for (const { point, i, j } of Intersection2.segmentCrossings(segments, slack)) {
+    // Segments sharing an endpoint meet only there, and it is on both chains already.
+    const [a0, a1] = ends[i]!;
+    const [b0, b1] = ends[j]!;
+    if (a0 === b0 || a0 === b1 || a1 === b0 || a1 === b1) continue;
     link(finite[i]!, finite[j]!, registry.add(point));
   }
   addInfiniteLineHits(segments, lines, finite, infinite, registry, slack);
@@ -148,10 +160,15 @@ class PointRegistry {
 
   add(point: Vec2): number {
     const { radius, size } = this;
+    const radiusSq = radius * radius;
     for (let i = Math.floor((point.x - radius) / size); i <= Math.floor((point.x + radius) / size); i++) {
       for (let j = Math.floor((point.y - radius) / size); j <= Math.floor((point.y + radius) / size); j++) {
-        for (const index of this.cells.get(this.key(i, j)) ?? []) {
-          if (this.points[index]!.distance(point) <= radius) return index;
+        const bucket = this.cells.get(this.key(i, j));
+        if (!bucket) continue;
+        for (const index of bucket) {
+          const dx = this.points[index]!.x - point.x;
+          const dy = this.points[index]!.y - point.y;
+          if (dx * dx + dy * dy <= radiusSq) return index;
         }
       }
     }

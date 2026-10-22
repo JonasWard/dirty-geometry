@@ -6,8 +6,8 @@
  * 2. Constraints: Sloan's flip algorithm as in constrainautor. The flips remove every edge a constraint
  *    crosses, the constraint is marked, and the new edges are made locally Delaunay again.
  *
- * Sign convention: triangles are kept in delaunator's orientation, where `turn(a, b, c) > 0`
- * (`orient2d` of robust-predicates, the negative of `Vec2.orient`). They are reversed on output.
+ * Sign convention: triangles are kept in delaunator's orientation, clockwise in y-up coordinates
+ * (`clockwise(a, b, c) > 0`, the negative of `Vec2.orient`). They are reversed on output.
  *
  * A constraint is split where it passes through a vertex (exactly, or within `slack`). Crossings between
  * constraints must be split by the caller (see `packSources`). A constraint that cannot be inserted is
@@ -29,7 +29,10 @@ export type CdtResult = {
 };
 
 const NONE = -1;
-/** Points this close to the previous one in sweep order are skipped (delaunator's near-duplicate test). */
+/**
+ * Points this close to the previous one in sweep order are skipped (delaunator's near-duplicate test), so
+ * exact duplicates are left out of the mesh. `ConstrainedDelaunay` merges points within slack beforehand.
+ */
 const SWEEP_EPSILON = 2 ** -52;
 /** Work budgets that stop a runaway loop; every hit is counted in `stats.guardHits`. */
 const FLIP_BUDGET_PER_CROSSING_SQ = 4;
@@ -73,6 +76,7 @@ export function triangulateConstrained(
   const unresolved: ConstraintEdge[] = [];
   for (const key of constraints) {
     const [a, b] = constraintEdgeEndpoints(key);
+    // Endpoints come sorted, so checking `b` covers both.
     if (b >= n) throw new RangeError(`Constraint vertex ${b} out of range`);
     if (a === b) continue;
     if (!mesh || !insertConstraint(mesh, slack, a, b)) unresolved.push(key);
@@ -89,15 +93,15 @@ export function triangulateConstrained(
  * Predicates and small geometry
  * ------------------------------------------------------------------------------------------------------- */
 
-/** `orient2d` of the vertices: positive for the triangles built here (see the module comment). */
-function turn(m: Mesh, a: number, b: number, c: number): number {
+/** Exact `orient2d`: positive when `a → b → c` turns clockwise (y up), as every triangle built here does. */
+function clockwise(m: Mesh, a: number, b: number, c: number): number {
   m.stats.orient++;
   const { xy } = m;
   return orient2d(xy[2 * a]!, xy[2 * a + 1]!, xy[2 * b]!, xy[2 * b + 1]!, xy[2 * c]!, xy[2 * c + 1]!);
 }
 
-/** Is `d` strictly inside the circle through triangle `a, b, c` (in the orientation of the sweep)? */
-function inside(m: Mesh, a: number, b: number, c: number, d: number): boolean {
+/** Exact: is `d` strictly inside the circumcircle of the clockwise triangle `a, b, c`? */
+function inCircumcircle(m: Mesh, a: number, b: number, c: number, d: number): boolean {
   m.stats.inCircle++;
   const { xy } = m;
   return (
@@ -212,7 +216,7 @@ function sweep(xy: Float64Array, stats: CdtStats): Mesh | null {
   }
   // Collinear input: no seed triangle, so no triangles.
   if (i2 === NONE) return null;
-  if (turn(m, i0, i1, i2) < 0) [i1, i2] = [i2, i1];
+  if (clockwise(m, i0, i1, i2) < 0) [i1, i2] = [i2, i1];
 
   const [ccx, ccy] = circumcenter(x(i0), y(i0), x(i1), y(i1), x(i2), y(i2));
   const dists = new Float64Array(n);
@@ -267,7 +271,7 @@ function sweep(xy: Float64Array, stats: CdtStats): Mesh | null {
       const pr = m.triangles[a]!;
       const pl = m.triangles[al]!;
       const p1 = m.triangles[bl]!;
-      if (inside(m, p0, pr, pl, p1)) {
+      if (inCircumcircle(m, p0, pr, pl, p1)) {
         m.triangles[a] = p1;
         m.triangles[b] = p0;
         if (m.halfedges[bl] === NONE) {
@@ -328,7 +332,7 @@ function sweep(xy: Float64Array, stats: CdtStats): Mesh | null {
     }
     start = hullPrev[start]!;
     let e = start;
-    while (turn(m, i, e, hullNext[e]!) >= 0) {
+    while (clockwise(m, i, e, hullNext[e]!) >= 0) {
       e = hullNext[e]!;
       if (e === start) {
         e = NONE;
@@ -343,14 +347,14 @@ function sweep(xy: Float64Array, stats: CdtStats): Mesh | null {
     hullTri[e] = t;
 
     let nn = hullNext[e]!;
-    for (let q = hullNext[nn]!; turn(m, i, nn, q) < 0; q = hullNext[nn]!) {
+    for (let q = hullNext[nn]!; clockwise(m, i, nn, q) < 0; q = hullNext[nn]!) {
       t = addTriangle(nn, i, q, hullTri[i]!, NONE, hullTri[nn]!);
       hullTri[i] = legalize(t + 2);
       hullNext[nn] = nn; // removed from the hull
       nn = q;
     }
     if (e === start) {
-      for (let q = hullPrev[e]!; turn(m, i, q, e) < 0; q = hullPrev[e]!) {
+      for (let q = hullPrev[e]!; clockwise(m, i, q, e) < 0; q = hullPrev[e]!) {
         t = addTriangle(q, i, e, NONE, hullTri[e]!, hullTri[q]!);
         legalize(t + 2);
         hullTri[q] = t;
@@ -424,16 +428,13 @@ function outgoing(m: Mesh, v: number): number[] {
   return out;
 }
 
-/** The half-edge from `a` to `b`, or `NONE`. */
-function halfEdgeFrom(m: Mesh, a: number, b: number): number {
-  for (const e of outgoing(m, a)) if (m.triangles[nextE(e)] === b) return e;
+/** A half-edge between `a` and `b` (either direction), or `NONE`; one walk around `a`. */
+function edgeBetween(m: Mesh, a: number, b: number): number {
+  for (const e of outgoing(m, a)) {
+    if (m.triangles[nextE(e)] === b) return e; // a → b
+    if (m.triangles[prevE(e)] === b) return prevE(e); // b → a, in the same triangle
+  }
   return NONE;
-}
-
-/** A half-edge between `a` and `b` in either direction, or `NONE`. */
-function anyEdge(m: Mesh, a: number, b: number): number {
-  const e = halfEdgeFrom(m, a, b);
-  return e !== NONE ? e : halfEdgeFrom(m, b, a);
 }
 
 function markConstrained(m: Mesh, e: number): void {
@@ -452,14 +453,16 @@ function onSegment(m: Mesh, slack: number, a: number, b: number, p: number): boo
   const lengthSq = dx * dx + dy * dy;
   const t = (px * dx + py * dy) / lengthSq;
   if (!(t > 0 && t < 1)) return false;
-  if (turn(m, a, b, p) === 0) return true;
+  if (clockwise(m, a, b, p) === 0) return true;
   return slack > 0 && Math.abs(px * dy - py * dx) <= slack * Math.sqrt(lengthSq);
 }
 
 /** Does the segment `a – b` properly cross `p – q`? */
 function crosses(m: Mesh, a: number, b: number, p: number, q: number): boolean {
   if (p === a || p === b || q === a || q === b) return false;
-  return opposite(turn(m, a, b, p), turn(m, a, b, q)) && opposite(turn(m, p, q, a), turn(m, p, q, b));
+  return (
+    opposite(clockwise(m, a, b, p), clockwise(m, a, b, q)) && opposite(clockwise(m, p, q, a), clockwise(m, p, q, b))
+  );
 }
 
 /**
@@ -467,7 +470,7 @@ function crosses(m: Mesh, a: number, b: number, p: number, q: number): boolean {
  * splits it; otherwise the edges the segment crosses are collected and flipped away.
  */
 function insertPiece(m: Mesh, slack: number, a: number, b: number): Piece {
-  const existing = anyEdge(m, a, b);
+  const existing = edgeBetween(m, a, b);
   if (existing !== NONE) {
     markConstrained(m, existing);
     return DONE;
@@ -479,13 +482,17 @@ function insertPiece(m: Mesh, slack: number, a: number, b: number): Piece {
     const y = m.triangles[prevE(e)]!;
     if (onSegment(m, slack, a, b, x)) return { kind: 'split', at: x };
     if (onSegment(m, slack, a, b, y)) return { kind: 'split', at: y };
-    if (cone === NONE && turn(m, a, x, b) > 0 && turn(m, a, b, y) > 0) cone = nextE(e);
+    if (cone === NONE && clockwise(m, a, x, b) > 0 && clockwise(m, a, b, y) > 0) cone = nextE(e);
   }
   if (cone === NONE) return FAIL;
   return walk(m, slack, a, b, cone);
 }
 
-/** Walk from `a` through the triangles the segment crosses, to `b`. */
+/**
+ * Walk from `a` through the triangles the segment crosses, to `b`. `h` is the crossed half-edge, from its
+ * end `right` of a → b to its end `left` of it. Across `h` lies apex `w`: if `w` is left of the segment the
+ * next crossed edge is right – w, otherwise w – left.
+ */
 function walk(m: Mesh, slack: number, a: number, b: number, first: number): Piece {
   const crossed: number[] = [];
   // Ends of the crossed edge: `right` is on the right of a → b, `left` on the left.
@@ -501,7 +508,7 @@ function walk(m: Mesh, slack: number, a: number, b: number, first: number): Piec
     const w = m.triangles[prevE(g)]!;
     if (w === b) return removeCrossings(m, a, b, crossed);
     if (onSegment(m, slack, a, b, w)) return { kind: 'split', at: w };
-    const s = turn(m, a, b, w);
+    const s = clockwise(m, a, b, w);
     if (s === 0) return FAIL;
     // The next crossed edge joins `w` to the endpoint on the other side of the segment.
     const keep = s > 0 ? right : left;
@@ -528,13 +535,13 @@ function removeCrossings(m: Mesh, a: number, b: number, queue: number[]): Piece 
     const u = queue[head]!;
     const v = queue[head + 1]!;
     head += 2;
-    const e = anyEdge(m, u, v);
+    const e = edgeBetween(m, u, v);
     if (e === NONE) continue; // flipped away already
     const f = m.halfedges[e]!;
     if (f === NONE) return FAIL; // a hull edge cannot be crossed
     const p = m.triangles[prevE(e)]!;
     const q = m.triangles[prevE(f)]!;
-    if (!opposite(turn(m, p, q, u), turn(m, p, q, v))) {
+    if (!opposite(clockwise(m, p, q, u), clockwise(m, p, q, v))) {
       queue.push(u, v);
       continue;
     }
@@ -542,10 +549,16 @@ function removeCrossings(m: Mesh, a: number, b: number, queue: number[]): Piece 
     if (crosses(m, a, b, p, q)) queue.push(p, q);
     else fresh.push(p, q);
   }
-  const e = anyEdge(m, a, b);
+  const e = edgeBetween(m, a, b);
   if (e === NONE) return FAIL;
   markConstrained(m, e);
-  legalize(m, fresh);
+  // Flips rewrite triangle slots, so the new edges were kept as vertex pairs; look them up once now.
+  const stack: number[] = [];
+  for (let i = 0; i < fresh.length; i += 2) {
+    const edge = edgeBetween(m, fresh[i]!, fresh[i + 1]!);
+    if (edge !== NONE) stack.push(edge);
+  }
+  legalize(m, stack);
   return DONE;
 }
 
@@ -598,27 +611,29 @@ function flip(m: Mesh, e: number): void {
   m.stats.flips++;
 }
 
-/** Lawson flips on the edges in `pairs` (vertex pairs, as a stack), re-checking the four sides of each flip. */
-function legalize(m: Mesh, pairs: number[]): void {
-  const budget = LEGALIZE_BUDGET_PER_EDGE * pairs.length + 1024;
-  for (let rounds = 0; pairs.length > 0; rounds++) {
+/**
+ * Lawson flips from the half-edges on `stack` until each unconstrained edge is locally Delaunay. A flip
+ * pushes the four sides of its quad; an id that a later flip moved just gets one extra (harmless) test.
+ */
+function legalize(m: Mesh, stack: number[]): void {
+  const { triangles: T, halfedges: H } = m;
+  const budget = LEGALIZE_BUDGET_PER_EDGE * stack.length + 1024;
+  for (let rounds = 0; stack.length > 0; rounds++) {
     if (rounds > budget) {
       m.stats.guardHits++;
       return;
     }
-    const v = pairs.pop()!;
-    const u = pairs.pop()!;
-    const e = anyEdge(m, u, v);
-    if (e === NONE || m.constrained[e]) continue;
-    const f = m.halfedges[e]!;
-    if (f === NONE) continue;
-    const p = m.triangles[prevE(e)]!;
-    const q = m.triangles[prevE(f)]!;
-    const eu = m.triangles[e]!;
-    const ev = m.triangles[nextE(e)]!;
-    if (!inside(m, p, eu, ev, q)) continue;
-    if (!opposite(turn(m, p, q, eu), turn(m, p, q, ev))) continue;
+    const e = stack.pop()!;
+    const f = H[e]!;
+    if (f === NONE || m.constrained[e]) continue;
+    const u = T[e]!;
+    const v = T[nextE(e)]!;
+    const p = T[prevE(e)]!;
+    const q = T[prevE(f)]!;
+    if (!inCircumcircle(m, p, u, v, q)) continue;
+    if (!opposite(clockwise(m, p, q, u), clockwise(m, p, q, v))) continue;
     flip(m, e);
-    pairs.push(q, ev, ev, p, p, eu, eu, q);
+    // Now (u, q, p) and (q, v, p): the quad's sides are e, prevE(e), f and nextE(f).
+    stack.push(e, prevE(e), f, nextE(f));
   }
 }

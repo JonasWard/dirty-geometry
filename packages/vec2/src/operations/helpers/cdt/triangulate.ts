@@ -72,7 +72,8 @@ export function triangulateConstrained(
 
 /**
  * {@link triangulateConstrained} with the triangles as flat corner indices, three per counter-clockwise
- * triangle (the layout `TriMesh2.fromCorners` takes).
+ * triangle (the layout `TriMesh2.fromCorners` takes). `regions[t]` labels triangle `t`'s region: triangles
+ * that touch across an unconstrained edge share a label, so each region is bounded by constraints.
  * @internal
  */
 export function triangulateCorners(
@@ -80,7 +81,7 @@ export function triangulateCorners(
   constraints: readonly ConstraintEdge[],
   stats: CdtStats,
   slack: Tolerance,
-): { corners: Uint32Array; unresolved: ConstraintEdge[] } {
+): { corners: Uint32Array; regions: Uint32Array; unresolved: ConstraintEdge[] } {
   const n = vertices.length;
   assertCdtVertexCount(n);
   const xy = new Float64Array(2 * n);
@@ -98,7 +99,8 @@ export function triangulateCorners(
     if (a === b) continue;
     if (!mesh || !insertConstraint(mesh, slack, a, b)) unresolved.push(key);
   }
-  if (!mesh) return { corners: new Uint32Array(0), unresolved };
+  if (!mesh) return { corners: new Uint32Array(0), regions: new Uint32Array(0), unresolved };
+  const regions = regionLabels(mesh);
 
   // The sweep's triangles are clockwise; swap two corners of each for counter-clockwise output.
   const corners = mesh.triangles;
@@ -107,7 +109,33 @@ export function triangulateCorners(
     corners[e + 1] = corners[e + 2]!;
     corners[e + 2] = second;
   }
-  return { corners, unresolved };
+  return { corners, regions, unresolved };
+}
+
+/** Flood fill: label every triangle, spreading only across edges that are not constrained. */
+function regionLabels(m: Mesh): Uint32Array {
+  const unset = 0xffffffff;
+  const labels = new Uint32Array(m.triangles.length / 3).fill(unset);
+  const stack: number[] = [];
+  let next = 0;
+  for (let seed = 0; seed < labels.length; seed++) {
+    if (labels[seed] !== unset) continue;
+    labels[seed] = next;
+    stack.push(seed);
+    while (stack.length > 0) {
+      const t = stack.pop()!;
+      for (let e = 3 * t; e < 3 * t + 3; e++) {
+        const twin = m.halfedges[e]!;
+        if (twin === NONE || m.constrained[e]) continue;
+        const neighbour = (twin / 3) | 0;
+        if (labels[neighbour] !== unset) continue;
+        labels[neighbour] = next;
+        stack.push(neighbour);
+      }
+    }
+    next++;
+  }
+  return labels;
 }
 
 /* ----------------------------------------------------------------------------------------------------------

@@ -4,7 +4,9 @@ import { Vec2 } from '../core/vec2';
 import type { InfiniteLine2 } from '../geometry/primitives/infinite-line2';
 import { Polygon2 } from '../geometry/regions/polygon2';
 import { TriMesh2 } from '../geometry/regions/tri-mesh2';
-import { ConstrainedDelaunay } from './constrained-delaunay';
+import { collectConstraintSources } from './helpers/cdt/sources';
+import { emptyCdtStats } from './helpers/cdt/stats';
+import { triangulateCorners } from './helpers/cdt/triangulate';
 
 export type Boolean2Clip = InfiniteLine2 | Polygon2;
 export type Boolean2ClipInput = Boolean2Clip | readonly Boolean2Clip[];
@@ -24,7 +26,9 @@ type ClipMode = 'intersect' | 'subtract';
 
 /**
  * Planar boolean operations built from constrained Delaunay triangulation and
- * non-zero winding classification. Boundary loops are extracted from the kept triangles.
+ * non-zero winding classification. Every input edge is a constraint, so the winding numbers are constant
+ * on each region of triangles bounded by constraints: one point per region decides it. Boundary loops are
+ * extracted from the kept triangles.
  */
 export class Boolean2 {
   private constructor() {}
@@ -177,11 +181,15 @@ type BooleanRun = {
 
 function runBoolean(run: BooleanRun): Boolean2Result {
   const slack = run.options.slack ?? Epsilon.preferIn;
-  const mesh = ConstrainedDelaunay.fromGeometries(
+  slack.isPositive('operations - Boolean2', 'run');
+  const { points, constraints } = collectConstraintSources(
     [...run.sources, ...(run.bounds ? [Polygon2.fromAabb2(run.bounds)] : []), ...(run.clipLines ?? [])],
     slack,
   );
-  const filtered = filterTriangles(mesh, run.keep);
+  const { corners, regions, unresolved } = triangulateCorners(points, constraints, emptyCdtStats(), slack.value);
+  // A missing constraint could join regions across an input edge, so then every triangle decides alone.
+  const kept = keepTriangles(points, corners, unresolved.length === 0 ? regions : null, run.keep);
+  const filtered = TriMesh2.fromCorners(points, kept);
   const polygons = filtered.boundaryLoopPolygons();
   return run.options.mesh ? { polygons, triMesh: filtered } : { polygons };
 }
@@ -190,22 +198,33 @@ function emptyResult(options: Boolean2Options): Boolean2Result {
   return options.mesh ? { polygons: [], triMesh: TriMesh2.withoutCleanup([], []) } : { polygons: [] };
 }
 
-function filterTriangles(mesh: TriMesh2, keep: (point: Vec2) => boolean): TriMesh2 {
-  const corners = mesh.triangleCorners();
-  const { vertices } = mesh;
+/**
+ * The corners of the triangles whose centroid `keep` accepts. With `regions`, `keep` runs once per region
+ * and the answer is shared by its triangles.
+ */
+function keepTriangles(
+  vertices: readonly Vec2[],
+  corners: Uint32Array,
+  regions: Uint32Array | null,
+  keep: (point: Vec2) => boolean,
+): Uint32Array {
+  const decided = new Map<number, boolean>();
   let kept = 0;
   for (let e = 0; e < corners.length; e += 3) {
-    const a = vertices[corners[e]!]!;
-    const b = vertices[corners[e + 1]!]!;
-    const c = vertices[corners[e + 2]!]!;
-    if (!keep(new Vec2((a.x + b.x + c.x) / 3, (a.y + b.y + c.y) / 3))) continue;
+    const region = regions ? regions[e / 3]! : -1;
+    let inside = decided.get(region);
+    if (inside === undefined) {
+      const a = vertices[corners[e]!]!;
+      const b = vertices[corners[e + 1]!]!;
+      const c = vertices[corners[e + 2]!]!;
+      inside = keep(new Vec2((a.x + b.x + c.x) / 3, (a.y + b.y + c.y) / 3));
+      if (regions) decided.set(region, inside);
+    }
+    if (!inside) continue;
     corners.copyWithin(kept, e, e + 3);
     kept += 3;
   }
-  return TriMesh2.fromCorners(
-    vertices.map((vertex) => vertex.clone()),
-    corners.subarray(0, kept),
-  );
+  return corners.subarray(0, kept);
 }
 
 /** Non-zero winding across subject polygons (CW loops act as holes). */

@@ -221,7 +221,9 @@ function sweep(xy: Float64Array, stats: CdtStats): Mesh | null {
   const [ccx, ccy] = circumcenter(x(i0), y(i0), x(i1), y(i1), x(i2), y(i2));
   const dists = new Float64Array(n);
   for (let i = 0; i < n; i++) dists[i] = (x(i) - ccx) ** 2 + (y(i) - ccy) ** 2;
-  const ids = Uint32Array.from({ length: n }, (_, i) => i).sort((a, b) => dists[a]! - dists[b]!);
+  const ids = new Uint32Array(n);
+  for (let i = 0; i < n; i++) ids[i] = i;
+  quicksort(ids, dists, 0, n - 1);
 
   // Convex hull as a cycle of hull edges, found again through an angular hash.
   const hashSize = Math.ceil(Math.sqrt(n));
@@ -635,5 +637,51 @@ function legalize(m: Mesh, stack: number[]): void {
     flip(m, e);
     // Now (u, q, p) and (q, v, p): the quad's sides are e, prevE(e), f and nextE(f).
     stack.push(e, prevE(e), f, nextE(f));
+  }
+}
+
+/** Sort `ids[left..right]` by `dists[id]` (delaunator's quicksort; insertion sort on short runs). */
+function quicksort(ids: Uint32Array, dists: Float64Array, left: number, right: number): void {
+  if (right - left <= 20) {
+    for (let i = left + 1; i <= right; i++) {
+      const id = ids[i]!;
+      const d = dists[id]!;
+      let j = i - 1;
+      while (j >= left && dists[ids[j]!]! > d) ids[j + 1] = ids[j--]!;
+      ids[j + 1] = id;
+    }
+    return;
+  }
+  const swap = (a: number, b: number) => {
+    const t = ids[a]!;
+    ids[a] = ids[b]!;
+    ids[b] = t;
+  };
+  // Median of three as the pivot, kept at left + 1.
+  swap((left + right) >> 1, left + 1);
+  if (dists[ids[left]!]! > dists[ids[right]!]!) swap(left, right);
+  if (dists[ids[left + 1]!]! > dists[ids[right]!]!) swap(left + 1, right);
+  if (dists[ids[left]!]! > dists[ids[left + 1]!]!) swap(left, left + 1);
+  const pivot = ids[left + 1]!;
+  const d = dists[pivot]!;
+  let i = left + 1;
+  let j = right;
+  for (;;) {
+    do i++;
+    while (dists[ids[i]!]! < d);
+    do j--;
+    while (dists[ids[j]!]! > d);
+    if (j < i) break;
+    swap(i, j);
+  }
+  ids[left + 1] = ids[j]!;
+  ids[j] = pivot;
+  // Recurse into the smaller side first to bound the stack depth.
+  if (right - i + 1 >= j - left) {
+    quicksort(ids, dists, i, right);
+    quicksort(ids, dists, left, j - 1);
+  } else {
+    quicksort(ids, dists, left, j - 1);
+    quicksort(ids, dists, i, right);
   }
 }

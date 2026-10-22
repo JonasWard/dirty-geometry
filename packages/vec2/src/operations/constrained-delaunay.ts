@@ -21,7 +21,7 @@ import {
   type TriangulateGeometries,
 } from './helpers/cdt/sources';
 import { emptyCdtStats, type CdtStats } from './helpers/cdt/stats';
-import { triangulateConstrained } from './helpers/cdt/triangulate';
+import { triangulateCorners } from './helpers/cdt/triangulate';
 
 export type { CdtStats } from './helpers/cdt/stats';
 export type { BuiltConstraintSources, TriangulateGeometries, TriangulateGeometry } from './helpers/cdt/sources';
@@ -86,6 +86,6 @@ function triangulateSources(
   slack: Epsilon,
 ): ConstrainedDelaunayReport {
   const stats = emptyCdtStats();
-  const { triangles, unresolved } = triangulateConstrained(points, constraints, stats, slack.value);
-  return { mesh: TriMesh2.withoutCleanup(points, triangles), unresolved, stats };
+  const { corners, unresolved } = triangulateCorners(points, constraints, stats, slack.value);
+  return { mesh: TriMesh2.fromCorners(points, corners), unresolved, stats };
 }

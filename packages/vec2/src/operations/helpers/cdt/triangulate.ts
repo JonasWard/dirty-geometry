@@ -64,6 +64,23 @@ export function triangulateConstrained(
   stats: CdtStats = emptyCdtStats(),
   slack: Tolerance = 0,
 ): CdtResult {
+  const { corners, unresolved } = triangulateCorners(vertices, constraints, stats, slack);
+  const triangles: [Index, Index, Index][] = [];
+  for (let e = 0; e < corners.length; e += 3) triangles.push([corners[e]!, corners[e + 1]!, corners[e + 2]!]);
+  return { triangles, unresolved, stats };
+}
+
+/**
+ * {@link triangulateConstrained} with the triangles as flat corner indices, three per counter-clockwise
+ * triangle (the layout `TriMesh2.fromCorners` takes).
+ * @internal
+ */
+export function triangulateCorners(
+  vertices: readonly Vec2[],
+  constraints: readonly ConstraintEdge[],
+  stats: CdtStats,
+  slack: Tolerance,
+): { corners: Uint32Array; unresolved: ConstraintEdge[] } {
   const n = vertices.length;
   assertCdtVertexCount(n);
   const xy = new Float64Array(2 * n);
@@ -81,12 +98,16 @@ export function triangulateConstrained(
     if (a === b) continue;
     if (!mesh || !insertConstraint(mesh, slack, a, b)) unresolved.push(key);
   }
-  if (!mesh) return { triangles: [], unresolved, stats };
+  if (!mesh) return { corners: new Uint32Array(0), unresolved };
 
-  const triangles: [Index, Index, Index][] = [];
-  const { triangles: t } = mesh;
-  for (let e = 0; e < t.length; e += 3) triangles.push([t[e]!, t[e + 2]!, t[e + 1]!]);
-  return { triangles, unresolved, stats };
+  // The sweep's triangles are clockwise; swap two corners of each for counter-clockwise output.
+  const corners = mesh.triangles;
+  for (let e = 0; e < corners.length; e += 3) {
+    const second = corners[e + 1]!;
+    corners[e + 1] = corners[e + 2]!;
+    corners[e + 2] = second;
+  }
+  return { corners, unresolved };
 }
 
 /* ----------------------------------------------------------------------------------------------------------

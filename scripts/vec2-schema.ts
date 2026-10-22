@@ -216,6 +216,8 @@ export function generateSchema(root = srcRoot) {
     if (symbol?.getName() === 'Iterable')
       return [fromType(checker.getTypeArguments(type as ts.TypeReference)[0]!, seen)];
     const builtIn = ['Map', 'Set', 'WeakMap', 'Generator', 'Iterator', 'IterableIterator', 'Promise'];
+    // Typed arrays have no JSON form (and recurse through their own methods' types).
+    builtIn.push('Uint8Array', 'Int32Array', 'Uint32Array', 'Float64Array');
     if (symbol && (builtIn.includes(symbol.getName()) || symbol.getDeclarations()?.some(ts.isClassDeclaration))) {
       throw new Unsupported(text());
     }

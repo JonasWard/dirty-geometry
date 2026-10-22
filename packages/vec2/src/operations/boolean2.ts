@@ -191,26 +191,20 @@ function emptyResult(options: Boolean2Options): Boolean2Result {
 }
 
 function filterTriangles(mesh: TriMesh2, keep: (point: Vec2) => boolean): TriMesh2 {
-  const keptTriangles: (readonly [number, number, number])[] = [];
-
-  for (const triangle of mesh.triangles) {
-    const a = mesh.vertices[triangle[0]!]!;
-    const b = mesh.vertices[triangle[1]!]!;
-    const c = mesh.vertices[triangle[2]!]!;
-    if (
-      keep(
-        a
-          .add(b)
-          .add(c)
-          .scale(1 / 3),
-      )
-    )
-      keptTriangles.push(triangle);
+  const corners = mesh.triangleCorners();
+  const { vertices } = mesh;
+  let kept = 0;
+  for (let e = 0; e < corners.length; e += 3) {
+    const a = vertices[corners[e]!]!;
+    const b = vertices[corners[e + 1]!]!;
+    const c = vertices[corners[e + 2]!]!;
+    if (!keep(new Vec2((a.x + b.x + c.x) / 3, (a.y + b.y + c.y) / 3))) continue;
+    corners.copyWithin(kept, e, e + 3);
+    kept += 3;
   }
-
-  return TriMesh2.withoutCleanup(
-    mesh.vertices.map((vertex) => vertex.clone()),
-    keptTriangles,
+  return TriMesh2.fromCorners(
+    vertices.map((vertex) => vertex.clone()),
+    corners.subarray(0, kept),
   );
 }
 

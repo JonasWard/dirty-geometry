@@ -13,6 +13,21 @@ export type BoundaryLoop2 = {
   signedArea: number;
 };
 
+/** `triangles` tuples, built from the corners on first read (kept out of the instance so equality ignores it). */
+const tupleCache = new WeakMap<TriMesh2, readonly (readonly [Index, Index, Index])[]>();
+
+/** Three corner indices per triangle, flattened. */
+function cornersOf(triangles: readonly (readonly [Index, Index, Index])[]): Uint32Array {
+  const corners = new Uint32Array(triangles.length * 3);
+  for (let t = 0; t < triangles.length; t++) {
+    const [a, b, c] = triangles[t]!;
+    corners[3 * t] = a;
+    corners[3 * t + 1] = b;
+    corners[3 * t + 2] = c;
+  }
+  return corners;
+}
+
 export class TriMesh2 {
   static readonly type = 'TriMesh2' as const;
 
@@ -22,7 +37,11 @@ export class TriMesh2 {
   }
   /** Frozen after construction, so the boundary-loop caches cannot go stale. */
   readonly vertices: readonly Vec2[];
-  readonly triangles: readonly (readonly [number, number, number])[];
+  /**
+   * Counter-clockwise triangles, three corner indices each (`corners[3t..3t+2]`). Private, and handed out
+   * only as copies or frozen tuples, so the caches cannot go stale.
+   */
+  private readonly corners: Uint32Array;
 
   private boundaryLoopsCache: BoundaryLoop2[] | null = null;
   private boundaryLoopPolygonsCache: Polygon2[] | null = null;
@@ -50,7 +69,29 @@ export class TriMesh2 {
     );
     const unusedResult = TriMesh2.removeUnusedVertices(reducedResult.newVertices, cleanedTriangles);
     this.vertices = Object.freeze(unusedResult.newVertices);
-    this.triangles = Object.freeze(unusedResult.newTriangles.map((triangle) => Object.freeze(triangle)));
+    this.corners = cornersOf(unusedResult.newTriangles);
+  }
+
+  /** The triangles as frozen `[a, b, c]` tuples. Built on first read; hot loops should use `triangleCorners`. */
+  get triangles(): readonly (readonly [number, number, number])[] {
+    let tuples = tupleCache.get(this);
+    if (!tuples) {
+      const list: (readonly [Index, Index, Index])[] = [];
+      const c = this.corners;
+      for (let e = 0; e < c.length; e += 3) list.push(Object.freeze([c[e]!, c[e + 1]!, c[e + 2]!] as const));
+      tuples = Object.freeze(list);
+      tupleCache.set(this, tuples);
+    }
+    return tuples;
+  }
+
+  get triangleCount(): number {
+    return this.corners.length / 3;
+  }
+
+  /** A copy of the corner indices, three per triangle (counter-clockwise). */
+  triangleCorners(): Uint32Array {
+    return this.corners.slice();
   }
 
   /** reduce duplicate vertices */
@@ -138,8 +179,11 @@ export class TriMesh2 {
       return Polygon2.isPointInside(loopPolygons, point, slack);
     }
 
-    for (const [i, j, k] of this.triangles) {
-      if (triangleContainsPoint(this.vertices[i]!, this.vertices[j]!, this.vertices[k]!, point, slack)) {
+    const c = this.corners;
+    for (let e = 0; e < c.length; e += 3) {
+      if (
+        triangleContainsPoint(this.vertices[c[e]!]!, this.vertices[c[e + 1]!]!, this.vertices[c[e + 2]!]!, point, slack)
+      ) {
         return true;
       }
     }
@@ -161,7 +205,7 @@ export class TriMesh2 {
   }
 
   distanceToPoint(point: Vec2): number {
-    if (this.triangles.length === 0) {
+    if (this.triangleCount === 0) {
       if (this.vertices.length === 0) return Infinity;
       return Math.min(...this.vertices.map((vertex) => point.distance(vertex)));
     }
@@ -301,19 +345,12 @@ export class TriMesh2 {
   private directedNakedEdges(): [number, number][] {
     const counts = this.uniqueEdgeCounts();
     const directed: [number, number][] = [];
-
-    for (const [i, j, k] of this.triangles) {
-      for (const [a, b] of [
-        [i, j],
-        [j, k],
-        [k, i],
-      ] as [number, number][]) {
-        if (counts.get(TriMesh2.edgeKey(a, b)) === 1) {
-          directed.push([a, b]);
-        }
-      }
+    const c = this.corners;
+    for (let e = 0; e < c.length; e++) {
+      const a = c[e]!;
+      const b = c[e % 3 === 2 ? e - 2 : e + 1]!;
+      if (counts.get(TriMesh2.edgeKey(a, b)) === 1) directed.push([a, b]);
     }
-
     return directed;
   }
 
@@ -328,28 +365,18 @@ export class TriMesh2 {
 
   private uniqueEdgeIds(): Set<number> {
     const set = new Set<number>();
-    for (const [i, j, k] of this.triangles) {
-      set.add(TriMesh2.edgeKey(i, j));
-      set.add(TriMesh2.edgeKey(j, k));
-      set.add(TriMesh2.edgeKey(k, i));
-    }
+    const c = this.corners;
+    for (let e = 0; e < c.length; e++) set.add(TriMesh2.edgeKey(c[e]!, c[e % 3 === 2 ? e - 2 : e + 1]!));
     return set;
   }
 
   private uniqueEdgeCounts(): Map<number, number> {
     const counts = new Map<number, number>();
-
-    for (const [i, j, k] of this.triangles) {
-      for (const [a, b] of [
-        [i, j],
-        [j, k],
-        [k, i],
-      ] as [number, number][]) {
-        const key = TriMesh2.edgeKey(a, b);
-        counts.set(key, (counts.get(key) ?? 0) + 1);
-      }
+    const c = this.corners;
+    for (let e = 0; e < c.length; e++) {
+      const key = TriMesh2.edgeKey(c[e]!, c[e % 3 === 2 ? e - 2 : e + 1]!);
+      counts.set(key, (counts.get(key) ?? 0) + 1);
     }
-
     return counts;
   }
 
@@ -358,9 +385,14 @@ export class TriMesh2 {
    * Use when the caller already provides a consistent mesh (e.g. after CDT).
    */
   static withoutCleanup(vertices: readonly Vec2[], triangles: readonly (readonly [Index, Index, Index])[]): TriMesh2 {
+    return TriMesh2.fromCorners(vertices, cornersOf(triangles));
+  }
+
+  /** {@link TriMesh2.withoutCleanup} from flat corner indices (three per counter-clockwise triangle); copies them. */
+  static fromCorners(vertices: readonly Vec2[], corners: Uint32Array): TriMesh2 {
     return Object.assign(Object.create(TriMesh2.prototype) as TriMesh2, {
       vertices: Object.freeze([...vertices]),
-      triangles: Object.freeze(triangles.map(([a, b, c]) => Object.freeze([a, b, c] as const))),
+      corners: corners.slice(),
       boundaryLoopsCache: null,
       boundaryLoopPolygonsCache: null,
     });
@@ -370,7 +402,7 @@ export class TriMesh2 {
     return {
       type: TriMesh2.type,
       vertices: this.vertices.map((v) => v.toJson()),
-      triangles: this.triangles.map(([a, b, c]) => [a, b, c]),
+      triangles: this.triangles.map(([a, b, c]) => [a, b, c] as [Index, Index, Index]),
     };
   }
 }

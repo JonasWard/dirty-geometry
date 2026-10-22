@@ -27,7 +27,7 @@ import { ConstrainedDelaunay } from '../src/operations/constrained-delaunay';
 import { Contains2 } from '../src/operations/contains2';
 import { DouglasPeucker } from '../src/operations/douglas-peucker';
 import { convexHullLoop } from '../src/operations/helpers/cdt/hull';
-import { emptyCdtStats } from '../src/operations/helpers/cdt/mesh';
+import { emptyCdtStats } from '../src/operations/helpers/cdt/stats';
 import { triangulateConstrained } from '../src/operations/helpers/cdt/triangulate';
 import { constraintEdge, constraintEdgeEndpoints } from '../src/operations/helpers/constraint-edge';
 import { resolveDouglasPeuckerTolerances } from '../src/operations/helpers/douglas-peucker-tolerances';

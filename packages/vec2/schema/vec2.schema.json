@@ -25,12 +25,12 @@
     "Boolean2Result": { "polygons": ["Polygon2"], "triMesh": { "type": "TriMesh2", "optional": true } },
     "BoundaryLoop2": { "polygon": "Polygon2", "signedArea": "number" },
     "BuiltConstraintSources": { "points": ["Vec2"], "constraints": ["Index"], "constraintSegments": [{ "from": "Vec2", "to": "Vec2" }] },
-    "CdtResult": { "triangles": [{ "tuple": ["number", "number", "number"] }], "unresolved": [{ "tuple": ["number", "number"] }], "stats": "CdtStats" },
-    "CdtStats": { "orient": "Index", "inCircle": "Index", "flips": "Index", "walkSteps": "Index" },
+    "CdtResult": { "triangles": [{ "tuple": ["Index", "Index", "Index"] }], "unresolved": ["Index"], "stats": "CdtStats" },
+    "CdtStats": { "orient": "Index", "inCircle": "Index", "flips": "Index", "walkSteps": "Index", "guardHits": "Index" },
     "CellCollectionJson": { "cells": ["GridCell2Json"] },
     "Circle2Json": { "center": "Vec2Json", "radius": "Length" },
     "CircleFit": { "enum": ["inscription", "circumscription", "sameArea"] },
-    "ConstrainedDelaunayReport": { "mesh": "TriMesh2", "unresolved": [{ "tuple": ["number", "number"] }], "stats": "CdtStats" },
+    "ConstrainedDelaunayReport": { "mesh": "TriMesh2", "unresolved": ["Index"], "stats": "CdtStats" },
     "ConstraintEdgeInput": { "or": ["Index", { "tuple": ["Index", "Index"] }] },
     "Container2": { "or": ["Region2", "Aabb2", "InfiniteLine2"] },
     "DouglasPeuckerTolerances": { "distance": "Epsilon", "angle": "Angle" },
@@ -585,8 +585,8 @@
         "members": {
           "collectSources": { "static": true, "params": { "geometries": "TriangulateGeometries", "slack": { "type": "Epsilon", "optional": true } }, "returns": "BuiltConstraintSources" },
           "fromGeometries": { "static": true, "params": { "geometries": "TriangulateGeometries", "slack": { "type": "Epsilon", "optional": true } }, "returns": "TriMesh2" },
-          "report": { "static": true, "params": { "points": ["Vec2"], "constraints": { "type": ["ConstraintEdgeInput"], "optional": true }, "slack": { "type": "Epsilon", "optional": true }, "gridSize": { "type": "Length", "optional": true } }, "returns": "ConstrainedDelaunayReport" },
-          "triangulate": { "static": true, "params": { "points": ["Vec2"], "constraints": { "type": ["ConstraintEdgeInput"], "optional": true }, "slack": { "type": "Epsilon", "optional": true }, "gridSize": { "type": "Length", "optional": true } }, "returns": "TriMesh2" }
+          "report": { "static": true, "params": { "points": ["Vec2"], "constraints": { "type": ["ConstraintEdgeInput"], "optional": true }, "slack": { "type": "Epsilon", "optional": true } }, "returns": "ConstrainedDelaunayReport" },
+          "triangulate": { "static": true, "params": { "points": ["Vec2"], "constraints": { "type": ["ConstraintEdgeInput"], "optional": true }, "slack": { "type": "Epsilon", "optional": true } }, "returns": "TriMesh2" }
         }
       },
       "Contains2": {
@@ -607,7 +607,7 @@
         "cdt": {
           "convexHullLoop": { "params": { "points": ["Vec2"] }, "returns": ["number"] },
           "emptyCdtStats": { "returns": "CdtStats" },
-          "triangulateConstrained": { "params": { "vertices": ["Vec2"], "constraints": [{ "tuple": ["Index", "Index"] }], "stats": { "type": "CdtStats", "optional": true } }, "returns": "CdtResult" }
+          "triangulateConstrained": { "params": { "vertices": ["Vec2"], "constraints": ["Index"], "stats": { "type": "CdtStats", "optional": true }, "slack": { "type": "Tolerance", "optional": true } }, "returns": "CdtResult" }
         },
         "constraintEdge": { "params": { "a": "Index", "b": "Index" }, "returns": "Index" },
         "constraintEdgeEndpoints": { "params": { "edge": "Index" }, "returns": { "tuple": ["number", "number"] } },

@@ -7,6 +7,7 @@ import { describe, expect, test } from 'bun:test';
 import { cdt2dAll, constrainautor, delaunator } from '../../bench/references';
 import { Vec2 } from '../../src/core/vec2';
 import { ConstrainedDelaunay } from '../../src/operations/constrained-delaunay';
+import { assertCdtVertexCount } from '../../src/operations/helpers/constraint-edge';
 import type { TriMesh2 } from '../../src/geometry/regions/tri-mesh2';
 import type { ConstraintEdge } from '../../src/operations/helpers/constraint-edge';
 import {
@@ -129,5 +130,36 @@ describe('CDT degeneracy suite', () => {
     const base = canonical(points, (p) => p);
     expect(canonical(points, (p) => new Vec2(p.x + 2 ** 30, p.y - 2 ** 30))).toEqual(base);
     expect(canonical(points, (p) => new Vec2(p.x * 2 ** -6, p.y * 2 ** -6))).toEqual(base);
+  });
+});
+
+describe('CDT contact cases and limits', () => {
+  test('T-junction: an endpoint lying on another constraint splits it', () => {
+    const points = [new Vec2(0, 0), new Vec2(4, 0), new Vec2(2, 0), new Vec2(2, 3), new Vec2(2, -3)];
+    const report = triangulateChecked(points, [
+      [0, 1],
+      [2, 3],
+      [2, 4],
+    ]);
+
+    expect(constraintChain(report.mesh, points[0]!, points[1]!)).not.toBeNull();
+    expect(constraintChain(report.mesh, points[2]!, points[3]!)).not.toBeNull();
+  });
+
+  test('constraint ending on a hull vertex is kept', () => {
+    const points = [new Vec2(0, 0), new Vec2(4, 0), new Vec2(4, 4), new Vec2(0, 4), new Vec2(1, 1), new Vec2(3, 2)];
+    const report = triangulateChecked(points, [
+      [0, 2],
+      [4, 5],
+      [5, 3],
+    ]);
+
+    expect(report.unresolved).toEqual([]);
+    expect(constraintChain(report.mesh, points[0]!, points[2]!)).not.toBeNull();
+  });
+
+  test('more than 2^26 vertices is rejected up front', () => {
+    expect(() => assertCdtVertexCount(2 ** 26)).not.toThrow();
+    expect(() => assertCdtVertexCount(2 ** 26 + 1)).toThrow(RangeError);
   });
 });

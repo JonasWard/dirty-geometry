@@ -12,6 +12,7 @@ import Delaunator from 'delaunator';
 import { Vec2 } from '../src/core/vec2';
 import { ConstrainedDelaunay } from '../src/operations/constrained-delaunay';
 import { triangulateConstrained } from '../src/operations/helpers/cdt/triangulate';
+import { constraintEdge } from '../src/operations/helpers/constraint-edge';
 import { mulberry32 } from '../examples/random';
 import { cdt2dAll, constrainautor, delaunator, poly2triRing, type Edge } from './references';
 
@@ -71,7 +72,14 @@ const impls: Record<string, Impl> = {
     name: 'vec2 report',
     run: ({ points, constraints }) => ConstrainedDelaunay.report(points, constraints),
   },
-  'vec2 core': { name: 'vec2 core', run: ({ points, constraints }) => triangulateConstrained(points, constraints) },
+  'vec2 core': {
+    name: 'vec2 core',
+    run: ({ points, constraints }) =>
+      triangulateConstrained(
+        points,
+        constraints.map(([a, b]) => constraintEdge(a, b)),
+      ),
+  },
   delaunator: { name: 'delaunator', run: ({ points }) => delaunator(points, []) },
   constrainautor: { name: 'constrainautor', run: ({ points, constraints }) => constrainautor(points, constraints) },
   cdt2d: { name: 'cdt2d', run: ({ points, constraints }) => cdt2dAll(points, constraints) },
@@ -203,8 +211,12 @@ for (let i = 1; i < randomCases.length; i++) {
 const s = statsByCase[bigRandom.name]!;
 gate(`${bigRandom.name}: inCircle / n`, s.inCircle / bigRandom.n, 10, '');
 gate(`${bigRandom.name}: walkSteps / n`, s.walkSteps / bigRandom.n, 5, '');
-const slots = (s as { triangleSlots?: number }).triangleSlots;
-gate(`${bigRandom.name}: triangle slots / (2n + 16)`, slots === undefined ? null : slots / (2 * bigRandom.n + 16), 1);
+gate(
+  `${bigRandom.name}: triangles / n`,
+  ConstrainedDelaunay.report(bigRandom.input.points, bigRandom.input.constraints).mesh.triangles.length / bigRandom.n,
+  2,
+  '',
+);
 gate(
   'guard hits over all cases',
   Object.values(statsByCase).reduce((sum, st) => sum + (st.guardHits ?? 0), 0),

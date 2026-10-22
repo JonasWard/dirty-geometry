@@ -1,34 +1,26 @@
 import { describe, expect, test } from 'bun:test';
 import { ConstrainedDelaunay } from '../../src/operations/constrained-delaunay';
-import { inCircle, orient } from '../../src/core/predicates';
+import { orient } from '../../src/core/predicates';
 import { Vec2 } from '../../src/core/vec2';
 import type { TriMesh2 } from '../../src/geometry/regions/tri-mesh2';
-import { mulberry32 } from '../../examples/random';
+import { constraintEdge, type ConstraintEdge } from '../../src/operations/helpers/constraint-edge';
+import {
+  delaunayViolations,
+  lattice,
+  latticeRandomPoints,
+  nonCrossingConstraints,
+  randomPoints,
+  validityProblems,
+} from './cdt-checks';
 
-type Triangle = readonly [number, number, number];
-
-function lattice(size: number, step = 1, origin = new Vec2(0, 0)): Vec2[] {
-  const points: Vec2[] = [];
-  for (let j = 0; j < size; j++) {
-    for (let i = 0; i < size; i++) points.push(new Vec2(origin.x + i * step, origin.y + j * step));
-  }
-  return points;
-}
-
-/** Distinct random points on a 1/1024 lattice in [0, 1024)², so power-of-two transforms stay exact. */
-function latticeRandomPoints(count: number, seed: number): Vec2[] {
-  const rng = mulberry32(seed);
-  const seen = new Set<string>();
-  const points: Vec2[] = [];
-  while (points.length < count) {
-    const x = Math.floor(rng() * 2 ** 20) / 1024;
-    const y = Math.floor(rng() * 2 ** 20) / 1024;
-    const key = `${x}:${y}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    points.push(new Vec2(x, y));
-  }
-  return points;
+/** Canonical triangle list by vertex index: each triangle rotated to its smallest index, then sorted. */
+function triangleIndexSet(triangles: readonly (readonly [number, number, number])[]): string[] {
+  return triangles
+    .map(([a, b, c]) => {
+      const m = Math.min(a, b, c);
+      return (m === a ? [a, b, c] : m === b ? [b, c, a] : [c, a, b]).join(',');
+    })
+    .sort();
 }
 
 function meshArea(mesh: TriMesh2): number {
@@ -41,41 +33,6 @@ function allCcw(mesh: TriMesh2): boolean {
   return mesh.triangles.every(([a, b, c]) => orient(mesh.vertices[a]!, mesh.vertices[b]!, mesh.vertices[c]!) > 0);
 }
 
-/** Canonical triangle set: each triangle rotated so its smallest index comes first. */
-function triangleSet(triangles: readonly Triangle[]): string[] {
-  return triangles
-    .map(([a, b, c]) => {
-      const m = Math.min(a, b, c);
-      const tri = m === a ? [a, b, c] : m === b ? [b, c, a] : [c, a, b];
-      return tri.join(',');
-    })
-    .sort();
-}
-
-/** Every interior edge, apart from `constrained` ones, has no opposite vertex strictly inside the other circumcircle. */
-function delaunayViolations(mesh: TriMesh2, constrained: ReadonlySet<string> = new Set()): number {
-  const opposite = new Map<string, { tri: Triangle; apex: number }[]>();
-  for (const tri of mesh.triangles) {
-    for (let k = 0; k < 3; k++) {
-      const u = tri[k]!;
-      const v = tri[(k + 1) % 3]!;
-      const key = u < v ? `${u}:${v}` : `${v}:${u}`;
-      const list = opposite.get(key) ?? [];
-      list.push({ tri, apex: tri[(k + 2) % 3]! });
-      opposite.set(key, list);
-    }
-  }
-
-  let violations = 0;
-  for (const [key, sides] of opposite) {
-    if (sides.length !== 2 || constrained.has(key)) continue;
-    const [first, second] = sides as [(typeof sides)[0], (typeof sides)[0]];
-    const [a, b, c] = first.tri.map((i) => mesh.vertices[i]!) as [Vec2, Vec2, Vec2];
-    if (inCircle(a, b, c, mesh.vertices[second.apex]!) > 0) violations++;
-  }
-  return violations;
-}
-
 describe('CDT robustness', () => {
   test('50×50 collinear lattice: full coverage, all CCW', () => {
     const mesh = ConstrainedDelaunay.triangulate(lattice(50));
@@ -83,13 +40,14 @@ describe('CDT robustness', () => {
     expect(mesh.triangles.length).toBe(2 * 49 * 49);
     expect(meshArea(mesh)).toBe(49 * 49);
     expect(allCcw(mesh)).toBe(true);
+    expect(validityProblems(mesh)).toEqual([]);
     expect(delaunayViolations(mesh)).toBe(0);
   });
 
   test('random points: exact Delaunay property holds for every edge', () => {
     const mesh = ConstrainedDelaunay.triangulate(latticeRandomPoints(1500, 7));
 
-    expect(allCcw(mesh)).toBe(true);
+    expect(validityProblems(mesh)).toEqual([]);
     expect(delaunayViolations(mesh)).toBe(0);
   });
 
@@ -99,19 +57,20 @@ describe('CDT robustness', () => {
     for (let i = 0; i < 20; i++) constraints.push([i * 2, i * 2 + 1]);
     const report = ConstrainedDelaunay.report(points, constraints);
 
-    // Random segments cross each other; the façade splits them, so the mesh keys differ from the input.
+    // Random segments cross each other; the packing splits them, so the mesh keys differ from the input.
     expect(report.unresolved).toEqual([]);
-    expect(allCcw(report.mesh)).toBe(true);
-    const edges = new Set<string>();
+    expect(validityProblems(report.mesh)).toEqual([]);
+    const edges = new Set<ConstraintEdge>();
     for (const [a, b, c] of report.mesh.triangles) {
       for (const [u, v] of [
         [a, b],
         [b, c],
         [c, a],
-      ] as const)
-        edges.add(u < v ? `${u}:${v}` : `${v}:${u}`);
+      ] as const) {
+        edges.add(constraintEdge(u, v));
+      }
     }
-    expect(delaunayViolations(report.mesh, edges)).toBe(0);
+    expect(delaunayViolations(report.mesh, new Set(edges))).toBe(0);
   });
 
   test('power-of-two scale and large offset give the identical triangulation', () => {
@@ -129,7 +88,7 @@ describe('CDT robustness', () => {
     for (const transform of transforms) {
       const moved = ConstrainedDelaunay.triangulate(points.map(transform), constraints);
       expect(moved.vertices.length).toBe(base.vertices.length);
-      expect(triangleSet(moved.triangles)).toEqual(triangleSet(base.triangles));
+      expect(triangleIndexSet(moved.triangles)).toEqual(triangleIndexSet(base.triangles));
     }
   });
 
@@ -152,7 +111,7 @@ describe('CDT robustness', () => {
       hullArea += (a.x * b.y - b.x * a.y) / 2;
     }
 
-    expect(allCcw(mesh)).toBe(true);
+    expect(validityProblems(mesh)).toEqual([]);
     expect(meshArea(mesh)).toBeCloseTo(Math.abs(hullArea), 6);
   });
 
@@ -178,19 +137,30 @@ describe('CDT robustness', () => {
 });
 
 describe('CDT work budgets (operation counts, not wall clock)', () => {
-  test('random points: about O(n) predicate calls and walk steps', () => {
+  // Budgets are about 1.3× the counts measured when the budgets were set; the old code used 25n to 30n.
+  test('random points: about O(n) predicate calls', () => {
     const n = 2000;
     const { stats } = ConstrainedDelaunay.report(latticeRandomPoints(n, 5));
 
-    expect(stats.inCircle).toBeLessThan(25 * n);
-    expect(stats.walkSteps).toBeLessThan(10 * n);
+    expect(stats.inCircle).toBeLessThan(12 * n);
+    expect(stats.guardHits).toBe(0);
   });
 
   test('collinear lattice: cocircular points stay within budget', () => {
     const n = 2500;
     const { stats } = ConstrainedDelaunay.report(lattice(50));
 
-    expect(stats.inCircle).toBeLessThan(30 * n);
-    expect(stats.walkSteps).toBeLessThan(10 * n);
+    expect(stats.inCircle).toBeLessThan(8 * n);
+    expect(stats.guardHits).toBe(0);
+  });
+
+  test('constraints: a few walk steps and flips per point', () => {
+    const points = randomPoints(4000, 9);
+    const constraints = nonCrossingConstraints(points, 300, 10);
+    const { stats } = ConstrainedDelaunay.report(points, constraints);
+
+    expect(stats.walkSteps).toBeLessThan(2 * points.length);
+    expect(stats.flips).toBeLessThan(2 * points.length);
+    expect(stats.guardHits).toBe(0);
   });
 });

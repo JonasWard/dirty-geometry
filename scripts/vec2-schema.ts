@@ -32,8 +32,12 @@ type Entry = { static?: true; params?: Record<string, Slot>; returns?: Type; val
 
 class Unsupported extends Error {}
 
+/**
+ * Sorted, so every machine feeds the compiler the same file order: union members the checker prints (inferred
+ * return types) follow its internal type ids, which follow that order.
+ */
 const listSources = (dir: string): string[] =>
-  readdirSync(dir).flatMap((name) => {
+  [...readdirSync(dir)].sort().flatMap((name) => {
     const full = path.join(dir, name);
     return statSync(full).isDirectory() ? listSources(full) : name.endsWith('.ts') ? [full] : [];
   });

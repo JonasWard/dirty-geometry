@@ -6,6 +6,7 @@ import { Epsilon } from '../../core/epsilon';
 import { Vec2, type Vec2Json } from '../../core/vec2';
 import { segmentsFromVertices } from '../curves/segments';
 import { Line2 } from '../primitives/line2';
+import { insideByRule, windingNumber, type FillRule } from './winding';
 
 const segmentsCache = new WeakMap<Polygon2, readonly Line2[]>();
 
@@ -173,30 +174,19 @@ export class Polygon2 {
    * Used by boolean fill rules; {@link containsPoint} is `windingNumber !== 0`.
    */
   windingNumber(point: Vec2): number {
-    let winding = 0;
-    const count = this.vertices.length;
-
-    for (let i = 0; i < count; i++) {
-      const a = this.vertices[i]!;
-      const b = this.vertices[(i + 1) % count]!;
-
-      if (a.y <= point.y) {
-        if (b.y > point.y && Vec2.orient(a, b, point) > 0) {
-          winding++;
-        }
-      } else if (b.y <= point.y && Vec2.orient(a, b, point) < 0) {
-        winding--;
-      }
-    }
-
-    return winding;
+    return windingNumber([this], point);
   }
 
   /**
-   * Even-odd point-in-region test over one or more boundary loops.
-   * Loops may have arbitrary orientation; boundary points count as inside when `slack` is positive.
+   * Point-in-region test over one or more boundary loops, by `rule` (even-odd by default, so loop
+   * orientation does not matter). Boundary points count as inside when `slack` is positive.
    */
-  static isPointInside(polygons: readonly Polygon2[], point: Vec2, slack: Epsilon = Epsilon.preferIn): boolean {
+  static isPointInside(
+    polygons: readonly Polygon2[],
+    point: Vec2,
+    slack: Epsilon = Epsilon.preferIn,
+    rule: FillRule = 'evenOdd',
+  ): boolean {
     if (polygons.length === 0) return false;
 
     const boundarySlack = Math.abs(slack.value);
@@ -206,23 +196,7 @@ export class Polygon2 {
       }
     }
 
-    let crossings = 0;
-    for (const polygon of polygons) {
-      const vertices = polygon.vertices;
-      const count = vertices.length;
-
-      for (let i = 0; i < count; i++) {
-        const a = vertices[i]!;
-        const b = vertices[(i + 1) % count]!;
-
-        if ((a.y <= point.y && b.y > point.y) || (b.y <= point.y && a.y > point.y)) {
-          const x = ((b.x - a.x) * (point.y - a.y)) / (b.y - a.y) + a.x;
-          if (point.x < x) crossings++;
-        }
-      }
-    }
-
-    return crossings % 2 === 1;
+    return insideByRule(windingNumber(polygons, point), rule);
   }
 
   signedArea(): number {

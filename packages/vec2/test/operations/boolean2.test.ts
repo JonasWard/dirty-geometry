@@ -296,3 +296,34 @@ describe('Boolean2', () => {
     });
   });
 });
+
+describe('Boolean2 fill rules', () => {
+  const area = (polygons: readonly Polygon2[]) => polygons.reduce((sum, polygon) => sum + polygon.signedArea(), 0);
+  const a = squareAt(0, 0, 2);
+  const b = squareAt(1, 1, 2);
+
+  test('non-zero (default) keeps the overlap of two counter-clockwise squares', () => {
+    expect(area(Boolean2.union([a, b]).polygons)).toBeCloseTo(7, 9);
+    expect(area(Boolean2.union([a, b], { fillRule: 'nonZero' }).polygons)).toBeCloseTo(7, 9);
+  });
+
+  test('even-odd leaves the overlap out', () => {
+    expect(area(Boolean2.union([a, b], { fillRule: 'evenOdd' }).polygons)).toBeCloseTo(6, 9);
+  });
+
+  test('even-odd applies to clip polygons too', () => {
+    // A pentagram winds twice around its centre: inside for non-zero, a hole for even-odd.
+    const star = new Polygon2(
+      [0, 2, 4, 1, 3].map(
+        (k) => new Vec2(5 + 4 * Math.cos((2 * Math.PI * k) / 5), 5 + 4 * Math.sin((2 * Math.PI * k) / 5)),
+      ),
+    );
+    const subject = [squareAt(0, 0, 10)];
+    const nonZero = area(Boolean2.intersect(subject, [star]).polygons);
+    const evenOdd = area(Boolean2.intersect(subject, [star], { fillRule: 'evenOdd' }).polygons);
+
+    expect(nonZero).toBeCloseTo(area(Boolean2.union([star]).polygons), 9);
+    expect(evenOdd).toBeCloseTo(area(Boolean2.union([star], { fillRule: 'evenOdd' }).polygons), 9);
+    expect(evenOdd).toBeLessThan(nonZero - 1);
+  });
+});

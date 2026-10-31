@@ -4,6 +4,7 @@ import { Vec2 } from '../core/vec2';
 import type { InfiniteLine2 } from '../geometry/primitives/infinite-line2';
 import { Polygon2 } from '../geometry/regions/polygon2';
 import { TriMesh2 } from '../geometry/regions/tri-mesh2';
+import { WindingIndex, type FillRule } from '../geometry/regions/winding';
 import { collectConstraintSources } from './helpers/cdt/sources';
 import { emptyCdtStats } from './helpers/cdt/stats';
 import { triangulateCorners } from './helpers/cdt/triangulate';
@@ -15,6 +16,8 @@ export type Boolean2Options = {
   slack?: Epsilon;
   /** When true, the filtered CDT mesh is included alongside boundary polygons. */
   mesh?: boolean;
+  /** How subject and clip polygons decide inside: `nonZero` (default; clockwise loops are holes) or `evenOdd`. */
+  fillRule?: FillRule;
 };
 
 export type Boolean2Result = {
@@ -38,9 +41,10 @@ export class Boolean2 {
     if (polygons.length === 0) return emptyResult(options);
 
     const winding = new WindingIndex(polygons);
+    const rule = options.fillRule ?? 'nonZero';
     return runBoolean({
       sources: polygons,
-      keep: (point) => winding.at(point) !== 0,
+      keep: (point) => winding.contains(point, rule),
       options,
     });
   }
@@ -90,6 +94,7 @@ function clipBoolean(
   const { halfPlanes, polygons: clipPolygons } = partitionClips(clipList);
   const clipRegions = groupClipRegions(clipPolygons).map(({ outer, holes }) => new WindingIndex([outer, ...holes]));
   const subjectWinding = new WindingIndex(subject);
+  const rule = options.fillRule ?? 'nonZero';
   const slack = options.slack ?? Epsilon.preferIn;
   const sources = [...subject, ...clipPolygons];
 
@@ -99,10 +104,10 @@ function clipBoolean(
     bounds: halfPlanes.length > 0 ? workingBounds(sources) : undefined,
     clipLines: halfPlanes,
     keep: (point) => {
-      if (subjectWinding.at(point) === 0) return false;
+      if (!subjectWinding.contains(point, rule)) return false;
       return mode === 'intersect'
-        ? insideAllClips(point, halfPlanes, clipRegions, slack)
-        : outsideAllClips(point, halfPlanes, clipRegions, slack);
+        ? insideAllClips(point, halfPlanes, clipRegions, rule, slack)
+        : outsideAllClips(point, halfPlanes, clipRegions, rule, slack);
     },
     options,
   });
@@ -147,11 +152,12 @@ function insideAllClips(
   point: Vec2,
   halfPlanes: readonly InfiniteLine2[],
   regions: readonly WindingIndex[],
+  rule: FillRule,
   slack: Epsilon,
 ): boolean {
   return (
     halfPlanes.every((plane) => plane.signedDistance(point) <= slack.value) &&
-    regions.every((region) => region.at(point) !== 0)
+    regions.every((region) => region.contains(point, rule))
   );
 }
 
@@ -159,11 +165,12 @@ function outsideAllClips(
   point: Vec2,
   halfPlanes: readonly InfiniteLine2[],
   regions: readonly WindingIndex[],
+  rule: FillRule,
   slack: Epsilon,
 ): boolean {
   return (
     !halfPlanes.some((plane) => plane.signedDistance(point) <= slack.value) &&
-    !regions.some((region) => region.at(point) !== 0)
+    !regions.some((region) => region.contains(point, rule))
   );
 }
 
@@ -222,66 +229,6 @@ function keepTriangles(
     kept += 3;
   }
   return corners.subarray(0, kept);
-}
-
-/**
- * Summed winding number of a set of polygons (clockwise loops count negative, so they act as holes).
- * Only edges whose y-range covers the query's y can change the winding, so edges are bucketed into
- * horizontal slabs and a query visits its own slab. Each edge test is `Polygon2.windingNumber`'s, so the
- * result is the same.
- */
-class WindingIndex {
-  /** Per slab, edge coordinates as `ax, ay, bx, by` runs. */
-  private readonly slabs: number[][] = [];
-  private readonly minY: number = Infinity;
-  private readonly height: number = 1;
-
-  constructor(polygons: readonly Polygon2[]) {
-    let maxY = -Infinity;
-    let edges = 0;
-    for (const polygon of polygons) {
-      edges += polygon.vertices.length;
-      for (const v of polygon.vertices) {
-        this.minY = Math.min(this.minY, v.y);
-        maxY = Math.max(maxY, v.y);
-      }
-    }
-    if (edges === 0) return;
-    const count = Math.max(1, Math.ceil(Math.sqrt(edges)));
-    this.height = (maxY - this.minY) / count || 1;
-    for (let i = 0; i < count; i++) this.slabs.push([]);
-    for (const { vertices } of polygons) {
-      for (let i = 0; i < vertices.length; i++) {
-        const a = vertices[i]!;
-        const b = vertices[(i + 1) % vertices.length]!;
-        const first = this.slab(Math.min(a.y, b.y));
-        const last = this.slab(Math.max(a.y, b.y));
-        for (let k = first; k <= last; k++) this.slabs[k]!.push(a.x, a.y, b.x, b.y);
-      }
-    }
-  }
-
-  private slab(y: number): number {
-    return Math.min(this.slabs.length - 1, Math.max(0, Math.floor((y - this.minY) / this.height)));
-  }
-
-  at(point: Vec2): number {
-    if (this.slabs.length === 0) return 0;
-    const { x, y } = point;
-    const edges = this.slabs[this.slab(y)]!;
-    let winding = 0;
-    for (let i = 0; i < edges.length; i += 4) {
-      const ax = edges[i]!;
-      const ay = edges[i + 1]!;
-      const bx = edges[i + 2]!;
-      const by = edges[i + 3]!;
-      const side = (bx - ax) * (y - ay) - (by - ay) * (x - ax); // Vec2.orient(a, b, point)
-      if (ay <= y) {
-        if (by > y && side > 0) winding++;
-      } else if (by <= y && side < 0) winding--;
-    }
-    return winding;
-  }
 }
 
 function workingBounds(polygons: readonly Polygon2[]): Aabb2 {

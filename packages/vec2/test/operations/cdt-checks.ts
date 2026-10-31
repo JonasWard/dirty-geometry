@@ -109,15 +109,16 @@ export function validityProblems(mesh: TriMesh2): string[] {
   if (!triangles.every(([a, b, c]) => orient(vertices[a]!, vertices[b]!, vertices[c]!) > 0)) {
     problems.push('a triangle is not strictly counter-clockwise');
   }
-  const directed = new Set<string>();
+  // Directed edges: hash2(u, v) unsorted, so u → v and v → u are different keys.
+  const directed = new Set<number>();
   for (const [a, b, c] of triangles) {
     for (const [u, v] of [
       [a, b],
       [b, c],
       [c, a],
     ] as const) {
-      const key = `${u}>${v}`;
-      if (directed.has(key)) problems.push(`directed edge ${key} used twice`);
+      const key = hash2(u, v);
+      if (directed.has(key)) problems.push(`directed edge ${u} → ${v} used twice`);
       directed.add(key);
     }
   }

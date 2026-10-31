@@ -3,6 +3,7 @@
  * presence and the exact constrained-Delaunay property. Edges are keyed with `constraintEdge` (hash2).
  */
 import { inCircle, orient } from '../../src/core/predicates';
+import { hash2 } from '../../src/hash/core';
 import { Vec2 } from '../../src/core/vec2';
 import type { TriMesh2 } from '../../src/geometry/regions/tri-mesh2';
 import { convexHullLoop } from '../../src/operations/helpers/cdt/hull';

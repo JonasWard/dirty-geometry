@@ -4,10 +4,9 @@ import {
   type Boolean2Options,
   type Boolean2Shape,
 } from '../../src/operations/boolean2';
-import { Arc2 } from '../../src/geometry/primitives/arc2';
-import { Line2 } from '../../src/geometry/primitives/line2';
 import { ArcPolygon2 } from '../../src/geometry/regions/arc-polygon2';
 import { Circle2 } from '../../src/geometry/regions/circle2';
+import { roundedRectangle } from '../arc-shapes';
 import { Aabb2 } from '../../src/bounds/aabb2';
 import { Epsilon } from '../../src/core/epsilon';
 import { InfiniteLine2 } from '../../src/geometry/primitives/infinite-line2';
@@ -333,15 +332,6 @@ export const boolean2ManySubtractScenarios: Boolean2Scenario[] = [
 ];
 
 const disc = (x: number, y: number, r: number) => new Circle2(new Vec2(x, y), r);
-
-/** A rectangle with circular corners, built from fillets. */
-function roundedRectangle(x: number, y: number, width: number, height: number, radius: number): ArcPolygon2 {
-  const corners = [new Vec2(x, y), new Vec2(x + width, y), new Vec2(x + width, y + height), new Vec2(x, y + height)];
-  const fillets = corners.map((corner, i) =>
-    Arc2.fromFillet(corners[(i + 3) % 4]!, corner, corners[(i + 1) % 4]!, radius),
-  );
-  return ArcPolygon2.fromSegments(fillets.flatMap((f, i) => [f, new Line2(f.to, fillets[(i + 1) % 4]!.from)]));
-}
 
 /** Shapes with arcs; exact unless a scenario asks for the approximation. */
 export const boolean2ArcScenarios: Boolean2Scenario[] = [

@@ -1,9 +1,9 @@
 import { Vec2 } from '../../src/core/vec2';
 import { ArcPolyline2 } from '../../src/geometry/curves/arc-polyline2';
 import { Arc2 } from '../../src/geometry/primitives/arc2';
-import { Line2 } from '../../src/geometry/primitives/line2';
 import { ArcPolygon2 } from '../../src/geometry/regions/arc-polygon2';
 import { Circle2 } from '../../src/geometry/regions/circle2';
+import { roundedRectangle } from '../arc-shapes';
 
 export type ArcGeometry = Arc2 | ArcPolyline2 | ArcPolygon2;
 
@@ -69,19 +69,6 @@ export const arcPolylineScenarios: ArcScenario[] = [
   },
 ];
 
-/** A rectangle with every corner rounded by `radius`, built from fillets. */
-function roundedRectangle(width: number, height: number, radius: number): ArcPolygon2 {
-  const corners = [V(0, 0), V(width, 0), V(width, height), V(0, height)];
-  const fillets = corners.map((corner, i) =>
-    Arc2.fromFillet(corners[(i + 3) % 4]!, corner, corners[(i + 1) % 4]!, radius),
-  );
-  const segments: (Line2 | Arc2)[] = [];
-  fillets.forEach((fillet, i) => {
-    segments.push(fillet, new Line2(fillet.to, fillets[(i + 1) % 4]!.from));
-  });
-  return ArcPolygon2.fromSegments(segments);
-}
-
 export const arcPolygonScenarios: ArcScenario[] = [
   {
     name: 'Circle',
@@ -96,7 +83,7 @@ export const arcPolygonScenarios: ArcScenario[] = [
     offsets: [0.4],
     query: V(4.5, 2),
   },
-  { name: 'Rounded rectangle', build: () => roundedRectangle(6, 4, 1), offsets: [0.5, -0.5], query: V(0.2, 0.2) },
+  { name: 'Rounded rectangle', build: () => roundedRectangle(0, 0, 6, 4, 1), offsets: [0.5, -0.5], query: V(0.2, 0.2) },
 ];
 
 export const arcScenarioRows = [arcScenarios, arcPolylineScenarios, arcPolygonScenarios] as const;

@@ -3,6 +3,7 @@
  * (`@dirty-geometry/visualisation/meta`).
  */
 import { aabb2VisualisationMeta } from './demos/vec2/aabb2/meta';
+import { arcsVisualisationMeta } from './demos/vec2/arcs/meta';
 import { boolean2VisualisationMeta } from './demos/vec2/boolean2/meta';
 import { cdtVisualisationMeta } from './demos/vec2/constrained-delaunay/meta';
 import { contains2VisualisationMeta } from './demos/vec2/contains2/meta';
@@ -57,6 +58,7 @@ const inLibrary = (library: DemoLibrary, metas: readonly VisualisationMeta[]): D
 export const visualisationMetas: readonly DemoMeta[] = [
   ...inLibrary('vec2', [
     curveVisualisationMeta,
+    arcsVisualisationMeta,
     intersectionLines2VisualisationMeta,
     cdtVisualisationMeta,
     contains2VisualisationMeta,

@@ -25,7 +25,6 @@ import { GridLine2 } from '../src/grid/regions/grid-line2';
 import { GridPolygon2 } from '../src/grid/regions/grid-polygon2';
 import { GridPolyline2 } from '../src/grid/regions/grid-polyline2';
 import { GridRectangle2 } from '../src/grid/regions/grid-rectangle2';
-import { ArcBoolean2 } from '../src/operations/arc-boolean2';
 import { Boolean2 } from '../src/operations/boolean2';
 import { ConstrainedDelaunay } from '../src/operations/constrained-delaunay';
 import { Contains2 } from '../src/operations/contains2';
@@ -52,7 +51,6 @@ export const classes = {
   Aabb2,
   Angle,
   Arc2,
-  ArcBoolean2,
   ArcPolygon2,
   ArcPolyline2,
   Axis,
@@ -104,7 +102,6 @@ export {
   Aabb2,
   Angle,
   Arc2,
-  ArcBoolean2,
   ArcPolygon2,
   ArcPolyline2,
   Axis,

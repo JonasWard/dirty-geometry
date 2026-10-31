@@ -9,6 +9,7 @@ import { fitGeometriesToFrame } from '../../../geometry';
 import { frameCorners, labelPosition } from '../../../core/frame';
 import { ScenarioGridVisualisation } from '../../../core/ScenarioGridVisualisation';
 import {
+  boolean2ArcScenarios,
   boolean2IntersectPolygonScenarios,
   boolean2IntersectScenarios,
   boolean2ManyIntersectScenarios,
@@ -29,6 +30,7 @@ const boolean2ScenarioRows = [
   boolean2ManyIntersectScenarios,
   boolean2SubtractPolygonScenarios,
   boolean2ManySubtractScenarios,
+  boolean2ArcScenarios,
 ] as const;
 
 const INPUT_COLOR = '#ffb347';
@@ -42,6 +44,7 @@ function Boolean2ScenarioVisual({ scenario, offset }: { scenario: Boolean2Scenar
         ...scenario.inputs,
         ...scenarioClips(scenario),
         ...(result.triMesh ? [result.triMesh] : result.polygons),
+        ...(result.regions ?? []),
       ]),
     [scenario, result],
   );
@@ -59,6 +62,19 @@ function Boolean2ScenarioVisual({ scenario, offset }: { scenario: Boolean2Scenar
           renderOrder={-1}
         />
       ) : null}
+
+      {(result.regions ?? []).map((region, index) => (
+        <ContainerInteriorMesh
+          key={`region-fill-${index}`}
+          container={region}
+          fit={fit}
+          offset={offset}
+          color={region.signedArea() > 0 ? '#7dff7d' : '#0b0d12'}
+          opacity={region.signedArea() > 0 ? 0.25 : 1}
+          z={region.signedArea() > 0 ? -0.1 : -0.09}
+          renderOrder={-1}
+        />
+      ))}
 
       <Line points={frameCorners(offset)} color='#3a4150' lineWidth={1} />
 
@@ -86,12 +102,26 @@ function Boolean2ScenarioVisual({ scenario, offset }: { scenario: Boolean2Scenar
         />
       ))}
 
+      {(result.regions ?? []).map((region, index) => (
+        <GeometryRender
+          key={`region-${index}`}
+          geometry={region}
+          fit={fit}
+          offset={offset}
+          color='#7dff7d'
+          keyPrefix={`region-${index}`}
+          lineWidth={1.25}
+        />
+      ))}
+
       <Html center position={labelPosition(offset)} style={{ pointerEvents: 'none' }}>
         <div className='max-w-32 rounded bg-black/75 px-1.5 py-0.5 text-center text-[8px] leading-tight text-white'>
           <div className='font-semibold'>{scenario.name}</div>
           <div className='text-white/70'>{scenario.section}</div>
           <div className='text-green-300'>
-            {result.polygons.length} loop{result.polygons.length === 1 ? '' : 's'}
+            {result.regions
+              ? `${result.regions.length} exact region${result.regions.length === 1 ? '' : 's'}`
+              : `${result.polygons.length} loop${result.polygons.length === 1 ? '' : 's'}`}
             {result.triMesh ? ` · ${result.triMesh.triangles.length} tris` : ''}
           </div>
         </div>

@@ -17,6 +17,7 @@ export function scenarioAnchorPoints(scenario: Boolean2Scenario): Vec2[] {
   } else {
     geometries.push(...result.polygons);
   }
+  geometries.push(...(result.regions ?? []));
 
   return frameAnchorPoints(geometries);
 }

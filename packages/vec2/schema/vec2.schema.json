@@ -18,17 +18,16 @@
     "AngleOptions": { "ignoreSens": { "type": "boolean", "optional": true }, "precision": { "type": "AnglePrecisions", "optional": true } },
     "AnglePrecisions": { "enum": [1, 0.1, 0.01, 0.001] },
     "Arc2Json": { "from": "Vec2Json", "to": "Vec2Json", "sagitta": "Coordinate" },
-    "ArcBoolean2Clip": { "or": ["ArcBoolean2Shape", "InfiniteLine2"] },
-    "ArcBoolean2Options": { "slack": { "type": "Epsilon", "optional": true }, "mesh": { "type": "boolean", "optional": true }, "fillRule": { "type": "FillRule", "optional": true }, "chordTolerance": "Length" },
-    "ArcBoolean2Shape": { "or": ["Polygon2", "ArcPolygon2", "Circle2"] },
     "ArcPolygon2Json": { "vertices": ["Vec2Json"], "sagittas": ["Coordinate"] },
     "ArcPolyline2Json": { "vertices": ["Vec2Json"], "sagittas": ["Coordinate"] },
     "AxisJson": { "kind": "AxisKind", "size": { "type": "Length", "optional": true }, "sizes": { "type": [{ "index": "Index", "size": "Length" }], "optional": true }, "domain": { "type": "Interval2Json", "optional": true } },
     "AxisKind": { "enum": ["unit", "uniform", "custom"] },
-    "Boolean2Clip": { "or": ["InfiniteLine2", "Polygon2"] },
+    "Boolean2Arcs": { "or": [{ "mode": { "enum": ["exact"] } }, { "mode": { "enum": ["approximate"] }, "chordTolerance": "Length" }] },
+    "Boolean2Clip": { "or": ["InfiniteLine2", "Boolean2Shape"] },
     "Boolean2ClipInput": { "or": ["Boolean2Clip", ["Boolean2Clip"]] },
-    "Boolean2Options": { "slack": { "type": "Epsilon", "optional": true }, "mesh": { "type": "boolean", "optional": true }, "fillRule": { "type": "FillRule", "optional": true } },
-    "Boolean2Result": { "polygons": ["Polygon2"], "triMesh": { "type": "TriMesh2", "optional": true } },
+    "Boolean2Options": { "slack": { "type": "Epsilon", "optional": true }, "mesh": { "type": "boolean", "optional": true }, "fillRule": { "type": "FillRule", "optional": true }, "arcs": { "type": "Boolean2Arcs", "optional": true } },
+    "Boolean2Result": { "polygons": ["Polygon2"], "regions": { "type": ["ArcPolygon2"], "optional": true }, "triMesh": { "type": "TriMesh2", "optional": true } },
+    "Boolean2Shape": { "or": ["Polygon2", "ArcPolygon2", "Circle2"] },
     "BoundaryLoop2": { "polygon": "Polygon2", "signedArea": "number" },
     "BuiltConstraintSources": { "points": ["Vec2"], "constraints": ["Index"], "constraintSegments": [{ "from": "Vec2", "to": "Vec2" }] },
     "CdtResult": { "triangles": [{ "tuple": ["Index", "Index", "Index"] }], "unresolved": ["Index"], "stats": "CdtStats" },
@@ -692,19 +691,11 @@
       }
     },
     "operations": {
-      "ArcBoolean2": {
-        "members": {
-          "flatten": { "static": true, "params": { "shape": "ArcBoolean2Shape", "chordTolerance": "Length" }, "returns": "Polygon2" },
-          "intersect": { "static": true, "params": { "subject": ["ArcBoolean2Shape"], "clips": ["ArcBoolean2Clip"], "options": "ArcBoolean2Options" }, "returns": "Boolean2Result" },
-          "subtract": { "static": true, "params": { "subject": ["ArcBoolean2Shape"], "clips": ["ArcBoolean2Clip"], "options": "ArcBoolean2Options" }, "returns": "Boolean2Result" },
-          "union": { "static": true, "params": { "shapes": ["ArcBoolean2Shape"], "options": "ArcBoolean2Options" }, "returns": "Boolean2Result" }
-        }
-      },
       "Boolean2": {
         "members": {
-          "intersect": { "static": true, "params": { "subject": ["Polygon2"], "clips": "Boolean2ClipInput", "options": { "type": "Boolean2Options", "optional": true } }, "returns": "Boolean2Result" },
-          "subtract": { "static": true, "params": { "subject": ["Polygon2"], "clips": "Boolean2ClipInput", "options": { "type": "Boolean2Options", "optional": true } }, "returns": "Boolean2Result" },
-          "union": { "static": true, "params": { "polygons": ["Polygon2"], "options": { "type": "Boolean2Options", "optional": true } }, "returns": "Boolean2Result" }
+          "intersect": { "static": true, "params": { "subject": ["Boolean2Shape"], "clips": "Boolean2ClipInput", "options": { "type": "Boolean2Options", "optional": true } }, "returns": "Boolean2Result" },
+          "subtract": { "static": true, "params": { "subject": ["Boolean2Shape"], "clips": "Boolean2ClipInput", "options": { "type": "Boolean2Options", "optional": true } }, "returns": "Boolean2Result" },
+          "union": { "static": true, "params": { "polygons": ["Boolean2Shape"], "options": { "type": "Boolean2Options", "optional": true } }, "returns": "Boolean2Result" }
         }
       },
       "ConstrainedDelaunay": {

@@ -1,25 +1,47 @@
+import type { Length } from '../core/numbers';
 import { Aabb2 } from '../bounds/aabb2';
 import { Epsilon } from '../core/epsilon';
 import { Vec2 } from '../core/vec2';
+import type { CurveSegment2 } from '../geometry/curves/arc-intersections';
 import type { InfiniteLine2 } from '../geometry/primitives/infinite-line2';
+import { Line2 } from '../geometry/primitives/line2';
+import { ArcPolygon2 } from '../geometry/regions/arc-polygon2';
+import type { Circle2 } from '../geometry/regions/circle2';
 import { Polygon2 } from '../geometry/regions/polygon2';
 import { TriMesh2 } from '../geometry/regions/tri-mesh2';
-import { WindingIndex, type FillRule } from '../geometry/regions/winding';
+import { insideByRule, WindingIndex, type FillRule } from '../geometry/regions/winding';
 import { triangulateGeometries } from './helpers/cdt/triangulate';
+import { exactCurveBoolean } from './helpers/curve-boolean/exact';
 
-export type Boolean2Clip = InfiniteLine2 | Polygon2;
+/** A filled shape: straight-sided, with arcs, or a circle. Clockwise shapes are holes. */
+export type Boolean2Shape = Polygon2 | ArcPolygon2 | Circle2;
+export type Boolean2Clip = InfiniteLine2 | Boolean2Shape;
 export type Boolean2ClipInput = Boolean2Clip | readonly Boolean2Clip[];
+
+/**
+ * How shapes with arcs (`ArcPolygon2` arcs, `Circle2`) are handled. `exact` (the default) keeps the arcs and
+ * returns `regions`; `approximate` replaces each arc by chords within `chordTolerance` and returns `polygons`.
+ */
+export type Boolean2Arcs = { mode: 'exact' } | { mode: 'approximate'; chordTolerance: Length };
 
 export type Boolean2Options = {
   slack?: Epsilon;
-  /** When true, the filtered CDT mesh is included alongside boundary polygons. */
+  /** When true, the filtered CDT mesh is included alongside boundary polygons (not available for exact arcs). */
   mesh?: boolean;
   /** How subject and clip polygons decide inside: `nonZero` (default; clockwise loops are holes) or `evenOdd`. */
   fillRule?: FillRule;
+  /** Exact or approximate handling of arcs; ignored when no input has any. */
+  arcs?: Boolean2Arcs;
 };
 
+/**
+ * `polygons`: the result as straight-sided loops (inputs without arcs, or `arcs: approximate`).
+ * `regions`: the exact result when arcs are involved (`polygons` is then empty). In both, outer loops are
+ * counter-clockwise and holes clockwise.
+ */
 export type Boolean2Result = {
   polygons: Polygon2[];
+  regions?: ArcPolygon2[];
   triMesh?: TriMesh2;
 };
 
@@ -34,17 +56,16 @@ type ClipMode = 'intersect' | 'subtract';
 export class Boolean2 {
   private constructor() {}
 
-  /** Union of one or more polygons (holes use clockwise winding). */
-  static union(polygons: readonly Polygon2[], options: Boolean2Options = {}): Boolean2Result {
+  /** Union of one or more shapes (holes use clockwise winding). */
+  static union(polygons: readonly Boolean2Shape[], options: Boolean2Options = {}): Boolean2Result {
+    // `polygons` keeps its name (recorded definitions refer to it); it takes any `Boolean2Shape`.
     if (polygons.length === 0) return emptyResult(options);
-
-    const winding = new WindingIndex(polygons);
-    const rule = options.fillRule ?? 'nonZero';
-    return runBoolean({
-      sources: polygons,
-      keep: (point) => winding.contains(point, rule),
+    const arcs = arcHandling(polygons, options);
+    if (arcs === 'exact') return exactBoolean('union', polygons, [], options);
+    return polygonUnion(
+      polygons.map((shape) => asPolygon(shape, arcs)),
       options,
-    });
+    );
   }
 
   /**
@@ -54,7 +75,7 @@ export class Boolean2 {
    * a clockwise polygon outside every counter-clockwise one is a solid region of its own.
    */
   static intersect(
-    subject: readonly Polygon2[],
+    subject: readonly Boolean2Shape[],
     clips: Boolean2ClipInput,
     options: Boolean2Options = {},
   ): Boolean2Result {
@@ -66,7 +87,7 @@ export class Boolean2 {
    * Clip polygons group into regions with holes exactly as for {@link intersect}.
    */
   static subtract(
-    subject: readonly Polygon2[],
+    subject: readonly Boolean2Shape[],
     clips: Boolean2ClipInput,
     options: Boolean2Options = {},
   ): Boolean2Result {
@@ -74,12 +95,117 @@ export class Boolean2 {
   }
 }
 
+function polygonUnion(polygons: readonly Polygon2[], options: Boolean2Options): Boolean2Result {
+  const winding = new WindingIndex(polygons);
+  const rule = options.fillRule ?? 'nonZero';
+  return runBoolean({
+    sources: polygons,
+    keep: (point) => winding.contains(point, rule),
+    options,
+  });
+}
+
+/** Whether any shape has an arc (a circle always does). */
+function hasArcs(shape: Boolean2Clip): boolean {
+  if (shape.type === 'Circle2') return true;
+  if (shape.type === 'ArcPolygon2') return shape.sagittas.some((s) => s !== 0);
+  return false;
+}
+
+/** `null`: no arcs (the polygon path); `'exact'`; or the chord tolerance for the approximate path. */
+function arcHandling(shapes: readonly Boolean2Clip[], options: Boolean2Options): null | 'exact' | number {
+  if (!shapes.some(hasArcs)) return null;
+  const arcs = options.arcs ?? { mode: 'exact' };
+  if (arcs.mode === 'approximate') {
+    if (!(arcs.chordTolerance > 0)) throw new Error('Boolean2: arcs.chordTolerance must be positive');
+    return arcs.chordTolerance;
+  }
+  if (options.mesh) {
+    throw new Error("Boolean2: a mesh needs straight edges; use arcs: { mode: 'approximate', chordTolerance }");
+  }
+  return 'exact';
+}
+
+/** A shape as a polygon: arcs replaced by chords within `chordTolerance` (when `null`, it has none). */
+function asPolygon(shape: Boolean2Shape, chordTolerance: number | null): Polygon2 {
+  if (shape.type === 'Polygon2') return shape;
+  const region = shape.type === 'Circle2' ? ArcPolygon2.fromCircle2(shape) : shape;
+  return chordTolerance === null ? new Polygon2([...region.vertices]) : region.toPolygon(chordTolerance);
+}
+
+function asRegion(shape: Boolean2Shape): ArcPolygon2 {
+  if (shape.type === 'ArcPolygon2') return shape;
+  return shape.type === 'Circle2' ? ArcPolygon2.fromCircle2(shape) : ArcPolygon2.fromPolygon(shape);
+}
+
+/** Exact booleans with arcs: classify the pieces of every boundary by the same inside rules as the polygon path. */
+function exactBoolean(
+  mode: 'union' | ClipMode,
+  subject: readonly Boolean2Shape[],
+  clips: readonly Boolean2Clip[],
+  options: Boolean2Options,
+): Boolean2Result {
+  const slack = options.slack ?? Epsilon.preferIn;
+  slack.isPositive('operations - Boolean2', 'run');
+  const rule = options.fillRule ?? 'nonZero';
+  const subjectRegions = subject.map(asRegion);
+  const halfPlanes = clips.filter((clip): clip is InfiniteLine2 => clip.type === 'InfiniteLine2');
+  const clipRegions = clips.filter((clip): clip is Boolean2Shape => clip.type !== 'InfiniteLine2').map(asRegion);
+  const groups = groupClipRegions(clipRegions).map(({ outer, holes }) => [outer, ...holes]);
+  const insideLoops = (loops: readonly ArcPolygon2[], point: Vec2) =>
+    insideByRule(
+      loops.reduce((sum, loop) => sum + loop.windingNumber(point), 0),
+      rule,
+    );
+
+  const inside = (point: Vec2): boolean => {
+    if (!insideLoops(subjectRegions, point)) return false;
+    if (mode === 'union') return true;
+    const inPlane = (plane: InfiniteLine2) => plane.signedDistance(point) <= 0;
+    return mode === 'intersect'
+      ? halfPlanes.every(inPlane) && groups.every((group) => insideLoops(group, point))
+      : !halfPlanes.some(inPlane) && !groups.some((group) => insideLoops(group, point));
+  };
+
+  const regions = [...subjectRegions, ...clipRegions];
+  const boundaries: CurveSegment2[] = regions.flatMap((region) => region.segments());
+  if (halfPlanes.length > 0) {
+    const bounds = workingBounds(regions);
+    for (const plane of halfPlanes) {
+      const segment = lineInBox(plane, bounds);
+      if (segment) boundaries.push(segment);
+    }
+  }
+  return { polygons: [], regions: exactCurveBoolean(boundaries, inside, slack) };
+}
+
+/** The part of an infinite line inside a box, or `null` when it misses. */
+function lineInBox(line: InfiniteLine2, box: Aabb2): Line2 | null {
+  const { through, direction } = line;
+  let t0 = -Infinity;
+  let t1 = Infinity;
+  for (const [origin, delta, min, max] of [
+    [through.x, direction.x, box.x.min, box.x.max],
+    [through.y, direction.y, box.y.min, box.y.max],
+  ] as const) {
+    if (delta === 0) {
+      if (origin < min || origin > max) return null;
+      continue;
+    }
+    const a = (min - origin) / delta;
+    const b = (max - origin) / delta;
+    t0 = Math.max(t0, Math.min(a, b));
+    t1 = Math.min(t1, Math.max(a, b));
+  }
+  return t1 > t0 ? new Line2(line.evaluate(t0), line.evaluate(t1)) : null;
+}
+
 function asBoolean2ClipList(clips: Boolean2ClipInput): readonly Boolean2Clip[] {
   return Array.isArray(clips) ? clips : [clips as Boolean2Clip];
 }
 
 function clipBoolean(
-  subject: readonly Polygon2[],
+  subject: readonly Boolean2Shape[],
   clips: Boolean2ClipInput,
   options: Boolean2Options,
   mode: ClipMode,
@@ -89,12 +215,18 @@ function clipBoolean(
   const clipList = asBoolean2ClipList(clips);
   if (clipList.length === 0) return Boolean2.union(subject, options);
 
-  const { halfPlanes, polygons: clipPolygons } = partitionClips(clipList);
+  const arcs = arcHandling([...subject, ...clipList], options);
+  if (arcs === 'exact') return exactBoolean(mode, subject, clipList, options);
+  const chordTolerance = arcs;
+  const subjectPolygons = subject.map((shape) => asPolygon(shape, chordTolerance));
+  const { halfPlanes, polygons: clipPolygons } = partitionClips(
+    clipList.map((clip) => (clip.type === 'InfiniteLine2' ? clip : asPolygon(clip, chordTolerance))),
+  );
   const clipRegions = groupClipRegions(clipPolygons).map(({ outer, holes }) => new WindingIndex([outer, ...holes]));
-  const subjectWinding = new WindingIndex(subject);
+  const subjectWinding = new WindingIndex(subjectPolygons);
   const rule = options.fillRule ?? 'nonZero';
   const slack = options.slack ?? Epsilon.preferIn;
-  const sources = [...subject, ...clipPolygons];
+  const sources = [...subjectPolygons, ...clipPolygons];
 
   return runBoolean({
     sources,
@@ -111,7 +243,7 @@ function clipBoolean(
   });
 }
 
-function partitionClips(clips: readonly Boolean2Clip[]): {
+function partitionClips(clips: readonly (InfiniteLine2 | Polygon2)[]): {
   halfPlanes: InfiniteLine2[];
   polygons: Polygon2[];
 } {
@@ -124,15 +256,21 @@ function partitionClips(clips: readonly Boolean2Clip[]): {
   return { halfPlanes, polygons };
 }
 
-/** A clip polygon with the clockwise clip polygons that are its holes. */
-type ClipRegion = { outer: Polygon2; holes: Polygon2[] };
+/** A clip shape with the clockwise clip shapes that are its holes. */
+type ClipRegion<T> = { outer: T; holes: T[] };
+type Loop = {
+  readonly vertices: readonly Vec2[];
+  signedArea(): number;
+  area(): number;
+  containsPoint(point: Vec2): boolean;
+};
 
 /**
  * Attach each clockwise clip polygon to the smallest counter-clockwise clip polygon containing it.
  * Clockwise polygons inside no counter-clockwise one stay solid regions on their own.
  */
-function groupClipRegions(polygons: readonly Polygon2[]): ClipRegion[] {
-  const regions: ClipRegion[] = polygons
+function groupClipRegions<T extends Loop>(polygons: readonly T[]): ClipRegion<T>[] {
+  const regions: ClipRegion<T>[] = polygons
     .filter((polygon) => polygon.signedArea() >= 0)
     .map((outer) => ({ outer, holes: [] }));
   const byArea = [...regions].sort((a, b) => a.outer.area() - b.outer.area());
@@ -228,7 +366,7 @@ function keepTriangles(
   return corners.subarray(0, kept);
 }
 
-function workingBounds(polygons: readonly Polygon2[]): Aabb2 {
+function workingBounds(polygons: readonly { aabb2(): Aabb2 }[]): Aabb2 {
   const aabb = Aabb2.union(...polygons.map((polygon) => polygon.aabb2()));
   const margin = Math.max(aabb.width(), aabb.height(), 1) * 0.1;
   return Aabb2.fromMinMax(

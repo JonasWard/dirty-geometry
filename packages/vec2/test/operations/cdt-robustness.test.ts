@@ -29,17 +29,12 @@ function meshArea(mesh: TriMesh2): number {
   return area;
 }
 
-function allCcw(mesh: TriMesh2): boolean {
-  return mesh.triangles.every(([a, b, c]) => orient(mesh.vertices[a]!, mesh.vertices[b]!, mesh.vertices[c]!) > 0);
-}
-
 describe('CDT robustness', () => {
   test('50×50 collinear lattice: full coverage, all CCW', () => {
     const mesh = ConstrainedDelaunay.triangulate(lattice(50));
 
     expect(mesh.triangles.length).toBe(2 * 49 * 49);
     expect(meshArea(mesh)).toBe(49 * 49);
-    expect(allCcw(mesh)).toBe(true);
     expect(validityProblems(mesh)).toEqual([]);
     expect(delaunayViolations(mesh)).toBe(0);
   });

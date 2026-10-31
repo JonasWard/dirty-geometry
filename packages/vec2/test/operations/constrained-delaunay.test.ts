@@ -11,20 +11,8 @@ import {
   cdtShapeScenarios,
 } from '../../examples/constrained-delaunay/scenarios';
 import { expectClose } from '../testHelpers';
-
-function edgeSet(triangles: readonly (readonly [number, number, number])[]): Set<string> {
-  const edges = new Set<string>();
-  for (const [a, b, c] of triangles) {
-    edges.add(key(a, b));
-    edges.add(key(b, c));
-    edges.add(key(c, a));
-  }
-  return edges;
-}
-
-function key(a: number, b: number): string {
-  return a < b ? `${a}:${b}` : `${b}:${a}`;
-}
+import { constraintEdge } from '../../src/operations/helpers/constraint-edge';
+import { constraintChain, meshEdges, validityProblems } from './cdt-checks';
 
 function triangleArea(a: Vec2, b: Vec2, c: Vec2): number {
   return 0.5 * Math.abs(Vec2.orient(a, b, c));
@@ -32,24 +20,6 @@ function triangleArea(a: Vec2, b: Vec2, c: Vec2): number {
 
 function near(a: Vec2, b: Vec2): boolean {
   return a.distance(b) < Epsilon.value;
-}
-
-/** True if the mesh contains an edge whose endpoints match `from`/`to` geometrically. */
-function meshHasSegment(mesh: TriMesh2, from: Vec2, to: Vec2): boolean {
-  for (const [a, b, c] of mesh.triangles) {
-    for (const [u, v] of [
-      [a, b],
-      [b, c],
-      [c, a],
-    ] as [number, number][]) {
-      const p = mesh.vertices[u]!;
-      const q = mesh.vertices[v]!;
-      if ((near(p, from) && near(q, to)) || (near(p, to) && near(q, from))) {
-        return true;
-      }
-    }
-  }
-  return false;
 }
 
 type ShapeInput = { kind: 'polyline'; shape: Polyline2 } | { kind: 'polygon'; shape: Polygon2 };
@@ -71,77 +41,23 @@ function constrainedDelaunayFromShapes(
   };
 }
 
+/** Is `from → to` a single mesh edge? */
+function meshHasSegment(mesh: TriMesh2, from: Vec2, to: Vec2): boolean {
+  return constraintChain(mesh, from, to)?.length === 1;
+}
+
+/** Is `from → to` covered by mesh edges (one, or a chain split at vertices on it)? */
+function meshHasSplitConstraint(mesh: TriMesh2, from: Vec2, to: Vec2): boolean {
+  return constraintChain(mesh, from, to) !== null;
+}
+
 function expectAllSegmentsPresent(mesh: TriMesh2, segments: { from: Vec2; to: Vec2 }[]): void {
-  for (const segment of segments) {
-    const present =
-      meshHasSegment(mesh, segment.from, segment.to) || meshHasSplitConstraint(mesh, segment.from, segment.to);
-    expect(present).toBe(true);
-  }
+  for (const segment of segments) expect(meshHasSplitConstraint(mesh, segment.from, segment.to)).toBe(true);
 }
 
-function segmentsProperlyIntersect(a: Vec2, b: Vec2, c: Vec2, d: Vec2): boolean {
-  const o1 = Vec2.orient(a, b, c);
-  const o2 = Vec2.orient(a, b, d);
-  const o3 = Vec2.orient(c, d, a);
-  const o4 = Vec2.orient(c, d, b);
-
-  return (
-    Math.sign(o1) !== Math.sign(o2) &&
-    Math.sign(o3) !== Math.sign(o4) &&
-    Math.abs(o1) > Epsilon.sq &&
-    Math.abs(o2) > Epsilon.sq &&
-    Math.abs(o3) > Epsilon.sq &&
-    Math.abs(o4) > Epsilon.sq
-  );
-}
-
-function meshEdgeCrossings(mesh: TriMesh2): number {
-  const edges: { u: number; v: number; a: Vec2; b: Vec2 }[] = [];
-  for (const [i, j, k] of mesh.triangles) {
-    for (const [u, v] of [
-      [i, j],
-      [j, k],
-      [k, i],
-    ] as [number, number][]) {
-      edges.push({ u, v, a: mesh.vertices[u]!, b: mesh.vertices[v]! });
-    }
-  }
-
-  let crossings = 0;
-  for (let i = 0; i < edges.length; i++) {
-    for (let j = i + 1; j < edges.length; j++) {
-      const e = edges[i]!;
-      const f = edges[j]!;
-      if (e.u === f.u || e.u === f.v || e.v === f.u || e.v === f.v) continue;
-      if (segmentsProperlyIntersect(e.a, e.b, f.a, f.b)) crossings++;
-    }
-  }
-  return crossings;
-}
-
-function maxEdgeUse(mesh: TriMesh2): number {
-  const counts = new Map<string, number>();
-  for (const [a, b, c] of mesh.triangles) {
-    for (const [u, v] of [
-      [a, b],
-      [b, c],
-      [c, a],
-    ] as [number, number][]) {
-      const k = key(u, v);
-      counts.set(k, (counts.get(k) ?? 0) + 1);
-    }
-  }
-  return Math.max(0, ...counts.values());
-}
-
+/** A valid triangulation of the hull: CCW, edge-manifold, every vertex used, no overlap. */
 function expectValidMesh(mesh: TriMesh2): void {
-  expect(meshEdgeCrossings(mesh)).toBe(0);
-  expect(maxEdgeUse(mesh)).toBeLessThanOrEqual(2);
-
-  for (const [a, b, c] of mesh.triangles) {
-    const area = Vec2.orient(mesh.vertices[a]!, mesh.vertices[b]!, mesh.vertices[c]!);
-    expect(area).toBeGreaterThan(Epsilon.sq);
-  }
+  expect(validityProblems(mesh)).toEqual([]);
 }
 
 function expectConstraintsPresent(
@@ -195,9 +111,9 @@ describe('ConstrainedDelaunay', () => {
     const mesh = ConstrainedDelaunay.triangulate([new Vec2(0, 0), new Vec2(1, 0), new Vec2(1, 1), new Vec2(0, 1)]);
 
     expect(mesh.triangles).toHaveLength(2);
-    const edges = edgeSet(mesh.triangles);
-    const hasDiag01 = edges.has(key(0, 2));
-    const hasDiag02 = edges.has(key(1, 3));
+    const edges = meshEdges(mesh.triangles);
+    const hasDiag01 = edges.has(constraintEdge(0, 2));
+    const hasDiag02 = edges.has(constraintEdge(1, 3));
     expect(hasDiag01 !== hasDiag02).toBe(true);
     expectValidMesh(mesh);
   });
@@ -206,9 +122,9 @@ describe('ConstrainedDelaunay', () => {
     const points = [new Vec2(0, 0), new Vec2(1, 0), new Vec2(1, 1), new Vec2(0, 1)];
 
     const mesh = ConstrainedDelaunay.triangulate(points, [[1, 3]]);
-    const edges = edgeSet(mesh.triangles);
+    const edges = meshEdges(mesh.triangles);
 
-    expect(edges.has(key(1, 3))).toBe(true);
+    expect(edges.has(constraintEdge(1, 3))).toBe(true);
     expect(mesh.triangles).toHaveLength(2);
     expectValidMesh(mesh);
   });
@@ -216,7 +132,7 @@ describe('ConstrainedDelaunay', () => {
   test('square with reversed constraint indices still forces the edge', () => {
     const points = [new Vec2(0, 0), new Vec2(2, 0), new Vec2(2, 2), new Vec2(0, 2)];
     const mesh = ConstrainedDelaunay.triangulate(points, [[3, 1]]);
-    expect(edgeSet(mesh.triangles).has(key(1, 3))).toBe(true);
+    expect(meshEdges(mesh.triangles).has(constraintEdge(1, 3))).toBe(true);
     expectValidMesh(mesh);
   });
 
@@ -227,7 +143,7 @@ describe('ConstrainedDelaunay', () => {
       [2, 0],
       [0, 2],
     ]);
-    expect(edgeSet(mesh.triangles).has(key(0, 2))).toBe(true);
+    expect(meshEdges(mesh.triangles).has(constraintEdge(0, 2))).toBe(true);
     expect(mesh.triangles).toHaveLength(2);
     expectValidMesh(mesh);
   });
@@ -247,7 +163,7 @@ describe('ConstrainedDelaunay', () => {
 
   test('constraint that is already a hull edge stays present', () => {
     const mesh = ConstrainedDelaunay.triangulate([new Vec2(0, 0), new Vec2(2, 0), new Vec2(1, 1)], [[0, 1]]);
-    expect(edgeSet(mesh.triangles).has(key(0, 1))).toBe(true);
+    expect(meshEdges(mesh.triangles).has(constraintEdge(0, 1))).toBe(true);
   });
 
   test('interior point is connected', () => {
@@ -297,10 +213,10 @@ describe('ConstrainedDelaunay', () => {
     ];
 
     const mesh = ConstrainedDelaunay.triangulate(points, constraints);
-    const edges = edgeSet(mesh.triangles);
+    const edges = meshEdges(mesh.triangles);
 
     for (const [a, b] of constraints) {
-      expect(edges.has(key(a, b))).toBe(true);
+      expect(edges.has(constraintEdge(a, b))).toBe(true);
     }
     expectValidMesh(mesh);
   });
@@ -312,7 +228,7 @@ describe('ConstrainedDelaunay', () => {
     );
 
     expect(mesh.vertices).toHaveLength(3);
-    expect(edgeSet(mesh.triangles).has(key(0, 1))).toBe(true);
+    expect(meshEdges(mesh.triangles).has(constraintEdge(0, 1))).toBe(true);
     expectValidMesh(mesh);
   });
 
@@ -361,22 +277,22 @@ describe('ConstrainedDelaunay', () => {
       [new Vec2(0, 0), new Vec2(2, 0), new Vec2(1, 0), new Vec2(1, 1)],
       [[0, 1]],
     );
-    const edges = edgeSet(mesh.triangles);
+    const edges = meshEdges(mesh.triangles);
 
-    expect(edges.has(key(0, 2))).toBe(true);
-    expect(edges.has(key(2, 1))).toBe(true);
+    expect(edges.has(constraintEdge(0, 2))).toBe(true);
+    expect(edges.has(constraintEdge(2, 1))).toBe(true);
     expectValidMesh(mesh);
   });
 
   test('splits constraint through several collinear vertices', () => {
     const points = [new Vec2(0, 0), new Vec2(4, 0), new Vec2(1, 0), new Vec2(2, 0), new Vec2(3, 0), new Vec2(2, 2)];
     const mesh = ConstrainedDelaunay.triangulate(points, [[0, 1]]);
-    const edges = edgeSet(mesh.triangles);
+    const edges = meshEdges(mesh.triangles);
 
-    expect(edges.has(key(0, 2))).toBe(true);
-    expect(edges.has(key(2, 3))).toBe(true);
-    expect(edges.has(key(3, 4))).toBe(true);
-    expect(edges.has(key(4, 1))).toBe(true);
+    expect(edges.has(constraintEdge(0, 2))).toBe(true);
+    expect(edges.has(constraintEdge(2, 3))).toBe(true);
+    expect(edges.has(constraintEdge(3, 4))).toBe(true);
+    expect(edges.has(constraintEdge(4, 1))).toBe(true);
     expectValidMesh(mesh);
   });
 
@@ -870,8 +786,7 @@ describe('ConstrainedDelaunay visualisation scenarios', () => {
       expectValidMesh(mesh);
 
       for (const segment of scenario.constraintSegments) {
-        const present =
-          meshHasSegment(mesh, segment.from, segment.to) || meshHasSplitConstraint(mesh, segment.from, segment.to);
+        const present = meshHasSplitConstraint(mesh, segment.from, segment.to);
         expect(present).toBe(true);
       }
     }
@@ -883,39 +798,9 @@ describe('ConstrainedDelaunay visualisation scenarios', () => {
       expectValidMesh(mesh);
 
       for (const segment of scenario.constraintSegments) {
-        const present =
-          meshHasSegment(mesh, segment.from, segment.to) || meshHasSplitConstraint(mesh, segment.from, segment.to);
+        const present = meshHasSplitConstraint(mesh, segment.from, segment.to);
         expect(present).toBe(true);
       }
     }
   });
 });
-
-/** True if from→to is covered by a chain of collinear mesh edges. */
-function meshHasSplitConstraint(mesh: TriMesh2, from: Vec2, to: Vec2): boolean {
-  if (meshHasSegment(mesh, from, to)) return true;
-
-  const ab = to.subtract(from);
-  const abLenSq = ab.dot(ab);
-  if (abLenSq < Epsilon.sq) return near(from, to);
-
-  const onSegment = (p: Vec2): boolean => {
-    const ap = p.subtract(from);
-    if (Math.abs(ap.crossProduct(ab)) > Epsilon.value * Math.sqrt(abLenSq)) return false;
-    const t = ap.dot(ab) / abLenSq;
-    return t >= -Epsilon.value && t <= 1 + Epsilon.value;
-  };
-
-  const verticesOn = mesh.vertices
-    .map((v, index) => ({ v, index, t: v.subtract(from).dot(ab) / abLenSq }))
-    .filter(({ v }) => onSegment(v))
-    .sort((a, b) => a.t - b.t);
-
-  for (let i = 0; i < verticesOn.length - 1; i++) {
-    const a = verticesOn[i]!;
-    const b = verticesOn[i + 1]!;
-    if (!meshHasSegment(mesh, a.v, b.v)) return false;
-  }
-
-  return verticesOn.length >= 2 && near(verticesOn[0]!.v, from) && near(verticesOn.at(-1)!.v, to);
-}

@@ -3,10 +3,14 @@ import { Interval2 } from '../bounds/interval2';
 import { assertNever } from '../core/assert';
 import { Epsilon } from '../core/epsilon';
 import { Vec2 } from '../core/vec2';
+import { segmentIntersections, type CurveSegment2 } from '../geometry/curves/arc-intersections';
+import type { ArcPolyline2 } from '../geometry/curves/arc-polyline2';
 import type { Polyline2 } from '../geometry/curves/polyline2';
+import type { Arc2 } from '../geometry/primitives/arc2';
 import type { InfiniteLine2 } from '../geometry/primitives/infinite-line2';
 import { Line2 } from '../geometry/primitives/line2';
 import type { Ray2 } from '../geometry/primitives/ray2';
+import { ArcPolygon2 } from '../geometry/regions/arc-polygon2';
 import type { Circle2 } from '../geometry/regions/circle2';
 import type { Container2, Geometry2 } from '../geometry/kinds';
 import type { Hesse2 } from '../geometry/primitives/hesse2';
@@ -92,6 +96,10 @@ function overlapPair(a: NormalisedGeometry2, b: NormalisedGeometry2, slack: Epsi
     return overlapsCurves(a, b, slack);
   }
 
+  if (isArcKind(a) || isArcKind(b)) {
+    return overlapsWithArcs(a, b, slack);
+  }
+
   if (a.type === 'Circle2') {
     return overlapsCircle(a, b, slack);
   }
@@ -114,7 +122,13 @@ function overlapsPoint(point: Vec2, other: NormalisedGeometry2, slack: Epsilon):
     return withinDistance(point.distance(other), slack);
   }
 
-  if (other.type === 'Line2' || other.type === 'Polyline2' || other.type === 'Ray2') {
+  if (
+    other.type === 'Line2' ||
+    other.type === 'Polyline2' ||
+    other.type === 'Ray2' ||
+    other.type === 'Arc2' ||
+    other.type === 'ArcPolyline2'
+  ) {
     return withinDistance(other.distanceToPoint(point), slack);
   }
 
@@ -249,6 +263,10 @@ function overlapsHalfPlane(plane: InfiniteLine2, other: NormalisedGeometry2, sla
     case 'Polygon2':
     case 'TriMesh2':
       return verticesOf(other).some((vertex) => inside(plane.signedDistance(vertex), slack));
+    case 'Arc2':
+    case 'ArcPolyline2':
+    case 'ArcPolygon2':
+      return curveEdgesOf(other).some((edge) => inside(lowestSignedDistance(plane, edge), slack));
     default:
       return assertNever(other, 'Overlap2: unknown geometry');
   }
@@ -465,4 +483,111 @@ function edgesOf(geometry: Geometry2): Line2[] {
   }
 
   return [];
+}
+
+type ArcKind2 = Arc2 | ArcPolyline2 | ArcPolygon2;
+
+function isArcKind(geometry: Geometry2): geometry is ArcKind2 {
+  return geometry.type === 'Arc2' || geometry.type === 'ArcPolyline2' || geometry.type === 'ArcPolygon2';
+}
+
+/** Geometries with an interior: a point of the other geometry inside one means overlap. */
+function isFilled(geometry: Geometry2): geometry is Circle2 | Polygon2 | ArcPolygon2 | TriMesh2 | Aabb2 {
+  return (
+    geometry.type === 'Circle2' ||
+    geometry.type === 'Polygon2' ||
+    geometry.type === 'ArcPolygon2' ||
+    geometry.type === 'TriMesh2' ||
+    geometry.type === 'Aabb2'
+  );
+}
+
+/**
+ * Overlap where either side has arcs: some boundary or curve edges meet, or a point of one lies in the
+ * other's interior. With negative slack, touching edges do not count; only a proper crossing does.
+ */
+function overlapsWithArcs(a: NormalisedGeometry2, b: NormalisedGeometry2, slack: Epsilon): boolean {
+  const edgesA = curveEdgesOf(a);
+  const edgesB = curveEdgesOf(b);
+  for (const edgeA of edgesA) {
+    for (const edgeB of edgesB) {
+      for (const hit of segmentIntersections(edgeA, edgeB, Epsilon.preferIn)) {
+        if (slack.value >= 0 || properlyCrosses(edgeA, edgeB, hit, slack)) return true;
+      }
+    }
+  }
+
+  if (isFilled(b) && pointsOf(a).some((point) => pointInFilled(b, point, slack))) return true;
+  if (isFilled(a) && pointsOf(b).some((point) => pointInFilled(a, point, slack))) return true;
+  return false;
+}
+
+function pointInFilled(
+  region: Circle2 | Polygon2 | ArcPolygon2 | TriMesh2 | Aabb2,
+  point: Vec2,
+  slack: Epsilon,
+): boolean {
+  return region.type === 'Circle2'
+    ? withinSeparation(region.signedDistance(point), slack)
+    : pointInContainer(region, point, slack);
+}
+
+/** A crossing away from both segments' ends, where the two directions differ. */
+function properlyCrosses(a: CurveSegment2, b: CurveSegment2, point: Vec2, slack: Epsilon): boolean {
+  const tolerance = Math.abs(slack.value);
+  if ([a.from, a.to, b.from, b.to].some((end) => end.distance(point) <= tolerance)) return false;
+  const direction = (segment: CurveSegment2) =>
+    segment.type === 'Arc2' ? segment.tangent(segment.closestParameterForPoint(point)) : segment.direction().unit();
+  return Math.abs(direction(a).crossProduct(direction(b))) > tolerance;
+}
+
+/** Straight and circular edges: curves and boundaries, a circle as two half arcs, a box as four sides. */
+function curveEdgesOf(geometry: NormalisedGeometry2): CurveSegment2[] {
+  switch (geometry.type) {
+    case 'Arc2':
+      return [geometry];
+    case 'ArcPolyline2':
+    case 'ArcPolygon2':
+      return geometry.segments();
+    case 'Circle2':
+      return geometry.radius > Epsilon.value ? ArcPolygon2.fromCircle2(geometry).segments() : [];
+    case 'Aabb2':
+      return geometry.isInfinite() ? [] : [...Polygon2.fromAabb2(geometry).segments()];
+    default:
+      return edgesOf(geometry);
+  }
+}
+
+/** Points that lie on a geometry, enough to find it inside a region that none of its edges meet. */
+function pointsOf(geometry: NormalisedGeometry2): Vec2[] {
+  switch (geometry.type) {
+    case 'Arc2':
+      return [geometry.from];
+    case 'ArcPolyline2':
+    case 'ArcPolygon2':
+      return [geometry.vertices[0]!];
+    case 'Circle2':
+      return [geometry.center];
+    case 'Aabb2':
+      return geometry.isInfinite() ? [] : geometry.corners();
+    default:
+      return verticesOf(geometry);
+  }
+}
+
+/** Smallest signed distance from the half-plane's boundary over a segment: at an end, or an arc's lowest point. */
+function lowestSignedDistance(plane: InfiniteLine2, segment: CurveSegment2): number {
+  let lowest = Math.min(plane.signedDistance(segment.from), plane.signedDistance(segment.to));
+  if (segment.type === 'Arc2') {
+    const centre = segment.centre();
+    const base = plane.signedDistance(centre);
+    const down = new Vec2(
+      base - plane.signedDistance(centre.add(Vec2.baseX())),
+      base - plane.signedDistance(centre.add(Vec2.baseY())),
+    );
+    if (!down.isZeroLength() && segment.containsAngle(Math.atan2(down.y, down.x))) {
+      lowest = Math.min(lowest, plane.signedDistance(centre.add(down.unit().scale(segment.radius()))));
+    }
+  }
+  return lowest;
 }

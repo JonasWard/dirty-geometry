@@ -3,6 +3,7 @@ import type { GeometryDisplayContext } from '../context';
 import { dispatchByType, type DispatchTable } from '../dispatch';
 import type { FillDisplay } from '../types';
 import { createAabb2Fill } from './aabb2';
+import { createArcPolygon2Fill } from './arc-polygon2';
 import { createCircle2Fill } from './circle2';
 import { createInfiniteLine2Fill } from './infinite-line2';
 import { createPolygon2Fill } from './polygon2';
@@ -11,6 +12,7 @@ import { createTriMesh2Fill } from './tri-mesh2';
 export const FILL_CREATORS = {
   Circle2: createCircle2Fill,
   Polygon2: createPolygon2Fill,
+  ArcPolygon2: createArcPolygon2Fill,
   InfiniteLine2: createInfiniteLine2Fill,
   Aabb2: createAabb2Fill,
   TriMesh2: createTriMesh2Fill,

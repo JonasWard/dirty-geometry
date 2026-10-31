@@ -3,11 +3,14 @@ import { Interval2 } from '../bounds/interval2';
 import { assertNever } from '../core/assert';
 import { Epsilon } from '../core/epsilon';
 import { Vec2 } from '../core/vec2';
+import { segmentIntersections, type CurveSegment2 } from '../geometry/curves/arc-intersections';
+import type { Arc2 } from '../geometry/primitives/arc2';
 import type { InfiniteLine2 } from '../geometry/primitives/infinite-line2';
 import { Line2 } from '../geometry/primitives/line2';
 import type { Ray2 } from '../geometry/primitives/ray2';
 import type { Circle2 } from '../geometry/regions/circle2';
 import type { Container2, Geometry2 } from '../geometry/kinds';
+import type { ArcPolygon2 } from '../geometry/regions/arc-polygon2';
 import { Polygon2 } from '../geometry/regions/polygon2';
 import type { TriMesh2 } from '../geometry/regions/tri-mesh2';
 
@@ -81,6 +84,17 @@ export class Contains2 {
       case 'Polyline2':
       case 'Polygon2':
         return Contains2.linesIn(container, geometry.segments(), slack);
+      case 'Arc2':
+        return Contains2.arcIn(container, geometry, slack);
+      case 'ArcPolyline2':
+      case 'ArcPolygon2':
+        return geometry
+          .segments()
+          .every((segment) =>
+            segment.type === 'Arc2'
+              ? Contains2.arcIn(container, segment, slack)
+              : Contains2.lineIn(container, segment, slack),
+          );
       case 'TriMesh2':
         return Contains2.triMeshIn(container, geometry, slack);
       default:
@@ -101,7 +115,49 @@ export class Contains2 {
       return segmentStaysIn(container, line.from, line.to, slack);
     }
 
+    if (container.type === 'ArcPolygon2') {
+      return piecesStayIn(container, line, slack);
+    }
+
     return true;
+  }
+
+  /**
+   * Both ends inside, and: for a convex container, the arc's farthest point towards the boundary
+   * (when it lies within the sweep); otherwise every piece between boundary crossings.
+   */
+  private static arcIn(container: Container2, arc: Arc2, slack: Epsilon): boolean {
+    if (!Contains2.pointIn(container, arc.from, slack) || !Contains2.pointIn(container, arc.to, slack)) {
+      return false;
+    }
+
+    const supportIn = (direction: Vec2): boolean => {
+      if (direction.isZeroLength() || !arc.containsAngle(Math.atan2(direction.y, direction.x))) return true;
+      return Contains2.pointIn(container, arc.centre().add(direction.unit().scale(arc.radius())), slack);
+    };
+
+    switch (container.type) {
+      case 'InfiniteLine2': {
+        // signedDistance is linear: its gradient points out of the half-plane.
+        const centre = arc.centre();
+        const base = container.signedDistance(centre);
+        const gradient = new Vec2(
+          container.signedDistance(centre.add(Vec2.baseX())) - base,
+          container.signedDistance(centre.add(Vec2.baseY())) - base,
+        );
+        return supportIn(gradient);
+      }
+      case 'Circle2':
+        return supportIn(arc.centre().subtract(container.center));
+      case 'Aabb2':
+        return [Vec2.baseX(), Vec2.baseY(), Vec2.baseX().negate(), Vec2.baseY().negate()].every(supportIn);
+      case 'Polygon2':
+      case 'ArcPolygon2':
+      case 'TriMesh2':
+        return piecesStayIn(container, arc, slack);
+      default:
+        return assertNever(container, 'Contains2: unknown container');
+    }
   }
 
   private static linesIn(container: Container2, segments: Iterable<Line2>, slack: Epsilon): boolean {
@@ -123,7 +179,12 @@ export class Contains2 {
       return inside(container.signedDistance(circle.center) + circle.radius, slack);
     }
 
-    if (container.type === 'Polygon2' || container.type === 'TriMesh2' || container.type === 'Aabb2') {
+    if (
+      container.type === 'Polygon2' ||
+      container.type === 'ArcPolygon2' ||
+      container.type === 'TriMesh2' ||
+      container.type === 'Aabb2'
+    ) {
       if (!Contains2.pointIn(container, circle.center, slack)) {
         const onBoundary =
           slack.value > 0 &&
@@ -262,7 +323,7 @@ function inside(value: number, slack: Epsilon, inverted = false): boolean {
   return signedSlack < 0 ? value < signedSlack : value <= signedSlack;
 }
 
-function clearanceAt(container: Polygon2 | TriMesh2 | Aabb2, point: Vec2): number {
+function clearanceAt(container: Polygon2 | ArcPolygon2 | TriMesh2 | Aabb2, point: Vec2): number {
   if (container.type === 'Aabb2') {
     return -container.signedDistance(point);
   }
@@ -312,4 +373,27 @@ function segmentsProperlyIntersect(a: Vec2, b: Vec2, c: Vec2, d: Vec2, slack: Ep
     Math.abs(o3) > eps &&
     Math.abs(o4) > eps
   );
+}
+
+/**
+ * A guest segment stays in a non-convex container when every piece between its boundary hits has its
+ * midpoint inside. This handles crossings and tangencies alike; with negative slack any hit fails.
+ */
+function piecesStayIn(container: Polygon2 | ArcPolygon2 | TriMesh2, guest: CurveSegment2, slack: Epsilon): boolean {
+  const boundary: CurveSegment2[] =
+    container.type === 'TriMesh2' ? meshBoundarySegments(container) : [...container.segments()];
+  const parameters = [0, 1];
+  for (const edge of boundary) {
+    for (const hit of segmentIntersections(guest, edge, Epsilon.preferIn)) {
+      if (slack.value < 0) return false;
+      parameters.push(guest.closestParameterForPoint(hit));
+    }
+  }
+  parameters.sort((a, b) => a - b);
+  for (let i = 1; i < parameters.length; i++) {
+    const [t0, t1] = [parameters[i - 1]!, parameters[i]!];
+    if (t1 - t0 <= 1e-12) continue;
+    if (!pointInsideContainer(container, guest.evaluate((t0 + t1) / 2), slack)) return false;
+  }
+  return true;
 }

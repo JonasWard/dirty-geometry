@@ -6,11 +6,14 @@ import { Epsilon } from '../src/core/epsilon';
 import { Frame2 } from '../src/core/frame2';
 import { Mat3 } from '../src/core/mat3';
 import { Vec2 } from '../src/core/vec2';
+import { ArcPolyline2 } from '../src/geometry/curves/arc-polyline2';
 import { Polyline2 } from '../src/geometry/curves/polyline2';
+import { Arc2 } from '../src/geometry/primitives/arc2';
 import { Hesse2 } from '../src/geometry/primitives/hesse2';
 import { InfiniteLine2 } from '../src/geometry/primitives/infinite-line2';
 import { Line2 } from '../src/geometry/primitives/line2';
 import { Ray2 } from '../src/geometry/primitives/ray2';
+import { ArcPolygon2 } from '../src/geometry/regions/arc-polygon2';
 import { Circle2 } from '../src/geometry/regions/circle2';
 import { Polygon2 } from '../src/geometry/regions/polygon2';
 import { TriMesh2 } from '../src/geometry/regions/tri-mesh2';
@@ -22,6 +25,7 @@ import { GridLine2 } from '../src/grid/regions/grid-line2';
 import { GridPolygon2 } from '../src/grid/regions/grid-polygon2';
 import { GridPolyline2 } from '../src/grid/regions/grid-polyline2';
 import { GridRectangle2 } from '../src/grid/regions/grid-rectangle2';
+import { ArcBoolean2 } from '../src/operations/arc-boolean2';
 import { Boolean2 } from '../src/operations/boolean2';
 import { ConstrainedDelaunay } from '../src/operations/constrained-delaunay';
 import { Contains2 } from '../src/operations/contains2';
@@ -47,6 +51,10 @@ import type { MathJson } from '../src/io/deserialise';
 export const classes = {
   Aabb2,
   Angle,
+  Arc2,
+  ArcBoolean2,
+  ArcPolygon2,
+  ArcPolyline2,
   Axis,
   Boolean2,
   Circle2,
@@ -95,6 +103,10 @@ export const helpers = {
 export {
   Aabb2,
   Angle,
+  Arc2,
+  ArcBoolean2,
+  ArcPolygon2,
+  ArcPolyline2,
   Axis,
   Boolean2,
   Circle2,

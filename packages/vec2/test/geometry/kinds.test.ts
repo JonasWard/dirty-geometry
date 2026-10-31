@@ -1,7 +1,10 @@
 import { describe, expect, test } from 'bun:test';
 import { Aabb2 } from '../../src/bounds/aabb2';
 import { Vec2 } from '../../src/core/vec2';
+import { ArcPolyline2 } from '../../src/geometry/curves/arc-polyline2';
 import { isContainer2, isGeometry2, isLineLike2, isRegion2 } from '../../src/geometry/kinds';
+import { Arc2 } from '../../src/geometry/primitives/arc2';
+import { ArcPolygon2 } from '../../src/geometry/regions/arc-polygon2';
 import { Hesse2 } from '../../src/geometry/primitives/hesse2';
 import { InfiniteLine2 } from '../../src/geometry/primitives/infinite-line2';
 import { Line2 } from '../../src/geometry/primitives/line2';
@@ -23,6 +26,19 @@ describe('geometry type tags', () => {
     expect(isRegion2(line)).toBe(false);
     expect(isContainer2(Aabb2.fromPoints(new Vec2(0, 0), new Vec2(1, 1)))).toBe(true);
     expect(isContainer2(new InfiniteLine2(new Vec2(0, 0), new Vec2(1, 0)))).toBe(true);
+  });
+
+  test('arcs are geometry; an ArcPolygon2 is a region and a container', () => {
+    const arc = new Arc2(new Vec2(0, 0), new Vec2(2, 0), 0.5);
+    const path = new ArcPolyline2([new Vec2(0, 0), new Vec2(2, 0)], [0.5]);
+    const region = ArcPolygon2.fromCircle2(new Circle2(new Vec2(0, 0), 1));
+    expect([arc, path, region].map((g) => g.type)).toEqual(['Arc2', 'ArcPolyline2', 'ArcPolygon2']);
+    expect([arc, path, region].every(isGeometry2)).toBe(true);
+    expect(isGeometry2(arc.toJson())).toBe(false);
+    expect(isLineLike2(arc)).toBe(false);
+    expect(isRegion2(path)).toBe(false);
+    expect(isRegion2(region)).toBe(true);
+    expect(isContainer2(region)).toBe(true);
   });
 
   test('isGeometry2 rejects plain JSON with a geometry type', () => {

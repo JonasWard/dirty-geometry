@@ -16,9 +16,9 @@ Folders are layered. A module may only import from its own layer or a lower one,
 | 0     | `core/epsilon`, `hash/`, `analysis/` | tolerances, spatial hashing, clustering                                                                                                                                                                                  |
 | 1     | `core/`, `bounds/interval2`          | `Vec2`, `Angle`, `Mat3`, `Frame2`, exact predicates, intervals                                                                                                                                                           |
 | 2     | `bounds/aabb2`, `spatial/`           | boxes, vertex dedup                                                                                                                                                                                                      |
-| 3     | `geometry/`                          | primitives (`Line2`, `Ray2`, `InfiniteLine2`, `Hesse2`), curves, regions (`Polygon2`, `Circle2`, `TriMesh2`), type tags and guards in `geometry/kinds`                                                                   |
+| 3     | `geometry/`                          | primitives (`Line2`, `Arc2`, `Ray2`, `InfiniteLine2`, `Hesse2`), curves (`Polyline2`, `ArcPolyline2`), regions (`Polygon2`, `ArcPolygon2`, `Circle2`, `TriMesh2`), type tags and guards in `geometry/kinds` |
 | 4     | `grid/`                              | `Grid2`, axes, cells and grid regions                                                                                                                                                                                    |
-| 5     | `operations/`                        | static-only classes: `Boolean2`, `Contains2`, `Overlap2`, `Intersection2`, `DouglasPeucker`, `ConstrainedDelaunay`, `RectilinearGrid2`; their plumbing (CDT core, constraint edges, grid paths) in `operations/helpers/` |
+| 5     | `operations/`                        | static-only classes: `Boolean2`, `ArcBoolean2` (arcs flattened to chords), `Contains2`, `Overlap2`, `Intersection2`, `DouglasPeucker`, `ConstrainedDelaunay`, `RectilinearGrid2`; their plumbing (CDT core, constraint edges, grid paths) in `operations/helpers/` |
 | 6     | `io/`                                | JSON codecs                                                                                                                                                                                                              |
 | 7     | `recording/`                         | definitions: cells of expressions, their evaluation, recording calls by reflection, migration from version 3 (reads only the generated schema; nothing else imports it)                                                  |
 
@@ -42,6 +42,17 @@ Folders are layered. A module may only import from its own layer or a lower one,
   - `io/default-registry` decodes any of them.
   - Register your own types on a `CodecRegistry` from `io/codec`.
   - ±Infinity is written as `"Infinity"` / `"-Infinity"`.
+
+## Arcs
+
+`Arc2` is the curved counterpart of `Line2`: two end points and a signed **sagitta**, the height of the arc's midpoint above the chord's midpoint along the chord's left normal.
+
+- `sagitta > 0`: the arc bulges left of `from → to` and turns clockwise. `sagitta < 0`: it bulges right and turns counter-clockwise.
+- `|sagitta|` below, at or above half the chord: a minor arc, a half circle or a major arc.
+- Radius, centre, sweep and length are derived on demand. JSON is `{ type: 'Arc2', from, to, sagitta }`.
+- A sagitta within epsilon is straight: `segmentOf(from, to, sagitta, epsilon)` returns a `Line2` or an `Arc2`.
+
+`ArcPolyline2` (open) and `ArcPolygon2` (closed, a region) store vertices plus one sagitta per segment, exactly 0 for a straight one. They offset with mitred joins, slice by arc length, and sample to `Polyline2` / `Polygon2`. `Contains2` and `Overlap2` handle all three exactly; `ArcBoolean2` runs booleans on chord approximations.
 
 ## Constrained Delaunay
 

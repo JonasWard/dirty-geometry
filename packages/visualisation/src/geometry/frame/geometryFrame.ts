@@ -5,6 +5,7 @@ import { fitPointsToFrame, FRAME_CONTENT_MARGIN, FRAME_MAX, FRAME_MIN } from '..
 import { dispatchByType, type DispatchTable } from '../display/dispatch';
 import { lineLikeFramePoints } from '../display/shared/line-like';
 import { circleDisplayPoints } from '../display/shared/circle';
+import { arcChainDisplayPoints } from '../display/shared/arc';
 import { INFINITE_DISPLAY_SCALE, type GeometryFrameOptions } from './constants';
 
 export { INFINITE_DISPLAY_SCALE, type GeometryFrameOptions };
@@ -119,6 +120,9 @@ const FRAME_POINTS = {
   InfiniteLine2: (line, definitionGeometry) => lineLikeFramePoints(line, definitionGeometry),
   Hesse2: (hesse, definitionGeometry) => lineLikeFramePoints(hesse.infiniteLine(), definitionGeometry),
   Circle2: (circle) => circleDisplayPoints(circle),
+  Arc2: (arc) => arcChainDisplayPoints([arc], false),
+  ArcPolyline2: (path) => arcChainDisplayPoints(path.segments(), false),
+  ArcPolygon2: (region) => arcChainDisplayPoints(region.segments(), true),
   Polyline2: (polyline) => polyline.vertices.map((vertex) => vertex.clone()),
   Polygon2: (polygon) => polygon.vertices.map((vertex) => vertex.clone()),
   TriMesh2: (mesh) => mesh.vertices.map((vertex) => vertex.clone()),

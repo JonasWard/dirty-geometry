@@ -4,12 +4,15 @@ import { Interval2, type Interval2Json } from '../bounds/interval2';
 import { Angle, type AngleJson } from '../core/angle';
 import { Mat3, type Mat3Json } from '../core/mat3';
 import { Vec2, type Vec2Json } from '../core/vec2';
+import { ArcPolyline2, type ArcPolyline2Json } from '../geometry/curves/arc-polyline2';
 import { Polyline2, type Polyline2Json } from '../geometry/curves/polyline2';
+import { Arc2, type Arc2Json } from '../geometry/primitives/arc2';
 import { InfiniteLine2, type InfiniteLine2Json } from '../geometry/primitives/infinite-line2';
 import { Hesse2, type Hesse2Json } from '../geometry/primitives/hesse2';
 import { Line2, type Line2Json } from '../geometry/primitives/line2';
 import { Ray2, type Ray2Json } from '../geometry/primitives/ray2';
 import { Circle2, type Circle2Json } from '../geometry/regions/circle2';
+import { ArcPolygon2, type ArcPolygon2Json } from '../geometry/regions/arc-polygon2';
 import { Polygon2, type Polygon2Json } from '../geometry/regions/polygon2';
 import { TriMesh2, type TriMesh2Json } from '../geometry/regions/tri-mesh2';
 import { Frame2, type Frame2Json } from '../core/frame2';
@@ -92,6 +95,35 @@ export function isPolygon2Json(data: unknown): data is Polygon2Json {
     (data as Polygon2Json).type === Polygon2.type &&
     Array.isArray((data as Polygon2Json).vertices)
   );
+}
+
+export function isArc2Json(data: unknown): data is Arc2Json {
+  return (
+    typeof data === 'object' &&
+    data !== null &&
+    (data as Arc2Json).type === Arc2.type &&
+    typeof (data as Arc2Json).sagitta === 'number'
+  );
+}
+
+/** Vertices and one numeric sagitta per segment, as written by `ArcPolyline2` / `ArcPolygon2`. */
+function isArcChainJson(data: unknown, type: string): boolean {
+  if (typeof data !== 'object' || data === null) return false;
+  const chain = data as { type?: unknown; vertices?: unknown; sagittas?: unknown };
+  return (
+    chain.type === type &&
+    Array.isArray(chain.vertices) &&
+    Array.isArray(chain.sagittas) &&
+    chain.sagittas.every((s) => typeof s === 'number')
+  );
+}
+
+export function isArcPolyline2Json(data: unknown): data is ArcPolyline2Json {
+  return isArcChainJson(data, ArcPolyline2.type);
+}
+
+export function isArcPolygon2Json(data: unknown): data is ArcPolygon2Json {
+  return isArcChainJson(data, ArcPolygon2.type);
 }
 
 /** Endpoints are numbers or `null` (unbounded); older `"Infinity"` / `"-Infinity"` strings are accepted too. */

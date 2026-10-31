@@ -20,8 +20,8 @@ import {
   type BuiltConstraintSources,
   type TriangulateGeometries,
 } from './helpers/cdt/sources';
-import { emptyCdtStats, type CdtStats } from './helpers/cdt/stats';
-import { triangulateCorners } from './helpers/cdt/triangulate';
+import type { CdtStats } from './helpers/cdt/stats';
+import { triangulateGeometries, triangulatePacked, type Triangulated } from './helpers/cdt/triangulate';
 
 export type { CdtStats } from './helpers/cdt/stats';
 export type { BuiltConstraintSources, TriangulateGeometries, TriangulateGeometry } from './helpers/cdt/sources';
@@ -60,13 +60,13 @@ export class ConstrainedDelaunay {
   ): ConstrainedDelaunayReport {
     slack.isPositive('operations - ConstrainedDelaunay', 'report');
     assertCdtVertexCount(points.length);
-    return triangulateSources(packIndexed(points, constraints, slack), slack);
+    return toReport(triangulatePacked(packIndexed(points, constraints, slack), slack));
   }
 
   /** Pack input geometries, then triangulate the result. */
   static fromGeometries(geometries: TriangulateGeometries, slack: Epsilon = Epsilon.preferIn): TriMesh2 {
     slack.isPositive('operations - ConstrainedDelaunay', 'fromGeometries');
-    return triangulateSources(collectConstraintSources(geometries, slack), slack).mesh;
+    return toReport(triangulateGeometries(geometries, slack)).mesh;
   }
 
   /**
@@ -80,12 +80,7 @@ export class ConstrainedDelaunay {
   }
 }
 
-/** Triangulate packed sources (points are distinct within slack, constraints are non-crossing). */
-function triangulateSources(
-  { points, constraints }: BuiltConstraintSources,
-  slack: Epsilon,
-): ConstrainedDelaunayReport {
-  const stats = emptyCdtStats();
-  const { corners, unresolved } = triangulateCorners(points, constraints, stats, slack.value);
+/** The facade's result from a triangulation. */
+function toReport({ points, corners, unresolved, stats }: Triangulated): ConstrainedDelaunayReport {
   return { mesh: TriMesh2.fromCorners(points, corners), unresolved, stats };
 }

@@ -5,9 +5,7 @@ import type { InfiniteLine2 } from '../geometry/primitives/infinite-line2';
 import { Polygon2 } from '../geometry/regions/polygon2';
 import { TriMesh2 } from '../geometry/regions/tri-mesh2';
 import { WindingIndex, type FillRule } from '../geometry/regions/winding';
-import { collectConstraintSources } from './helpers/cdt/sources';
-import { emptyCdtStats } from './helpers/cdt/stats';
-import { triangulateCorners } from './helpers/cdt/triangulate';
+import { triangulateGeometries } from './helpers/cdt/triangulate';
 
 export type Boolean2Clip = InfiniteLine2 | Polygon2;
 export type Boolean2ClipInput = Boolean2Clip | readonly Boolean2Clip[];
@@ -185,11 +183,10 @@ type BooleanRun = {
 function runBoolean(run: BooleanRun): Boolean2Result {
   const slack = run.options.slack ?? Epsilon.preferIn;
   slack.isPositive('operations - Boolean2', 'run');
-  const { points, constraints } = collectConstraintSources(
+  const { points, corners, regions, unresolved } = triangulateGeometries(
     [...run.sources, ...(run.bounds ? [Polygon2.fromAabb2(run.bounds)] : []), ...(run.clipLines ?? [])],
     slack,
   );
-  const { corners, regions, unresolved } = triangulateCorners(points, constraints, emptyCdtStats(), slack.value);
   // A missing constraint could join regions across an input edge, so then every triangle decides alone.
   const kept = keepTriangles(points, corners, unresolved.length === 0 ? regions : null, run.keep);
   const filtered = TriMesh2.fromCorners(points, kept);

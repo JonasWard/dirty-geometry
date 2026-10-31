@@ -18,6 +18,8 @@ import { inCircleXY, orientXY } from '../../../core/predicates';
 import type { Vec2 } from '../../../core/vec2';
 import { nextHalfEdge, prevHalfEdge } from '../../../geometry/regions/half-edge';
 import { assertCdtVertexCount, constraintEdgeEndpoints, type ConstraintEdge } from '../constraint-edge';
+import type { Epsilon } from '../../../core/epsilon';
+import { collectConstraintSources, type BuiltConstraintSources, type TriangulateGeometries } from './sources';
 import { emptyCdtStats, type CdtStats } from './stats';
 
 /** Result of {@link triangulateConstrained}. */
@@ -65,6 +67,32 @@ export function triangulateConstrained(
   const triangles: [Index, Index, Index][] = [];
   for (let e = 0; e < corners.length; e += 3) triangles.push([corners[e]!, corners[e + 1]!, corners[e + 2]!]);
   return { triangles, unresolved, stats };
+}
+
+/** Packed points triangulated: flat counter-clockwise corners, region labels, and what could not be done. */
+export type Triangulated = {
+  points: Vec2[];
+  corners: Uint32Array;
+  regions: Uint32Array;
+  unresolved: ConstraintEdge[];
+  stats: CdtStats;
+};
+
+/**
+ * Pack geometries (merge points, split constraints at crossings) and triangulate them.
+ * @internal
+ */
+export function triangulateGeometries(geometries: TriangulateGeometries, slack: Epsilon): Triangulated {
+  return triangulatePacked(collectConstraintSources(geometries, slack), slack);
+}
+
+/**
+ * Triangulate already-packed sources: points distinct within `slack`, constraints non-crossing.
+ * @internal
+ */
+export function triangulatePacked({ points, constraints }: BuiltConstraintSources, slack: Epsilon): Triangulated {
+  const stats = emptyCdtStats();
+  return { points, ...triangulateCorners(points, constraints, stats, slack.value), stats };
 }
 
 /**

@@ -1,6 +1,6 @@
 /** Packed undirected edges between vertex indices, as used by constrained Delaunay. */
 import type { Index } from '../../core/numbers';
-import { dehash2, hash2 } from '../../hash/core';
+import { dehash2, undirectedHash2 } from '../../hash/core';
 
 /** Undirected edge key — same `hash2` convention as TriMesh2. */
 export type ConstraintEdge = Index;
@@ -24,7 +24,7 @@ export function assertCdtVertexCount(count: number): void {
 
 /** Canonical undirected key for the edge between vertex indices `a` and `b`. */
 export function constraintEdge(a: Index, b: Index): ConstraintEdge {
-  return a < b ? hash2(a, b) : hash2(b, a);
+  return undirectedHash2(a, b);
 }
 
 /** Sorted endpoint indices for a packed constraint edge. */

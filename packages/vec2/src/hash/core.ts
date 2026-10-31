@@ -13,6 +13,11 @@ export function hash2(a: number, b: number): number {
   return a * HASH_SCALE_2 + b;
 }
 
+/** `hash2` of `a` and `b` in sorted order: the same key for `a – b` and `b – a` (an undirected edge). */
+export function undirectedHash2(a: number, b: number): number {
+  return a < b ? hash2(a, b) : hash2(b, a);
+}
+
 /** Wrap an integer index into `[0, 2**26)`, the range each half of a `hash2` holds. */
 export function wrapHashIndex(index: number): number {
   return ((index % HASH_SCALE_2) + HASH_SCALE_2) % HASH_SCALE_2;

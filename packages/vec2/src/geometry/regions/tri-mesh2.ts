@@ -1,7 +1,8 @@
 import type { Index, Length } from '../../core/numbers';
 import { Aabb2 } from '../../bounds/aabb2';
 import { Epsilon } from '../../core/epsilon';
-import { dehash2, hash2 } from '../../hash/core';
+import { dehash2, hash2, undirectedHash2 } from '../../hash/core';
+import { nextHalfEdge } from './half-edge';
 import { Vec2, type Vec2Json } from '../../core/vec2';
 import { dedupVertices } from '../../spatial/dedup-vertices';
 import { Line2 } from '../primitives/line2';
@@ -348,8 +349,8 @@ export class TriMesh2 {
     const c = this.corners;
     for (let e = 0; e < c.length; e++) {
       const a = c[e]!;
-      const b = c[e % 3 === 2 ? e - 2 : e + 1]!;
-      if (counts.get(TriMesh2.edgeKey(a, b)) === 1) directed.push([a, b]);
+      const b = c[nextHalfEdge(e)]!;
+      if (counts.get(undirectedHash2(a, b)) === 1) directed.push([a, b]);
     }
     return directed;
   }
@@ -359,14 +360,10 @@ export class TriMesh2 {
     return new Line2(this.vertices[i]!, this.vertices[j]!);
   }
 
-  private static edgeKey(a: number, b: number): number {
-    return a < b ? hash2(a, b) : hash2(b, a);
-  }
-
   private uniqueEdgeIds(): Set<number> {
     const set = new Set<number>();
     const c = this.corners;
-    for (let e = 0; e < c.length; e++) set.add(TriMesh2.edgeKey(c[e]!, c[e % 3 === 2 ? e - 2 : e + 1]!));
+    for (let e = 0; e < c.length; e++) set.add(undirectedHash2(c[e]!, c[nextHalfEdge(e)]!));
     return set;
   }
 
@@ -374,7 +371,7 @@ export class TriMesh2 {
     const counts = new Map<number, number>();
     const c = this.corners;
     for (let e = 0; e < c.length; e++) {
-      const key = TriMesh2.edgeKey(c[e]!, c[e % 3 === 2 ? e - 2 : e + 1]!);
+      const key = undirectedHash2(c[e]!, c[nextHalfEdge(e)]!);
       counts.set(key, (counts.get(key) ?? 0) + 1);
     }
     return counts;

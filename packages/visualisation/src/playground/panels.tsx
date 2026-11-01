@@ -385,7 +385,7 @@ function FunctionRow({
           ✕
         </button>
       </div>
-      <div className='mt-1 flex items-start gap-1 pl-4'>
+      <div className='mt-1 flex min-w-0 items-start gap-1 overflow-x-auto pl-4'>
         <span className='font-mono text-dg-subtle'>return</span>
         <Operand expr={fn.body} slot='unknown' path={[]} ed={ed} />
       </div>
@@ -475,7 +475,7 @@ function CellRow({
       data-reorder-row
       {...drop}
     >
-      <div className='flex items-center gap-2'>
+      <div className='flex flex-wrap items-center gap-2'>
         {reorder.controls(cell.name, index)}
         <NameField name={cell.name} onRename={(to) => edit((d) => ops.rename(d, cell.name, to))} />
         <label
@@ -485,7 +485,7 @@ function CellRow({
           output
           <select
             aria-label={`${cell.name} output type`}
-            className={selectClass}
+            className={`${selectClass} min-w-0`}
             value={cell.output ? (cell.type ?? '') : ''}
             onChange={(e) =>
               edit((d) =>
@@ -513,7 +513,7 @@ function CellRow({
           ✕
         </button>
       </div>
-      <div className='mt-1 flex items-start gap-1'>
+      <div className='mt-1 flex min-w-0 items-start gap-1 overflow-x-auto'>
         <span className='font-mono text-dg-subtle'>=</span>
         <Operand expr={cell.expr} slot={cell.type ? safeType(cell.type) : 'unknown'} path={[]} ed={ed} />
       </div>

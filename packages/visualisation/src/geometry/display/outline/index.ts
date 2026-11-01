@@ -3,6 +3,7 @@ import type { GeometryDisplayContext } from '../context';
 import { dispatchByType, type DispatchTable } from '../dispatch';
 import type { OutlineDisplay } from '../types';
 import { createAabb2Outline } from './aabb2';
+import { createArc2Outline, createArcPolygon2Outline, createArcPolyline2Outline } from './arcs';
 import { createCircle2Outline } from './circle2';
 import { createInfiniteLine2Outline } from './infinite-line2';
 import { createLine2Outline } from './line2';
@@ -18,8 +19,11 @@ export const OUTLINE_CREATORS = {
   Ray2: createRay2Outline,
   InfiniteLine2: createInfiniteLine2Outline,
   Hesse2: (hesse, ctx) => createInfiniteLine2Outline(hesse.infiniteLine(), ctx),
+  Arc2: createArc2Outline,
   Polyline2: createPolyline2Outline,
+  ArcPolyline2: createArcPolyline2Outline,
   Polygon2: createPolygon2Outline,
+  ArcPolygon2: createArcPolygon2Outline,
   Circle2: createCircle2Outline,
   Aabb2: createAabb2Outline,
   TriMesh2: createTriMesh2Outline,

@@ -97,7 +97,8 @@ export class Vec2 {
    * Positive ⇒ CCW / `c` left of `a→b`; negative ⇒ CW / right; near zero ⇒ collinear.
    */
   static orient(a: Vec2, b: Vec2, c: Vec2): number {
-    return b.subtract(a).crossProduct(c.subtract(a));
+    // (b - a) × (c - a), written out so no temporary vectors are allocated.
+    return (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
   }
 
   clone(): Vec2 {

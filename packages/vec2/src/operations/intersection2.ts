@@ -58,7 +58,9 @@ export class Intersection2 {
       .map((segment, index) => {
         const minX = Math.min(segment.from.x, segment.to.x);
         const maxX = Math.max(segment.from.x, segment.to.x);
-        return { index, segment, minX, maxX };
+        const minY = Math.min(segment.from.y, segment.to.y);
+        const maxY = Math.max(segment.from.y, segment.to.y);
+        return { index, segment, minX, maxX, minY, maxY };
       })
       .sort((a, b) => a.minX - b.minX || a.index - b.index);
 
@@ -68,13 +70,15 @@ export class Intersection2 {
 
     for (const current of ordered) {
       // Drop segments that can no longer overlap current in x.
-      for (let i = active.length - 1; i >= 0; i--) {
-        if (active[i]!.maxX + slack.value < current.minX) {
-          active.splice(i, 1);
-        }
+      let kept = 0;
+      for (const prior of active) {
+        if (prior.maxX + slack.value >= current.minX) active[kept++] = prior;
       }
+      active.length = kept;
 
       for (const prior of active) {
+        // Bounding boxes that miss each other (in y) cannot cross; skip the exact test.
+        if (prior.maxY + slack.value < current.minY || current.maxY + slack.value < prior.minY) continue;
         const hit = Intersection2.lines(prior.segment, current.segment);
         if (hit?.type !== 'Vec2') continue;
 

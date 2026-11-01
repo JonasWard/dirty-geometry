@@ -3,11 +3,14 @@ import type { Interval2, Interval2Json } from '../bounds/interval2';
 import type { Angle, AngleJson } from '../core/angle';
 import type { Mat3, Mat3Json } from '../core/mat3';
 import type { Vec2, Vec2Json } from '../core/vec2';
+import type { ArcPolyline2, ArcPolyline2Json } from '../geometry/curves/arc-polyline2';
 import type { Polyline2, Polyline2Json } from '../geometry/curves/polyline2';
+import type { Arc2, Arc2Json } from '../geometry/primitives/arc2';
 import type { InfiniteLine2, InfiniteLine2Json } from '../geometry/primitives/infinite-line2';
 import type { Hesse2, Hesse2Json } from '../geometry/primitives/hesse2';
 import type { Line2, Line2Json } from '../geometry/primitives/line2';
 import type { Ray2, Ray2Json } from '../geometry/primitives/ray2';
+import type { ArcPolygon2, ArcPolygon2Json } from '../geometry/regions/arc-polygon2';
 import type { Circle2, Circle2Json } from '../geometry/regions/circle2';
 import type { Polygon2, Polygon2Json } from '../geometry/regions/polygon2';
 import type { TriMesh2, TriMesh2Json } from '../geometry/regions/tri-mesh2';
@@ -25,6 +28,9 @@ import type { Epsilon, EpsilonJson } from '../core/epsilon';
 import { aabb2Codec, interval2Codec } from './codecs/bounds';
 import { angleCodec, epsilonCodec, frame2Codec, mat3Codec, vec2Codec } from './codecs/core';
 import {
+  arc2Codec,
+  arcPolygon2Codec,
+  arcPolyline2Codec,
   circle2Codec,
   hesse2Codec,
   infiniteLine2Codec,
@@ -54,11 +60,14 @@ export type MathJson =
   | Mat3Json
   | AngleJson
   | Line2Json
+  | Arc2Json
   | Ray2Json
   | InfiniteLine2Json
   | Hesse2Json
   | Polyline2Json
   | Polygon2Json
+  | ArcPolyline2Json
+  | ArcPolygon2Json
   | Interval2Json
   | Aabb2Json
   | TriMesh2Json
@@ -79,11 +88,14 @@ export type MathValue =
   | Mat3
   | Angle
   | Line2
+  | Arc2
   | Ray2
   | InfiniteLine2
   | Hesse2
   | Polyline2
   | Polygon2
+  | ArcPolyline2
+  | ArcPolygon2
   | Interval2
   | Aabb2
   | TriMesh2
@@ -120,11 +132,14 @@ export class Deserialise {
   static interval2 = (data: unknown): Interval2 => interval2Codec.decode(data);
   static aabb2 = (data: unknown): Aabb2 => aabb2Codec.decode(data);
   static line2 = (data: unknown): Line2 => line2Codec.decode(data);
+  static arc2 = (data: unknown): Arc2 => arc2Codec.decode(data);
   static ray2 = (data: unknown): Ray2 => ray2Codec.decode(data);
   static infiniteLine2 = (data: unknown): InfiniteLine2 => infiniteLine2Codec.decode(data);
   static hesse2 = (data: unknown): Hesse2 => hesse2Codec.decode(data);
   static polyline2 = (data: unknown): Polyline2 => polyline2Codec.decode(data);
   static polygon2 = (data: unknown): Polygon2 => polygon2Codec.decode(data);
+  static arcPolyline2 = (data: unknown): ArcPolyline2 => arcPolyline2Codec.decode(data);
+  static arcPolygon2 = (data: unknown): ArcPolygon2 => arcPolygon2Codec.decode(data);
   static circle2 = (data: unknown): Circle2 => circle2Codec.decode(data);
   static triMesh2 = (data: unknown): TriMesh2 => triMesh2Codec.decode(data);
   static gridCell2 = (data: unknown): GridCell2 => gridCell2Codec.decode(data);

@@ -9,6 +9,7 @@ import type { Epsilon } from '../core/epsilon';
 import { Frame2 } from '../core/frame2';
 import { Vec2 } from '../core/vec2';
 import type { Polygon2 } from '../geometry/regions/polygon2';
+import { WindingIndex } from '../geometry/regions/winding';
 import { Axis } from '../grid/core/grid-axis';
 import { GridCell2 } from '../grid/core/grid-cell2';
 import { Grid2 } from '../grid/core/grid2';
@@ -70,9 +71,10 @@ export class RectilinearGrid2 {
     const { grid, extent } = RectilinearGrid2.fromPolygons(sourcePolygons, epsilon);
     const extentCells = extent.toCellCollection();
 
-    const occupiedByPolygon = sourcePolygons.map((polygon) =>
-      extentCells.filter((cell) => polygon.containsPoint(grid.cellWorldCenter(cell))),
-    );
+    const occupiedByPolygon = sourcePolygons.map((polygon) => {
+      const winding = new WindingIndex([polygon]);
+      return extentCells.filter((cell) => winding.contains(grid.cellWorldCenter(cell), 'nonZero'));
+    });
     const occupied =
       occupiedByPolygon.length === 1 ? occupiedByPolygon[0]! : GridCell2Collection.union(...occupiedByPolygon);
 

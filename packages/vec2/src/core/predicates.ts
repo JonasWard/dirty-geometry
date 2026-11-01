@@ -10,7 +10,12 @@ import type { Vec2 } from './vec2';
  * clockwise, 0 when collinear. Same sign convention as `Vec2.orient` (`robust-predicates` uses the opposite).
  */
 export function orient(a: Vec2, b: Vec2, c: Vec2): number {
-  const value = -orient2d(a.x, a.y, b.x, b.y, c.x, c.y);
+  return orientXY(a.x, a.y, b.x, b.y, c.x, c.y);
+}
+
+/** {@link orient} on raw coordinates, for hot loops over typed arrays. */
+export function orientXY(ax: number, ay: number, bx: number, by: number, cx: number, cy: number): number {
+  const value = -orient2d(ax, ay, bx, by, cx, cy);
   return value === 0 ? 0 : value;
 }
 
@@ -19,6 +24,20 @@ export function orient(a: Vec2, b: Vec2, c: Vec2): number {
  * counter-clockwise, negative outside, 0 on it. The sign flips for clockwise `a, b, c`.
  */
 export function inCircle(a: Vec2, b: Vec2, c: Vec2, d: Vec2): number {
-  const value = incircle(a.x, a.y, b.x, b.y, c.x, c.y, d.x, d.y);
+  return inCircleXY(a.x, a.y, b.x, b.y, c.x, c.y, d.x, d.y);
+}
+
+/** {@link inCircle} on raw coordinates, for hot loops over typed arrays. */
+export function inCircleXY(
+  ax: number,
+  ay: number,
+  bx: number,
+  by: number,
+  cx: number,
+  cy: number,
+  dx: number,
+  dy: number,
+): number {
+  const value = incircle(ax, ay, bx, by, cx, cy, dx, dy);
   return value === 0 ? 0 : value;
 }

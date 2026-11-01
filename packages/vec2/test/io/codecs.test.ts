@@ -8,11 +8,14 @@ import { Epsilon } from '../../src/core/epsilon';
 import { Frame2 } from '../../src/core/frame2';
 import { Mat3 } from '../../src/core/mat3';
 import { Vec2 } from '../../src/core/vec2';
+import { ArcPolyline2 } from '../../src/geometry/curves/arc-polyline2';
 import { Polyline2 } from '../../src/geometry/curves/polyline2';
+import { Arc2 } from '../../src/geometry/primitives/arc2';
 import { Hesse2 } from '../../src/geometry/primitives/hesse2';
 import { InfiniteLine2 } from '../../src/geometry/primitives/infinite-line2';
 import { Line2 } from '../../src/geometry/primitives/line2';
 import { Ray2 } from '../../src/geometry/primitives/ray2';
+import { ArcPolygon2 } from '../../src/geometry/regions/arc-polygon2';
 import { Circle2 } from '../../src/geometry/regions/circle2';
 import { Polygon2 } from '../../src/geometry/regions/polygon2';
 import { TriMesh2 } from '../../src/geometry/regions/tri-mesh2';
@@ -47,6 +50,9 @@ const samples: { name: string; value: { toJson(): unknown } }[] = [
   { name: 'Polyline2', value: new Polyline2([V(0, 0), V(1, 0), V(1, 1)]) },
   { name: 'Polygon2', value: new Polygon2([V(0, 0), V(1, 0), V(1, 1)]) },
   { name: 'Circle2', value: new Circle2(V(1, 1), 2) },
+  { name: 'Arc2', value: new Arc2(V(0, 0), V(2, 0), -0.5) },
+  { name: 'ArcPolyline2', value: new ArcPolyline2([V(0, 0), V(2, 0), V(3, 1)], [0, -0.3]) },
+  { name: 'ArcPolygon2', value: new ArcPolygon2([V(0, 0), V(2, 0), V(2, 2), V(0, 2)], [0, -0.5, 0, 0.25]) },
   // Raw mesh with a repeated vertex: decoding must not re-run cleanup.
   {
     name: 'TriMesh2',
@@ -119,6 +125,18 @@ describe('codec registry', () => {
   test('rejects angle JSON without a value (M8)', () => {
     expect(() => Deserialise.angle({ type: 'Angle', domainKind: 'pi' })).toThrow('Invalid Angle JSON');
     expect(() => Deserialise.fromJson({ type: 'Angle', domainKind: 'tau', precision: 1 })).toThrow();
+  });
+
+  test('arc JSON: a straight sagitta is not an Arc2, malformed chains are rejected', () => {
+    expect(() => Deserialise.arc2({ type: 'Arc2', from: V(0, 0).toJson(), to: V(1, 0).toJson(), sagitta: 0 })).toThrow(
+      /Line2/,
+    );
+    expect(() => Deserialise.arcPolyline2({ type: 'ArcPolyline2', vertices: [], sagittas: ['x'] })).toThrow(
+      'Invalid ArcPolyline2 JSON',
+    );
+    const decoded = Deserialise.fromJson(samples.find((s) => s.name === 'ArcPolygon2')!.value.toJson());
+    expect(decoded).toBeInstanceOf(ArcPolygon2);
+    expect((decoded as ArcPolygon2).sagittas).toEqual([0, -0.5, 0, 0.25]);
   });
 
   test('custom registries accept new types and reject duplicates', () => {

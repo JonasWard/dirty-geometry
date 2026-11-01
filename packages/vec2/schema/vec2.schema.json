@@ -17,26 +17,32 @@
     "AngleJson": { "value": "Radians", "domainKind": "AngleDomainKind", "precision": "AnglePrecisions" },
     "AngleOptions": { "ignoreSens": { "type": "boolean", "optional": true }, "precision": { "type": "AnglePrecisions", "optional": true } },
     "AnglePrecisions": { "enum": [1, 0.1, 0.01, 0.001] },
+    "Arc2Json": { "from": "Vec2Json", "to": "Vec2Json", "sagitta": "Coordinate" },
+    "ArcPolygon2Json": { "vertices": ["Vec2Json"], "sagittas": ["Coordinate"] },
+    "ArcPolyline2Json": { "vertices": ["Vec2Json"], "sagittas": ["Coordinate"] },
     "AxisJson": { "kind": "AxisKind", "size": { "type": "Length", "optional": true }, "sizes": { "type": [{ "index": "Index", "size": "Length" }], "optional": true }, "domain": { "type": "Interval2Json", "optional": true } },
     "AxisKind": { "enum": ["unit", "uniform", "custom"] },
-    "Boolean2Clip": { "or": ["InfiniteLine2", "Polygon2"] },
+    "Boolean2Arcs": { "or": [{ "mode": { "enum": ["exact"] } }, { "mode": { "enum": ["approximate"] }, "chordTolerance": "Length" }] },
+    "Boolean2Clip": { "or": ["InfiniteLine2", "Boolean2Shape"] },
     "Boolean2ClipInput": { "or": ["Boolean2Clip", ["Boolean2Clip"]] },
-    "Boolean2Options": { "slack": { "type": "Epsilon", "optional": true }, "mesh": { "type": "boolean", "optional": true } },
-    "Boolean2Result": { "polygons": ["Polygon2"], "triMesh": { "type": "TriMesh2", "optional": true } },
+    "Boolean2Options": { "slack": { "type": "Epsilon", "optional": true }, "mesh": { "type": "boolean", "optional": true }, "fillRule": { "type": "FillRule", "optional": true }, "arcs": { "type": "Boolean2Arcs", "optional": true } },
+    "Boolean2Result": { "polygons": ["Polygon2"], "regions": { "type": ["ArcPolygon2"], "optional": true }, "triMesh": { "type": "TriMesh2", "optional": true } },
+    "Boolean2Shape": { "or": ["Polygon2", "ArcPolygon2", "Circle2"] },
     "BoundaryLoop2": { "polygon": "Polygon2", "signedArea": "number" },
     "BuiltConstraintSources": { "points": ["Vec2"], "constraints": ["Index"], "constraintSegments": [{ "from": "Vec2", "to": "Vec2" }] },
-    "CdtResult": { "triangles": [{ "tuple": ["number", "number", "number"] }], "unresolved": [{ "tuple": ["number", "number"] }], "stats": "CdtStats" },
-    "CdtStats": { "orient": "Index", "inCircle": "Index", "flips": "Index", "walkSteps": "Index" },
+    "CdtResult": { "triangles": [{ "tuple": ["Index", "Index", "Index"] }], "unresolved": ["Index"], "stats": "CdtStats" },
+    "CdtStats": { "orient": "Index", "inCircle": "Index", "flips": "Index", "walkSteps": "Index", "guardHits": "Index" },
     "CellCollectionJson": { "cells": ["GridCell2Json"] },
     "Circle2Json": { "center": "Vec2Json", "radius": "Length" },
     "CircleFit": { "enum": ["inscription", "circumscription", "sameArea"] },
-    "ConstrainedDelaunayReport": { "mesh": "TriMesh2", "unresolved": [{ "tuple": ["number", "number"] }], "stats": "CdtStats" },
+    "ConstrainedDelaunayReport": { "mesh": "TriMesh2", "unresolved": ["Index"], "stats": "CdtStats" },
     "ConstraintEdgeInput": { "or": ["Index", { "tuple": ["Index", "Index"] }] },
     "Container2": { "or": ["Region2", "Aabb2", "InfiniteLine2"] },
     "DouglasPeuckerTolerances": { "distance": "Epsilon", "angle": "Angle" },
     "EpsilonJson": { "value": "Tolerance" },
+    "FillRule": { "enum": ["nonZero", "evenOdd"] },
     "Frame2Json": { "origin": "Vec2Json", "xAxis": "Vec2Json", "yAxis": "Vec2Json" },
-    "Geometry2": { "or": ["Vec2", "LineLike2", "Polyline2", "Polygon2", "Circle2", "TriMesh2", "Aabb2"] },
+    "Geometry2": { "or": ["Vec2", "LineLike2", "Arc2", "Polyline2", "ArcPolyline2", "Polygon2", "ArcPolygon2", "Circle2", "TriMesh2", "Aabb2"] },
     "Geometry2Input": { "or": ["Geometry2", ["Geometry2"]] },
     "Grid2Constraint": { "enum": ["unconstrained", "u", "v", "both"] },
     "Grid2Json": { "u": "AxisJson", "v": "AxisJson", "frame": { "type": "Frame2Json", "optional": true }, "epsilon": { "type": "EpsilonJson", "optional": true } },
@@ -53,14 +59,14 @@
     "LineLike2": { "or": ["Hesse2", "InfiniteLine2", "Ray2", "Line2"] },
     "LineLike2IntersectionResult": { "or": ["LineLike2", "Vec2", "null"] },
     "Mat3Json": { "elements": { "tuple": ["Coordinate", "Coordinate", "Coordinate", "Coordinate", "Coordinate", "Coordinate", "Coordinate", "Coordinate", "Coordinate"] } },
-    "MathJson": { "or": ["Vec2Json", "Mat3Json", "AngleJson", "Line2Json", "Ray2Json", "InfiniteLine2Json", "Hesse2Json", "Polyline2Json", "Polygon2Json", "Interval2Json", "Aabb2Json", "TriMesh2Json", "Circle2Json", "GridCell2Json", "Frame2Json", "AxisJson", "Grid2Json", "GridLine2Json", "GridPolyline2Json", "GridPolygon2Json", "GridRectangle2Json", "CellCollectionJson", "EpsilonJson"] },
+    "MathJson": { "or": ["Vec2Json", "Mat3Json", "AngleJson", "Line2Json", "Arc2Json", "Ray2Json", "InfiniteLine2Json", "Hesse2Json", "Polyline2Json", "Polygon2Json", "ArcPolyline2Json", "ArcPolygon2Json", "Interval2Json", "Aabb2Json", "TriMesh2Json", "Circle2Json", "GridCell2Json", "Frame2Json", "AxisJson", "Grid2Json", "GridLine2Json", "GridPolyline2Json", "GridPolygon2Json", "GridRectangle2Json", "CellCollectionJson", "EpsilonJson"] },
     "Polygon2Json": { "vertices": ["Vec2Json"] },
     "Polyline2Json": { "vertices": ["Vec2Json"] },
     "Ray2Json": { "start": "Vec2Json", "direction": "Vec2Json" },
     "RectilinearGrid2Fit": { "grid": "Grid2", "extent": "GridRectangle2" },
     "RectilinearGridDetection": { "grid": "Grid2", "extent": "GridRectangle2", "gridPolygons": ["GridPolygon2"], "rectangles": ["GridRectangle2"], "sourcePolygons": ["Polygon2"] },
     "RectilinearGridDetectionOptions": { "simplify": { "type": { "or": ["boolean", "DouglasPeuckerTolerances"] }, "optional": true } },
-    "Region2": { "or": ["Circle2", "Polygon2", "TriMesh2"] },
+    "Region2": { "or": ["Circle2", "Polygon2", "ArcPolygon2", "TriMesh2"] },
     "SegmentCrossing": { "point": "Vec2", "i": "number", "j": "number" },
     "TriangulateGeometries": ["TriangulateGeometry"],
     "TriangulateGeometry": { "or": ["Polygon2", "Polyline2", "Line2", "InfiniteLine2", "Vec2"] },
@@ -238,6 +244,39 @@
     },
     "geometry": {
       "curves": {
+        "ArcPolyline2": {
+          "new": { "vertices": ["Vec2"], "sagittas": ["Coordinate"], "epsilon": { "type": "Epsilon", "optional": true } },
+          "members": {
+            "aabb2": { "returns": "Aabb2" },
+            "closestLengthForPoint": { "params": { "point": "Vec2" }, "returns": "number" },
+            "closestLengthsForPoint": { "params": { "point": "Vec2", "additionalTolerance": { "type": "Tolerance", "optional": true } }, "returns": ["number"] },
+            "closestPointForPoint": { "params": { "point": "Vec2" }, "returns": "Vec2" },
+            "distanceToPoint": { "params": { "point": "Vec2" }, "returns": "number" },
+            "epsilon": { "returns": "Epsilon" },
+            "evaluate": { "params": { "u": "Coordinate" }, "returns": "Vec2" },
+            "evaluateAtLength": { "params": { "length": "Length" }, "returns": "Vec2" },
+            "fromPolyline": { "static": true, "params": { "polyline": "Polyline2", "epsilon": { "type": "Epsilon", "optional": true } }, "returns": "ArcPolyline2" },
+            "fromSegments": { "static": true, "params": { "segments": [{ "or": ["Line2", "Arc2"] }], "epsilon": { "type": "Epsilon", "optional": true } }, "returns": "ArcPolyline2" },
+            "isKink": { "params": { "index": "Index" }, "returns": "boolean" },
+            "length": { "returns": "number" },
+            "lengthTable": { "returns": ["number"] },
+            "normalAtLength": { "params": { "length": "Length" }, "returns": "Vec2" },
+            "offset": { "params": { "distance": "Coordinate", "options": { "type": { "miterLimit": { "type": "Coordinate", "optional": true } }, "optional": true } }, "returns": "ArcPolyline2" },
+            "reverse": { "returns": "ArcPolyline2" },
+            "sagittas": { "value": ["Coordinate"] },
+            "segment": { "params": { "index": "Index" }, "returns": { "or": ["Line2", "Arc2"] } },
+            "segmentCount": { "returns": "number" },
+            "segments": { "returns": [{ "or": ["Line2", "Arc2"] }] },
+            "sideOfPoint": { "params": { "point": "Vec2" }, "returns": "Integer" },
+            "slice": { "params": { "from": "Length", "to": "Length" }, "returns": "ArcPolyline2" },
+            "split": { "params": { "length": "Length" }, "returns": { "tuple": ["ArcPolyline2", "ArcPolyline2"] } },
+            "tangentAtLength": { "params": { "length": "Length" }, "returns": "Vec2" },
+            "toJson": { "returns": "ArcPolyline2Json" },
+            "toPolyline": { "params": { "chordTolerance": "Length" }, "returns": "Polyline2" },
+            "transform": { "params": { "matrix": "Mat3" }, "returns": "ArcPolyline2" },
+            "vertices": { "value": ["Vec2"] }
+          }
+        },
         "Polyline2": {
           "new": { "vertices": ["Vec2"] },
           "members": {
@@ -257,6 +296,43 @@
         }
       },
       "primitives": {
+        "Arc2": {
+          "new": { "from": "Vec2", "to": "Vec2", "sagitta": "Coordinate", "epsilon": { "type": "Epsilon", "optional": true } },
+          "members": {
+            "aabb2": { "returns": "Aabb2" },
+            "apex": { "returns": "Vec2" },
+            "centre": { "returns": "Vec2" },
+            "chordLength": { "returns": "number" },
+            "circle": { "returns": "Circle2" },
+            "closestParameterForPoint": { "params": { "point": "Vec2" }, "returns": "number" },
+            "closestPointForPoint": { "params": { "point": "Vec2" }, "returns": "Vec2" },
+            "containsAngle": { "params": { "radians": "Radians", "slack": { "type": { "or": ["Epsilon", "Tolerance"] }, "optional": true } }, "returns": "boolean" },
+            "curvature": { "returns": "number" },
+            "distanceToPoint": { "params": { "point": "Vec2" }, "returns": "number" },
+            "epsilon": { "returns": "Epsilon" },
+            "evaluate": { "params": { "t": "Parameter" }, "returns": "Vec2" },
+            "evaluateAtLength": { "params": { "length": "Length" }, "returns": "Vec2" },
+            "from": { "value": "Vec2" },
+            "fromCentre": { "static": true, "params": { "centre": "Vec2", "radius": "Length", "startAngle": "Radians", "sweep": "Radians", "epsilon": { "type": "Epsilon", "optional": true } }, "returns": "Arc2" },
+            "fromFillet": { "static": true, "params": { "from": "Vec2", "corner": "Vec2", "to": "Vec2", "radius": "Length", "epsilon": { "type": "Epsilon", "optional": true } }, "returns": "Arc2" },
+            "fromTangent": { "static": true, "params": { "from": "Vec2", "tangent": "Vec2", "to": "Vec2", "epsilon": { "type": "Epsilon", "optional": true } }, "returns": "Arc2" },
+            "fromThreePoints": { "static": true, "params": { "from": "Vec2", "through": "Vec2", "to": "Vec2", "epsilon": { "type": "Epsilon", "optional": true } }, "returns": "Arc2" },
+            "length": { "returns": "number" },
+            "normal": { "params": { "t": "Parameter" }, "returns": "Vec2" },
+            "offset": { "params": { "distance": "Coordinate" }, "returns": "Arc2" },
+            "parameterOfAngle": { "params": { "radians": "Radians" }, "returns": "number" },
+            "radius": { "returns": "number" },
+            "reverse": { "returns": "Arc2" },
+            "sagitta": { "value": "Coordinate" },
+            "startAngle": { "returns": "number" },
+            "sweep": { "returns": "number" },
+            "tangent": { "params": { "t": "Parameter" }, "returns": "Vec2" },
+            "to": { "value": "Vec2" },
+            "toJson": { "returns": "Arc2Json" },
+            "toPolyline": { "params": { "chordTolerance": "Length" }, "returns": ["Vec2"] },
+            "transform": { "params": { "matrix": "Mat3" }, "returns": "Arc2" }
+          }
+        },
         "Hesse2": {
           "new": { "normal": "Vec2", "offset": "Coordinate" },
           "members": {
@@ -340,6 +416,44 @@
         }
       },
       "regions": {
+        "ArcPolygon2": {
+          "new": { "vertices": ["Vec2"], "sagittas": ["Coordinate"], "epsilon": { "type": "Epsilon", "optional": true } },
+          "members": {
+            "aabb2": { "returns": "Aabb2" },
+            "area": { "returns": "number" },
+            "closestLengthForPoint": { "params": { "point": "Vec2" }, "returns": "number" },
+            "closestLengthsForPoint": { "params": { "point": "Vec2", "additionalTolerance": { "type": "Tolerance", "optional": true } }, "returns": ["number"] },
+            "closestPointForPoint": { "params": { "point": "Vec2" }, "returns": "Vec2" },
+            "containsPoint": { "params": { "point": "Vec2" }, "returns": "boolean" },
+            "distanceToPoint": { "params": { "point": "Vec2" }, "returns": "number" },
+            "epsilon": { "returns": "Epsilon" },
+            "evaluate": { "params": { "u": "Coordinate" }, "returns": "Vec2" },
+            "evaluateAtLength": { "params": { "length": "Length" }, "returns": "Vec2" },
+            "fromCircle2": { "static": true, "params": { "circle": "Circle2", "epsilon": { "type": "Epsilon", "optional": true } }, "returns": "ArcPolygon2" },
+            "fromPolygon": { "static": true, "params": { "polygon": "Polygon2", "epsilon": { "type": "Epsilon", "optional": true } }, "returns": "ArcPolygon2" },
+            "fromSegments": { "static": true, "params": { "segments": [{ "or": ["Line2", "Arc2"] }], "epsilon": { "type": "Epsilon", "optional": true } }, "returns": "ArcPolygon2" },
+            "inverse": { "returns": "ArcPolygon2" },
+            "isKink": { "params": { "index": "Index" }, "returns": "boolean" },
+            "isPointInside": { "static": true, "params": { "loops": ["ArcPolygon2"], "point": "Vec2", "slack": { "type": "Epsilon", "optional": true }, "rule": { "type": "FillRule", "optional": true } }, "returns": "boolean" },
+            "length": { "returns": "number" },
+            "lengthTable": { "returns": ["number"] },
+            "normalAtLength": { "params": { "length": "Length" }, "returns": "Vec2" },
+            "offset": { "params": { "distance": "Coordinate", "options": { "type": { "miterLimit": { "type": "Coordinate", "optional": true } }, "optional": true } }, "returns": "ArcPolygon2" },
+            "sagittas": { "value": ["Coordinate"] },
+            "segment": { "params": { "index": "Index" }, "returns": { "or": ["Line2", "Arc2"] } },
+            "segmentCount": { "returns": "number" },
+            "segments": { "returns": [{ "or": ["Line2", "Arc2"] }] },
+            "signedArea": { "returns": "number" },
+            "signedDistance": { "params": { "point": "Vec2" }, "returns": "number" },
+            "slice": { "params": { "from": "Length", "to": "Length" }, "returns": "ArcPolyline2" },
+            "tangentAtLength": { "params": { "length": "Length" }, "returns": "Vec2" },
+            "toJson": { "returns": "ArcPolygon2Json" },
+            "toPolygon": { "params": { "chordTolerance": "Length" }, "returns": "Polygon2" },
+            "transform": { "params": { "matrix": "Mat3" }, "returns": "ArcPolygon2" },
+            "vertices": { "value": ["Vec2"] },
+            "windingNumber": { "params": { "point": "Vec2" }, "returns": "number" }
+          }
+        },
         "Circle2": {
           "new": { "center": "Vec2", "radius": "Length" },
           "members": {
@@ -376,7 +490,7 @@
             "fromAabb2": { "static": true, "params": { "box": "Aabb2" }, "returns": "Polygon2" },
             "fromCircle2": { "static": true, "params": { "circle": "Circle2", "segments": "Index", "fit": { "type": "CircleFit", "optional": true } }, "returns": "Polygon2" },
             "inverse": { "returns": "Polygon2" },
-            "isPointInside": { "static": true, "params": { "polygons": ["Polygon2"], "point": "Vec2", "slack": { "type": "Epsilon", "optional": true } }, "returns": "boolean" },
+            "isPointInside": { "static": true, "params": { "polygons": ["Polygon2"], "point": "Vec2", "slack": { "type": "Epsilon", "optional": true }, "rule": { "type": "FillRule", "optional": true } }, "returns": "boolean" },
             "length": { "returns": "number" },
             "n": { "returns": "number" },
             "segments": { "returns": ["Line2"] },
@@ -398,9 +512,12 @@
             "containsPoint": { "params": { "point": "Vec2", "slack": { "type": "Epsilon", "optional": true } }, "returns": "boolean" },
             "coveredEdges": { "returns": ["Line2"] },
             "distanceToPoint": { "params": { "point": "Vec2" }, "returns": "number" },
+            "fromCorners": null,
             "nakedEdges": { "returns": ["Line2"] },
             "signedDistance": { "params": { "point": "Vec2" }, "returns": "number" },
             "toJson": { "returns": "TriMesh2Json" },
+            "triangleCorners": null,
+            "triangleCount": { "value": "number" },
             "triangles": { "value": [{ "tuple": ["number", "number", "number"] }] },
             "uniqueEdges": { "returns": ["Line2"] },
             "vertices": { "value": ["Vec2"] },
@@ -576,17 +693,17 @@
     "operations": {
       "Boolean2": {
         "members": {
-          "intersect": { "static": true, "params": { "subject": ["Polygon2"], "clips": "Boolean2ClipInput", "options": { "type": "Boolean2Options", "optional": true } }, "returns": "Boolean2Result" },
-          "subtract": { "static": true, "params": { "subject": ["Polygon2"], "clips": "Boolean2ClipInput", "options": { "type": "Boolean2Options", "optional": true } }, "returns": "Boolean2Result" },
-          "union": { "static": true, "params": { "polygons": ["Polygon2"], "options": { "type": "Boolean2Options", "optional": true } }, "returns": "Boolean2Result" }
+          "intersect": { "static": true, "params": { "subject": ["Boolean2Shape"], "clips": "Boolean2ClipInput", "options": { "type": "Boolean2Options", "optional": true } }, "returns": "Boolean2Result" },
+          "subtract": { "static": true, "params": { "subject": ["Boolean2Shape"], "clips": "Boolean2ClipInput", "options": { "type": "Boolean2Options", "optional": true } }, "returns": "Boolean2Result" },
+          "union": { "static": true, "params": { "polygons": ["Boolean2Shape"], "options": { "type": "Boolean2Options", "optional": true } }, "returns": "Boolean2Result" }
         }
       },
       "ConstrainedDelaunay": {
         "members": {
           "collectSources": { "static": true, "params": { "geometries": "TriangulateGeometries", "slack": { "type": "Epsilon", "optional": true } }, "returns": "BuiltConstraintSources" },
           "fromGeometries": { "static": true, "params": { "geometries": "TriangulateGeometries", "slack": { "type": "Epsilon", "optional": true } }, "returns": "TriMesh2" },
-          "report": { "static": true, "params": { "points": ["Vec2"], "constraints": { "type": ["ConstraintEdgeInput"], "optional": true }, "slack": { "type": "Epsilon", "optional": true }, "gridSize": { "type": "Length", "optional": true } }, "returns": "ConstrainedDelaunayReport" },
-          "triangulate": { "static": true, "params": { "points": ["Vec2"], "constraints": { "type": ["ConstraintEdgeInput"], "optional": true }, "slack": { "type": "Epsilon", "optional": true }, "gridSize": { "type": "Length", "optional": true } }, "returns": "TriMesh2" }
+          "report": { "static": true, "params": { "points": ["Vec2"], "constraints": { "type": ["ConstraintEdgeInput"], "optional": true }, "slack": { "type": "Epsilon", "optional": true } }, "returns": "ConstrainedDelaunayReport" },
+          "triangulate": { "static": true, "params": { "points": ["Vec2"], "constraints": { "type": ["ConstraintEdgeInput"], "optional": true }, "slack": { "type": "Epsilon", "optional": true } }, "returns": "TriMesh2" }
         }
       },
       "Contains2": {
@@ -607,7 +724,7 @@
         "cdt": {
           "convexHullLoop": { "params": { "points": ["Vec2"] }, "returns": ["number"] },
           "emptyCdtStats": { "returns": "CdtStats" },
-          "triangulateConstrained": { "params": { "vertices": ["Vec2"], "constraints": [{ "tuple": ["Index", "Index"] }], "stats": { "type": "CdtStats", "optional": true } }, "returns": "CdtResult" }
+          "triangulateConstrained": { "params": { "vertices": ["Vec2"], "constraints": ["Index"], "stats": { "type": "CdtStats", "optional": true }, "slack": { "type": "Tolerance", "optional": true } }, "returns": "CdtResult" }
         },
         "constraintEdge": { "params": { "a": "Index", "b": "Index" }, "returns": "Index" },
         "constraintEdgeEndpoints": { "params": { "edge": "Index" }, "returns": { "tuple": ["number", "number"] } },

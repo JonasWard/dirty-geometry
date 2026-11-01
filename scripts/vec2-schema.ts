@@ -6,7 +6,7 @@
  * - packages/vec2/schema/vec2.schema.json: `numbers` (the semantic number types of `core/numbers.ts` and their
  *   ranges), `types` (named shapes, including every class's `<Tag>Json` and their union `MathJson`) and `modules`,
  *   the `src` folder tree: each file lists its classes (`new` parameters, `members`) and, under
- *   `operations/**\/helpers/`, its helper functions.
+ *   `operations/**\/helpers/`, its helper functions (exports tagged `@internal` are left out).
  * - packages/vec2/schema/vec2.dense.json: the same types as a densing schema (scripts/vec2-dense-schema.ts).
  * - packages/vec2/schema/bindings.ts: the class and helper tables the recorder and replay call.
  *
@@ -32,8 +32,12 @@ type Entry = { static?: true; params?: Record<string, Slot>; returns?: Type; val
 
 class Unsupported extends Error {}
 
+/**
+ * Sorted, so every machine feeds the compiler the same file order: union members the checker prints (inferred
+ * return types) follow its internal type ids, which follow that order.
+ */
 const listSources = (dir: string): string[] =>
-  readdirSync(dir).flatMap((name) => {
+  [...readdirSync(dir)].sort().flatMap((name) => {
     const full = path.join(dir, name);
     return statSync(full).isDirectory() ? listSources(full) : name.endsWith('.ts') ? [full] : [];
   });
@@ -216,6 +220,8 @@ export function generateSchema(root = srcRoot) {
     if (symbol?.getName() === 'Iterable')
       return [fromType(checker.getTypeArguments(type as ts.TypeReference)[0]!, seen)];
     const builtIn = ['Map', 'Set', 'WeakMap', 'Generator', 'Iterator', 'IterableIterator', 'Promise'];
+    // Typed arrays have no JSON form (and recurse through their own methods' types).
+    builtIn.push('Uint8Array', 'Int32Array', 'Uint32Array', 'Float64Array');
     if (symbol && (builtIn.includes(symbol.getName()) || symbol.getDeclarations()?.some(ts.isClassDeclaration))) {
       throw new Unsupported(text());
     }
@@ -337,6 +343,8 @@ export function generateSchema(root = srcRoot) {
       const named = st as ts.Statement & { name?: ts.Node };
       if (!exported(st) || !named.name || !ts.isIdentifier(named.name)) continue;
       const name = named.name.text;
+      // `@internal` marks exports shared between helper modules that are not part of the recordable API.
+      if (ts.getJSDocTags(st).some((tag) => tag.tagName.text === 'internal')) continue;
       if (ts.isClassDeclaration(st) && !SKIP_CLASSES.has(name)) {
         const described = describeClass(st, name);
         put(module, name, described);

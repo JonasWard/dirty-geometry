@@ -17,5 +17,11 @@
   "dependencies": {
     "robust-predicates": "3.0.2",
     "densing": "0.5.0"
+  },
+  "devDependencies": {
+    "@kninnug/constrainautor": "4.0.1",
+    "cdt2d": "1.0.0",
+    "delaunator": "5.0.1",
+    "poly2tri": "1.5.0"
   }
 }

@@ -1,4 +1,12 @@
-import { Boolean2, type Boolean2ClipInput, type Boolean2Options } from '../../src/operations/boolean2';
+import {
+  Boolean2,
+  type Boolean2ClipInput,
+  type Boolean2Options,
+  type Boolean2Shape,
+} from '../../src/operations/boolean2';
+import { ArcPolygon2 } from '../../src/geometry/regions/arc-polygon2';
+import { Circle2 } from '../../src/geometry/regions/circle2';
+import { roundedRectangle } from '../arc-shapes';
 import { Aabb2 } from '../../src/bounds/aabb2';
 import { Epsilon } from '../../src/core/epsilon';
 import { InfiniteLine2 } from '../../src/geometry/primitives/infinite-line2';
@@ -11,7 +19,7 @@ export type Boolean2ScenarioSection = 'union' | 'intersect' | 'subtract';
 export type Boolean2Scenario = {
   name: string;
   section: Boolean2ScenarioSection;
-  inputs: Polygon2[];
+  inputs: Boolean2Shape[];
   clips?: Boolean2ClipInput;
   options?: Boolean2Options;
 };
@@ -323,6 +331,38 @@ export const boolean2ManySubtractScenarios: Boolean2Scenario[] = [
   },
 ];
 
+const disc = (x: number, y: number, r: number) => new Circle2(new Vec2(x, y), r);
+
+/** Shapes with arcs; exact unless a scenario asks for the approximation. */
+export const boolean2ArcScenarios: Boolean2Scenario[] = [
+  { name: 'Two discs', section: 'union', inputs: [disc(0, 0, 1), disc(1.2, 0.4, 1)] },
+  {
+    name: 'Two discs, approximate (0.05)',
+    section: 'union',
+    inputs: [disc(0, 0, 1), disc(1.2, 0.4, 1)],
+    options: { arcs: { mode: 'approximate', chordTolerance: 0.05 } },
+  },
+  { name: 'Touching discs', section: 'union', inputs: [disc(0, 0, 1), disc(2, 0, 1)] },
+  {
+    name: 'Rounded slab ∩ disc',
+    section: 'intersect',
+    inputs: [roundedRectangle(0, 0, 4, 2, 0.6)],
+    clips: [disc(3.6, 1.8, 1.2)],
+  },
+  {
+    name: 'Disc ∩ half-plane',
+    section: 'intersect',
+    inputs: [disc(0, 0, 1.5)],
+    clips: [new InfiniteLine2(new Vec2(0, 0.4), new Vec2(1, 0.3))],
+  },
+  {
+    name: 'Square − discs',
+    section: 'subtract',
+    inputs: [squareAt(0, 0, 4)],
+    clips: [disc(2, 2, 1), disc(4, 4, 1)],
+  },
+];
+
 export const boolean2Scenarios: Boolean2Scenario[] = [
   ...boolean2UnionScenarios,
   ...boolean2IntersectScenarios,
@@ -331,10 +371,13 @@ export const boolean2Scenarios: Boolean2Scenario[] = [
   ...boolean2SubtractPolygonScenarios,
   ...boolean2ManyIntersectScenarios,
   ...boolean2ManySubtractScenarios,
+  ...boolean2ArcScenarios,
 ];
 
 export function evaluateBooleanScenario(scenario: Boolean2Scenario) {
-  const options: Boolean2Options = { mesh: true, ...scenario.options };
+  // A mesh needs straight edges, so exact arc results come back as regions only.
+  const exactArcs = scenario.options?.arcs?.mode !== 'approximate' && hasArcInput(scenario);
+  const options: Boolean2Options = { mesh: !exactArcs, ...scenario.options };
 
   if (scenario.section === 'union') {
     return Boolean2.union(scenario.inputs, options);
@@ -345,6 +388,13 @@ export function evaluateBooleanScenario(scenario: Boolean2Scenario) {
   }
 
   return Boolean2.subtract(scenario.inputs, scenario.clips!, options);
+}
+
+function hasArcInput(scenario: Boolean2Scenario): boolean {
+  return [...scenario.inputs, ...scenarioClips(scenario)].some(
+    (shape) =>
+      shape.type === 'Circle2' || (shape.type === 'ArcPolygon2' && shape.sagittas.some((s: number) => s !== 0)),
+  );
 }
 
 export function scenarioClips(scenario: Boolean2Scenario) {
@@ -370,6 +420,10 @@ export function pointInsideScenario(scenario: Boolean2Scenario, point: Vec2): bo
 
   if (result.triMesh && result.triMesh.triangles.length > 0) {
     return result.triMesh.containsPoint(point, scenario.options?.slack ?? Epsilon.preferIn);
+  }
+
+  if (result.regions) {
+    return ArcPolygon2.isPointInside(result.regions, point, scenario.options?.slack ?? Epsilon.preferIn);
   }
 
   return Polygon2.isPointInside(result.polygons, point, scenario.options?.slack ?? Epsilon.preferIn);

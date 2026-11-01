@@ -10,6 +10,10 @@ const load = <M,>(module: Promise<M>, pick: (module: M) => ComponentType): DemoM
 /** Keyed `<library>/<id>`. Each demo's component (and its three.js code) loads when the demo is first shown. */
 const components: Record<string, LazyExoticComponent<ComponentType>> = {
   'vec2/curves': lazy(() => load(import('../demos/vec2/curves/CurveVisualisation'), (m) => m.CurveVisualisation)),
+  'vec2/arc-boolean2': lazy(() =>
+    load(import('../demos/vec2/arc-boolean2/ArcBoolean2Visualisation'), (m) => m.ArcBoolean2Visualisation),
+  ),
+  'vec2/arcs': lazy(() => load(import('../demos/vec2/arcs/ArcsVisualisation'), (m) => m.ArcsVisualisation)),
   'vec2/intersection-lines': lazy(() =>
     load(
       import('../demos/vec2/intersection-lines/IntersectionLines2Visualisation'),

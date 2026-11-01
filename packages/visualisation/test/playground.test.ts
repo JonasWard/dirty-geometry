@@ -96,7 +96,7 @@ describe('editing', () => {
   });
 
   test('fields and items can be read off object, tuple and list values', () => {
-    expect(ops.partsOf('Boolean2Result')).toEqual([{ field: 'polygons' }, { field: 'triMesh' }]);
+    expect(ops.partsOf('Boolean2Result')).toEqual([{ field: 'polygons' }, { field: 'regions' }, { field: 'triMesh' }]);
     expect(ops.partsOf({ tuple: ['Vec2', 'Vec2'] })).toEqual([{ index: 0 }, { index: 1 }]);
     expect(ops.partsOf(['Polygon2'])).toEqual([{ index: 0 }]);
     expect(ops.partsOf('Vec2')).toEqual([]);

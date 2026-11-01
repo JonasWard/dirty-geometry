@@ -10,7 +10,7 @@
  */
 import * as d from 'densing';
 import { isSharedForm } from '@dirty-geometry/fn/forms';
-import { isArcOp, isTrigOp, isUnary } from '@dirty-geometry/fn/math';
+import { isArcOp, isLogOp, isTrigOp, isUnary } from '@dirty-geometry/fn/math';
 import type { Cell, Definition, Expr, Fn, Input, SharedExpr } from '../../src/recording/definition';
 import { DefinitionError, fail as raise } from '../../src/recording/definition';
 import { classJson, operationById, type Type } from '../schema';
@@ -271,7 +271,7 @@ function pack(
     if ('math' in e) {
       if (isTrigOp(e.math))
         return (variant('trig', 'a number'), { type: 'trig', op: e.math, a: sub(e.args[0], 'Radians', 'a') });
-      if (isArcOp(e.math))
+      if (isArcOp(e.math) || isLogOp(e.math))
         return (variant('arc', 'a number'), { type: 'arc', op: e.math, a: sub(e.args[0], 'number', 'a') });
       if (e.math === 'atan2') {
         variant('atan2', 'a number');

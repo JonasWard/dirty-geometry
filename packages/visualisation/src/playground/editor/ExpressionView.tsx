@@ -3,7 +3,7 @@
 import { useCallback, useState } from 'react';
 import { toCall } from '@dirty-geometry/fn/calls';
 import { formFields, isSharedForm } from '@dirty-geometry/fn/forms';
-import { isArcOp, isTrigOp } from '@dirty-geometry/fn/math';
+import { isArcOp, isLogOp, isTrigOp } from '@dirty-geometry/fn/math';
 import type { Expr, SharedExpr } from '@dirty-geometry/vec2/recording/definition';
 import type { ExprPath } from '@dirty-geometry/vec2/recording/expr';
 import { isOptional, isRest, operationById, slotType, type Type } from '@dirty-geometry/vec2/schema/schema';
@@ -48,11 +48,12 @@ const OPTIONAL_FIELDS = new Set(['initial', 'data', 'end', 'scale', 'slack']);
 function formChildSlots(form: SharedExpr, slot: Type, at: (...keys: ExprPath) => ExprPath): Child[] {
   if ('args' in form) {
     const math = 'math' in form ? form.math : '';
-    // Trigonometry types its operands itself: an angle into sin…cot, a number into the arc functions and atan2.
+    // Trigonometry and logarithms type their operands: an angle into sin…cot, a number into the arc functions, the
+    // logarithms and atan2.
     const operand: Type =
       'logic' in form
         ? 'boolean'
-        : 'compare' in form || isArcOp(math)
+        : 'compare' in form || isArcOp(math) || isLogOp(math)
           ? 'number'
           : isTrigOp(math)
             ? 'Radians'

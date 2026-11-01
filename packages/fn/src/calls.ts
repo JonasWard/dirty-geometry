@@ -29,6 +29,9 @@ export const CALLS = {
   acos: ['e'],
   atan: ['e'],
   acot: ['e'],
+  ln: ['e'],
+  log2: ['e'],
+  log10: ['e'],
   atan2: ['e', 'e'],
   smallerThan: ['e', 'e'],
   biggerThan: ['e', 'e'],
@@ -134,6 +137,9 @@ export function fromCall<E>(name: CallName, args: CallArg<E>[]): SharedForm<E> {
     case 'acos':
     case 'atan':
     case 'acot':
+    case 'ln':
+    case 'log2':
+    case 'log10':
       return { math: name, args: [a] };
     case 'smallerThan':
     case 'biggerThan':

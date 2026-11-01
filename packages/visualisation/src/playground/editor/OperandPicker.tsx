@@ -1,7 +1,14 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ARC_OPS, ARITHMETIC_BINARY_OPS, ARITHMETIC_UNARY_OPS, isUnary, TRIG_OPS } from '@dirty-geometry/fn/math';
+import {
+  ARC_OPS,
+  ARITHMETIC_BINARY_OPS,
+  ARITHMETIC_UNARY_OPS,
+  isUnary,
+  LOG_OPS,
+  TRIG_OPS,
+} from '@dirty-geometry/fn/math';
 import type { Expr } from '@dirty-geometry/vec2/recording/definition';
 import type { ExprPath } from '@dirty-geometry/vec2/recording/expr';
 import { operations, type Operation, type Type } from '@dirty-geometry/vec2/schema/schema';
@@ -31,10 +38,11 @@ const MATH_LABELS: Record<string, string> = {
   neg: '−x',
   atan2: 'atan2(y, x)',
 };
-/** The Arithmetic tab's rows: arithmetic, then trigonometry. */
+/** The Arithmetic tab's rows: arithmetic, trigonometry, logarithms. */
 const MATH_ROWS = [
   [...ARITHMETIC_BINARY_OPS, ...ARITHMETIC_UNARY_OPS],
   [...TRIG_OPS, ...ARC_OPS, 'atan2'],
+  LOG_OPS,
 ] as const;
 const tabClass = (active: boolean) =>
   `rounded px-2 py-0.5 text-[11px] ${active ? 'bg-dg-navy-900 text-dg-sky-200' : 'text-dg-subtle hover:text-dg-steel-600'}`;

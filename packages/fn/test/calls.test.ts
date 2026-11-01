@@ -9,6 +9,7 @@ const forms: SharedForm<E>[] = [
   { math: 'abs', args: [-1] },
   { math: 'sin', args: [1] },
   { math: 'acot', args: [1] },
+  { math: 'log10', args: [100] },
   { math: 'atan2', args: [1, 2] },
   { compare: '<', args: [1, 2] },
   { compare: '==', args: [1, 2], slack: 3 },

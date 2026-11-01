@@ -21,6 +21,10 @@ export const UNARY = {
   atan: Math.atan,
   /** `π/2 − atan(a)`: range (0, π), continuous at 0. */
   acot: (a: number) => Math.PI / 2 - Math.atan(a),
+  /** The logarithms are `null` for 0 and below, so the cell using them fails instead of carrying -Infinity or NaN. */
+  ln: (a: number) => (a > 0 ? Math.log(a) : null),
+  log2: (a: number) => (a > 0 ? Math.log2(a) : null),
+  log10: (a: number) => (a > 0 ? Math.log10(a) : null),
 } as const satisfies Record<string, (a: number) => number | null>;
 
 export const BINARY = {
@@ -52,10 +56,14 @@ export type TrigOp = (typeof TRIG_OPS)[number];
 export type ArcOp = (typeof ARC_OPS)[number];
 export const isTrigOp = (op: string): op is TrigOp => (TRIG_OPS as readonly string[]).includes(op);
 export const isArcOp = (op: string): op is ArcOp => (ARC_OPS as readonly string[]).includes(op);
+/** Logarithms, like the arc functions, take a plain number whatever their result stands for. */
+export const LOG_OPS = ['ln', 'log2', 'log10'] as const satisfies readonly UnaryOp[];
+export type LogOp = (typeof LOG_OPS)[number];
+export const isLogOp = (op: string): op is LogOp => (LOG_OPS as readonly string[]).includes(op);
 /** Ops whose result may be `null` (an operand out of range). */
-export const NULLABLE_OPS: readonly UnaryOp[] = ['asin', 'acos'];
-/** The ops whose operands take the type of the slot the math stands in: everything but trigonometry. */
-export const ARITHMETIC_UNARY_OPS = UNARY_OPS.filter((op) => !isTrigOp(op) && !isArcOp(op));
+export const NULLABLE_OPS: readonly UnaryOp[] = ['asin', 'acos', ...LOG_OPS];
+/** The ops whose operands take the type of the slot the math stands in: all but trigonometry and logarithms. */
+export const ARITHMETIC_UNARY_OPS = UNARY_OPS.filter((op) => !isTrigOp(op) && !isArcOp(op) && !isLogOp(op));
 export const ARITHMETIC_BINARY_OPS = BINARY_OPS.filter((op) => op !== 'atan2');
 
 /** The tolerance `==` uses when none is given. */

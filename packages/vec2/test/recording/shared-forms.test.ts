@@ -192,14 +192,19 @@ describe('trigonometry', () => {
       { name: 'big', expr: 2 },
       { name: 'bad', expr: { math: 'asin', args: [ref('big')] } },
       { name: 'uses', expr: { math: '+', args: [ref('bad'), 1] } },
+      { name: 'noLog', expr: { math: 'ln', args: [0] } },
+      { name: 'usesLog', expr: { math: '*', args: [ref('noLog'), 2] } },
+      { name: 'bits', expr: { math: 'log2', args: [1024] } },
     ]);
     expect(valueOf(d, 'angle')).toBeCloseTo((3 * Math.PI) / 4, 12);
     expect(valueOf(d, 'unit')).toBeCloseTo(0, 12);
     expect(valueOf(d, 'bad')).toBeNull();
     expect(errorOf(d, 'uses')).toContain('not null');
+    expect(errorOf(d, 'usesLog')).toContain('not null');
+    expect(valueOf(d, 'bits')).toBe(10);
   });
 
-  test('asin and acos may be null; the rest are numbers', () => {
+  test('asin, acos and the logarithms may be null; the rest are numbers', () => {
     const d = def([
       { name: 'a', expr: { math: 'asin', args: [0.5] } },
       { name: 's', expr: { math: 'sin', args: [0.5] } },
@@ -207,6 +212,9 @@ describe('trigonometry', () => {
     const { refs } = checkDefinition(d);
     expect(refs.get('a')).toEqual({ or: ['number', 'null'] });
     expect(refs.get('s')).toBe('number');
+    expect(checkDefinition(def([{ name: 'l', expr: { math: 'ln', args: [2] } }])).refs.get('l')).toEqual({
+      or: ['number', 'null'],
+    });
   });
 
   test('operands pack as an angle (sin) or a number (asin, atan2), whatever the slot', () => {
@@ -216,6 +224,8 @@ describe('trigonometry', () => {
       { name: 'r', expr: { math: 'acot', args: [{ math: 'tan', args: [1.571] }] }, type: 'Radians' },
       { name: 'p', expr: { math: 'atan2', args: [-1.5, 2.25] }, type: 'Radians' },
       { name: 'c', expr: { math: 'asin', args: [0.5] }, type: 'Radians', output: true },
+      // A logarithm's operand packs as a number too: 12.5 would not fit a Parameter slot's range (0..1).
+      { name: 'l', expr: { math: 'log10', args: [12.5] }, type: 'Parameter' },
     ]);
     expect(issues(d)).toEqual([]);
     expect(roundTrip(d)).toEqual(d);

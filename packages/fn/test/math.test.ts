@@ -71,4 +71,9 @@ describe('math', () => {
       expect(BINARY.atan2(0, -1)).toBe(PI);
     });
   });
+  test('logarithms, null for 0 and below', () => {
+    expect([UNARY.ln(Math.E), UNARY.log2(8), UNARY.log10(1000), UNARY.ln(1)]).toEqual([1, 3, 3, 0]);
+    expect(UNARY.log10(0.01)).toBe(-2);
+    expect([UNARY.ln(0), UNARY.log2(-1), UNARY.log10(-0)]).toEqual([null, null, null]);
+  });
 });

@@ -24,7 +24,7 @@ describe('presets', () => {
   test('choosePresets picks the cheapest exact presets', () => {
     const definition = point(3, 7);
     const presets = choosePresets(definition);
-    expect(presets.Coordinate).toBe('0..10@1');
+    expect(presets.Coordinate).toBe('±10');
     expect(encodeDefinition(definition, presets).length).toBeLessThan(encodeDefinition(definition).length);
     expect(choosePresets(point(0.123, 4)).Coordinate).toBe('±10@0.001');
   });

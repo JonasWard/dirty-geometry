@@ -298,8 +298,24 @@ describe('value schema', () => {
     const point = new Vec2(1234.5, 2);
     expect(() => encodeValue(point, {}, schema)).toThrow();
     expect(decodeValue(encodeValue(point, { Coordinate: '±10000@0.1' }, schema))).toEqual(point.toJson());
-    const small = encodeValue(new Vec2(1, 2), { Coordinate: '0..10@1' }, schema);
+    const small = encodeValue(new Vec2(1, 2), { Coordinate: '±10' }, schema);
     expect(small.length).toBeLessThan(encodeValue(new Vec2(1, 2), { Coordinate: '±10000@0.0001' }, schema).length);
+  });
+
+  test('Coordinates are always signed and Lengths never negative: spans 1 … 10000 by precisions 1 … 0.0001', () => {
+    const { schema } = createDefinitionSchema();
+    const presets = (type: string) => Object.values(schema.definitions!.find((n) => n.name === type)!.presets);
+    for (const [type, signed] of [
+      ['Coordinate', true],
+      ['Length', false],
+    ] as const) {
+      const all = presets(type);
+      expect(all).toHaveLength(25);
+      expect(all.every((p) => p.min === (signed ? -p.max : 0))).toBe(true);
+      const grid = new Set(all.map((p) => `${p.max}@${p.precision ?? 1}`));
+      for (const span of [1, 10, 100, 1000, 10000])
+        for (const precision of [1, 0.1, 0.01, 0.001, 0.0001]) expect(grid.has(`${span}@${precision}`)).toBe(true);
+    }
   });
 
   test('custom ranges are added to their number type; refinements clamp their parent', () => {

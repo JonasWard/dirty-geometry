@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   createDefinitionSchema,
   decodeDefinition,
@@ -9,6 +9,7 @@ import {
 import { VisualisationLegend } from '../core/VisualisationLegend';
 import { CodeEditor } from './CodeEditor';
 import { EncodingPanel } from './EncodingPanel';
+import { InfoBox } from './InfoBox';
 import { JsonEditor } from './JsonEditor';
 import { ModeSwitch, tab, type View } from './ModeSwitch';
 import { CellsPanel, FunctionsPanel, InputsPanel } from './panels';
@@ -30,7 +31,10 @@ const button =
  * Its View tab leaves only the inputs' values to change. The link is `#/<app>` for the editor and `#/<app>/<view>`
  * for the View tab: the app state is the definition (with the editor's values), the view state the input values.
  */
-export function Playground() {
+/** The playground's help: a title (the page's heading) and a short description. */
+export type PlaygroundAbout = { title: ReactNode; body: ReactNode };
+
+export function Playground({ about }: { about?: PlaygroundAbout } = {}) {
   const [initial] = useState(() => {
     const parsed = parseHash(typeof window === 'undefined' ? '' : window.location.hash);
     const { document, error } = initialDocument(parsed.app);
@@ -42,7 +46,12 @@ export function Playground() {
   });
   return (
     <StoreContext.Provider value={initial.store}>
-      <PlaygroundView initialError={initial.error} initialView={initial.view} initialValues={initial.values} />
+      <PlaygroundView
+        initialError={initial.error}
+        initialView={initial.view}
+        initialValues={initial.values}
+        about={about}
+      />
     </StoreContext.Provider>
   );
 }
@@ -51,10 +60,12 @@ function PlaygroundView({
   initialError,
   initialView,
   initialValues,
+  about,
 }: {
   initialError?: string;
   initialView: View;
   initialValues: Values;
+  about?: PlaygroundAbout;
 }) {
   const store = useStoreApi();
   const definition = usePlayground((s) => s.definition);
@@ -155,6 +166,14 @@ function PlaygroundView({
   const commit = (next: typeof definition) => store.getState().commit(next);
   return (
     <div className='space-y-3'>
+      {/* The help folds to its title; on phones the View tab shows it in its drawer instead. */}
+      {about && (
+        <div className={view === 'view' ? 'max-md:hidden' : undefined}>
+          <InfoBox storageKey='dirty-geometry.playground.info' title={about.title}>
+            <div className='max-w-4xl'>{about.body}</div>
+          </InfoBox>
+        </div>
+      )}
       {notice && (
         <div className='rounded border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800'>
           {notice}{' '}
@@ -194,6 +213,7 @@ function PlaygroundView({
           changed={changed}
           onValue={(input, value) => setValues((current) => ({ ...current, [input.name]: { ...input, value } }))}
           onReset={(name) => setValues(({ [name]: _, ...rest }) => rest)}
+          about={about}
         />
       )}
       {view === 'edit' && (

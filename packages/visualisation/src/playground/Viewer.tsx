@@ -141,7 +141,6 @@ export function ViewerPanel({
                 <li key={input.name} className='contents'>
                   <span className='font-mono font-semibold' title={input.type}>
                     {input.name}
-                    {isChanged && <span className='text-dg-sky-600'> •</span>}
                   </span>
                   <span className='flex min-w-0 items-center'>
                     <InputValueEditor input={input} range={range} onChange={(value) => onValue(input, value)} />

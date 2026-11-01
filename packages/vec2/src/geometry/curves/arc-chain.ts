@@ -10,6 +10,8 @@ import { Aabb2 } from '../../bounds/aabb2';
 import { Epsilon } from '../../core/epsilon';
 import { Vec2 } from '../../core/vec2';
 import { Arc2, sagittaFromSweep, segmentOf, similarityOf } from '../primitives/arc2';
+import { InfiniteLine2 } from '../primitives/infinite-line2';
+import { Circle2 } from '../regions/circle2';
 import { supportIntersections, type CurveSegment2, type Support2 } from './arc-intersections';
 
 export type ChainData = { vertices: Vec2[]; sagittas: number[] };
@@ -328,8 +330,8 @@ function offsetPiece(segment: CurveSegment2, distance: number): Piece {
 
 function supportOfPiece(piece: Piece): Support2 {
   return piece.kind === 'line'
-    ? { kind: 'line', through: piece.from, direction: piece.to.subtract(piece.from) }
-    : { kind: 'circle', centre: piece.centre, radius: piece.radius };
+    ? new InfiniteLine2(piece.from, piece.to.subtract(piece.from))
+    : new Circle2(piece.centre, piece.radius);
 }
 
 /** The sagitta of a piece after its ends moved; angles are unwrapped next to the originals, so a small overshoot reverses the arc. */

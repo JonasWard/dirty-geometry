@@ -5,20 +5,18 @@
 import { Epsilon } from '../../core/epsilon';
 import { Vec2 } from '../../core/vec2';
 import { Arc2 } from '../primitives/arc2';
+import type { InfiniteLine2 } from '../primitives/infinite-line2';
 import { Line2 } from '../primitives/line2';
+import type { Circle2 } from '../regions/circle2';
 
 /** A straight or circular segment. */
 export type CurveSegment2 = Line2 | Arc2;
 
-/** The infinite line or full circle a segment lies on. */
-export type Support2 =
-  | { kind: 'line'; through: Vec2; direction: Vec2 }
-  | { kind: 'circle'; centre: Vec2; radius: number };
+/** The infinite line or full circle a segment lies on (`Line2.infiniteLine()`, `Arc2.circle()`). */
+export type Support2 = InfiniteLine2 | Circle2;
 
-export function supportOf(segment: CurveSegment2): Support2 {
-  return segment.type === 'Line2'
-    ? { kind: 'line', through: segment.from, direction: segment.direction() }
-    : { kind: 'circle', centre: segment.centre(), radius: segment.radius() };
+function supportOf(segment: CurveSegment2): Support2 {
+  return segment.type === 'Line2' ? segment.infiniteLine() : segment.circle();
 }
 
 /** Crossing of two infinite lines, or `null` when they are parallel. */
@@ -68,14 +66,15 @@ export function circleCircle(c1: Vec2, r1: number, c2: Vec2, r2: number, slack: 
 
 /** Points where two supporting curves meet. */
 export function supportIntersections(a: Support2, b: Support2, slack: Epsilon = Epsilon.preferIn): Vec2[] {
-  if (a.kind === 'line' && b.kind === 'line') {
-    const point = lineLine(a.through, a.direction, b.through, b.direction);
-    return point ? [point] : [];
+  if (a.type === 'InfiniteLine2') {
+    if (b.type === 'InfiniteLine2') {
+      const point = lineLine(a.through, a.direction, b.through, b.direction);
+      return point ? [point] : [];
+    }
+    return lineCircle(a.through, a.direction, b.center, b.radius, slack);
   }
-  if (a.kind === 'line' && b.kind === 'circle') return lineCircle(a.through, a.direction, b.centre, b.radius, slack);
-  if (a.kind === 'circle' && b.kind === 'line') return lineCircle(b.through, b.direction, a.centre, a.radius, slack);
-  const [c1, c2] = [a as Extract<Support2, { kind: 'circle' }>, b as Extract<Support2, { kind: 'circle' }>];
-  return circleCircle(c1.centre, c1.radius, c2.centre, c2.radius, slack);
+  if (b.type === 'InfiniteLine2') return lineCircle(b.through, b.direction, a.center, a.radius, slack);
+  return circleCircle(a.center, a.radius, b.center, b.radius, slack);
 }
 
 /** True when `point` (already on the segment's support) lies within the segment, `slack` as a distance. */
@@ -105,7 +104,7 @@ export function segmentIntersections(a: CurveSegment2, b: CurveSegment2, slack: 
     candidates = [a.from, a.to, b.from, b.to];
   } else {
     candidates = supportIntersections(supportA, supportB, slack);
-    if (supportA.kind === 'line' && supportB.kind === 'line' && candidates.length === 0) return [];
+    if (supportA.type === 'InfiniteLine2' && supportB.type === 'InfiniteLine2' && candidates.length === 0) return [];
   }
 
   const inclusive = Epsilon.custom(tolerance);
@@ -119,10 +118,10 @@ export function segmentIntersections(a: CurveSegment2, b: CurveSegment2, slack: 
 }
 
 function sameSupport(a: Support2, b: Support2, tolerance: number): boolean {
-  if (a.kind === 'circle' && b.kind === 'circle') {
-    return a.centre.distance(b.centre) <= tolerance && Math.abs(a.radius - b.radius) <= tolerance;
+  if (a.type === 'Circle2' && b.type === 'Circle2') {
+    return a.center.distance(b.center) <= tolerance && Math.abs(a.radius - b.radius) <= tolerance;
   }
-  if (a.kind === 'line' && b.kind === 'line') {
+  if (a.type === 'InfiniteLine2' && b.type === 'InfiniteLine2') {
     const length = a.direction.length();
     const parallel = Math.abs(a.direction.crossProduct(b.direction)) <= tolerance * length * b.direction.length();
     const offset = Math.abs(a.direction.crossProduct(b.through.subtract(a.through))) / length;

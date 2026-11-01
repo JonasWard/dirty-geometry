@@ -10,7 +10,18 @@ export const UNARY = {
   round: Math.round,
   floor: Math.floor,
   ceil: Math.ceil,
-} as const satisfies Record<string, (a: number) => number>;
+  sin: Math.sin,
+  cos: Math.cos,
+  tan: Math.tan,
+  cot: (a: number) => 1 / Math.tan(a),
+  /** `null` outside −1…1, so the cell using it fails instead of carrying NaN. */
+  asin: (a: number) => (a < -1 || a > 1 ? null : Math.asin(a)),
+  /** `null` outside −1…1, so the cell using it fails instead of carrying NaN. */
+  acos: (a: number) => (a < -1 || a > 1 ? null : Math.acos(a)),
+  atan: Math.atan,
+  /** `π/2 − atan(a)`: range (0, π), continuous at 0. */
+  acot: (a: number) => Math.PI / 2 - Math.atan(a),
+} as const satisfies Record<string, (a: number) => number | null>;
 
 export const BINARY = {
   '+': (a: number, b: number) => a + b,
@@ -22,6 +33,8 @@ export const BINARY = {
   max: (a: number, b: number) => Math.max(a, b),
   /** Floored modulo: the result has the sign of `b`, so `-1 mod 3` is 2 (handy for wrapping indices). */
   mod: (a: number, b: number) => a - b * Math.floor(a / b),
+  /** The angle of the point `(x, y)` (note: `y` first), in (−π, π]. */
+  atan2: (y: number, x: number) => Math.atan2(y, x),
 } as const satisfies Record<string, (a: number, b: number) => number>;
 
 export type UnaryOp = keyof typeof UNARY;
@@ -30,6 +43,20 @@ export type MathOp = UnaryOp | BinaryOp;
 export const UNARY_OPS = Object.keys(UNARY) as UnaryOp[];
 export const BINARY_OPS = Object.keys(BINARY) as BinaryOp[];
 export const isUnary = (op: string): op is UnaryOp => op in UNARY;
+
+/** Trigonometry takes an angle (`TRIG_OPS`) or gives one (`ARC_OPS`, `atan2`), so hosts may type its operands apart
+ * from the other math. */
+export const TRIG_OPS = ['sin', 'cos', 'tan', 'cot'] as const satisfies readonly UnaryOp[];
+export const ARC_OPS = ['asin', 'acos', 'atan', 'acot'] as const satisfies readonly UnaryOp[];
+export type TrigOp = (typeof TRIG_OPS)[number];
+export type ArcOp = (typeof ARC_OPS)[number];
+export const isTrigOp = (op: string): op is TrigOp => (TRIG_OPS as readonly string[]).includes(op);
+export const isArcOp = (op: string): op is ArcOp => (ARC_OPS as readonly string[]).includes(op);
+/** Ops whose result may be `null` (an operand out of range). */
+export const NULLABLE_OPS: readonly UnaryOp[] = ['asin', 'acos'];
+/** The ops whose operands take the type of the slot the math stands in: everything but trigonometry. */
+export const ARITHMETIC_UNARY_OPS = UNARY_OPS.filter((op) => !isTrigOp(op) && !isArcOp(op));
+export const ARITHMETIC_BINARY_OPS = BINARY_OPS.filter((op) => op !== 'atan2');
 
 /** The tolerance `==` uses when none is given. */
 export const DEFAULT_SLACK = 1e-6;

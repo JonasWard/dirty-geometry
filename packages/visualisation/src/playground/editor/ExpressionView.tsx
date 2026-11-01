@@ -3,6 +3,7 @@
 import { useCallback, useState } from 'react';
 import { toCall } from '@dirty-geometry/fn/calls';
 import { formFields, isSharedForm } from '@dirty-geometry/fn/forms';
+import { isArcOp, isTrigOp } from '@dirty-geometry/fn/math';
 import type { Expr, SharedExpr } from '@dirty-geometry/vec2/recording/definition';
 import type { ExprPath } from '@dirty-geometry/vec2/recording/expr';
 import { isOptional, isRest, operationById, slotType, type Type } from '@dirty-geometry/vec2/schema/schema';
@@ -46,8 +47,19 @@ const OPTIONAL_FIELDS = new Set(['initial', 'data', 'end', 'scale', 'slack']);
 /** The operands of a shared form shown as `name(…)`, as child slots. */
 function formChildSlots(form: SharedExpr, slot: Type, at: (...keys: ExprPath) => ExprPath): Child[] {
   if ('args' in form) {
-    const operand: Type = 'compare' in form ? 'number' : 'logic' in form ? 'boolean' : (roleOf(slot) ?? 'number');
-    const names = form.args.length === 1 ? ['x'] : ['a', 'b'];
+    const math = 'math' in form ? form.math : '';
+    // Trigonometry types its operands itself: an angle into sin…cot, a number into the arc functions and atan2.
+    const operand: Type =
+      'logic' in form
+        ? 'boolean'
+        : 'compare' in form || isArcOp(math)
+          ? 'number'
+          : isTrigOp(math)
+            ? 'Radians'
+            : math === 'atan2'
+              ? 'Coordinate'
+              : (roleOf(slot) ?? 'number');
+    const names = math === 'atan2' ? ['y', 'x'] : form.args.length === 1 ? ['x'] : ['a', 'b'];
     const children: Child[] = form.args.map((e, i) => ({
       key: String(i),
       name: names[i],

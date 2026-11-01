@@ -7,6 +7,9 @@ type E = number | { ref: string };
 const forms: SharedForm<E>[] = [
   { math: 'pow', args: [2, 3] },
   { math: 'abs', args: [-1] },
+  { math: 'sin', args: [1] },
+  { math: 'acot', args: [1] },
+  { math: 'atan2', args: [1, 2] },
   { compare: '<', args: [1, 2] },
   { compare: '==', args: [1, 2], slack: 3 },
   { logic: 'and', args: [1, 0] },

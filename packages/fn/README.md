@@ -8,14 +8,18 @@ import { generate, sortBy } from '@dirty-geometry/fn/lists';
 import { white, jittered, smooth } from '@dirty-geometry/fn/random';
 ```
 
-| Module   | What                                                                                                                                                                       |
-| -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `math`   | `UNARY` (`neg abs sign round floor ceil`), `BINARY` (`+ - * / pow min max mod`, floored `mod`), `compare('<' \| '>' \| '==', a, b, slack)`, `logic`                        |
-| `lists`  | `generate(count, fn(index, previous, count), initial?)`, `map`, `filter`, `sortBy` (stable, number key, NaN last), `slice`, `at` (negative from the end); `GENERATE_LIMIT` |
-| `random` | `white(seed, index)`, `jittered(seed, index, count)`, `smooth(seed, t, scale?)`, all in `[0, 1)`; `hash32`                                                                 |
-| `forms`  | the shared expression forms, generic over the host's expression type, with `formChildren` and `runForm`                                                                    |
-| `calls`  | each form as a call (`toCall`, `fromCall`), for printing and parsing code                                                                                                  |
-| `lib`    | the forms as plain functions named like their calls, so printed code runs                                                                                                  |
+| Module   | What                                                                                                                                                                                                 |
+| -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `math`   | `UNARY` (`neg abs sign round floor ceil`, and `sin cos tan cot asin acos atan acot`), `BINARY` (`+ - * / pow min max mod atan2`, floored `mod`), `compare('<' \| '>' \| '==', a, b, slack)`, `logic` |
+| `lists`  | `generate(count, fn(index, previous, count), initial?)`, `map`, `filter`, `sortBy` (stable, number key, NaN last), `slice`, `at` (negative from the end); `GENERATE_LIMIT`                           |
+| `random` | `white(seed, index)`, `jittered(seed, index, count)`, `smooth(seed, t, scale?)`, all in `[0, 1)`; `hash32`                                                                                           |
+| `forms`  | the shared expression forms, generic over the host's expression type, with `formChildren` and `runForm`                                                                                              |
+| `calls`  | each form as a call (`toCall`, `fromCall`), for printing and parsing code                                                                                                                            |
+| `lib`    | the forms as plain functions named like their calls, so printed code runs                                                                                                                            |
+
+## Trigonometry
+
+Angles are radians. `cot(x) = 1 / tan(x)` (so `cot(0)` is `Infinity`), `acot(x) = π/2 − atan(x)` (range (0, π), continuous at 0), and `atan2(y, x)` takes `y` first, like `Math.atan2`, giving (−π, π]. `asin` and `acos` return `null` outside −1…1 instead of NaN, so whatever uses the result fails with a message. `TRIG_OPS` and `ARC_OPS` name the two groups, for hosts that type trig operands apart from other math.
 
 ## Random
 

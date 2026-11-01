@@ -8,6 +8,7 @@
  * - A result that may be `null` fits a slot of the non-null type: the playground reports the failure when it runs.
  */
 import { isSharedForm } from '@dirty-geometry/fn/forms';
+import { NULLABLE_OPS } from '@dirty-geometry/fn/math';
 import type { Definition, Expr, SharedExpr } from '../src/recording/definition';
 import {
   classes,
@@ -415,7 +416,8 @@ export function typer(issues: Issue[], kind: Issue['kind'], name: string) {
       (e !== undefined || !optional) && check(e, 'number', scope, [...path, key], what);
     if ('math' in expr) {
       expr.args.forEach((arg, i) => check(arg, 'number', scope, [...path, 'args', i], 'an operand'));
-      return 'number';
+      // asin and acos are null outside −1…1.
+      return (NULLABLE_OPS as readonly string[]).includes(expr.math) ? { or: ['number', 'null'] } : 'number';
     }
     if ('compare' in expr) {
       expr.args.forEach((arg, i) => check(arg, 'number', scope, [...path, 'args', i], 'an operand'));

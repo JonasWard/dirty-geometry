@@ -10,7 +10,7 @@
  */
 import * as d from 'densing';
 import { isSharedForm } from '@dirty-geometry/fn/forms';
-import { isUnary } from '@dirty-geometry/fn/math';
+import { isArcOp, isTrigOp, isUnary } from '@dirty-geometry/fn/math';
 import type { Cell, Definition, Expr, Fn, Input, SharedExpr } from '../../src/recording/definition';
 import { DefinitionError, fail as raise } from '../../src/recording/definition';
 import { classJson, operationById, type Type } from '../schema';
@@ -269,6 +269,15 @@ function pack(
         : root(x, names, scope, `${at}.${where}`);
     };
     if ('math' in e) {
+      if (isTrigOp(e.math))
+        return (variant('trig', 'a number'), { type: 'trig', op: e.math, a: sub(e.args[0], 'Radians', 'a') });
+      if (isArcOp(e.math))
+        return (variant('arc', 'a number'), { type: 'arc', op: e.math, a: sub(e.args[0], 'number', 'a') });
+      if (e.math === 'atan2') {
+        variant('atan2', 'a number');
+        const [y, x] = e.args as [Expr, Expr];
+        return { type: 'atan2', y: sub(y, 'Coordinate', 'y'), x: sub(x, 'Coordinate', 'x') };
+      }
       if (isUnary(e.math))
         return (variant('unary', 'arithmetic'), { type: 'unary', op: e.math, a: sub(e.args[0], key, 'a') });
       variant('math', 'arithmetic');
@@ -418,6 +427,12 @@ export function decodeDefinition(encoded: string, dense = createDefinitionSchema
         return { math: o.op, args: [expr(o.a, key, names), expr(o.b, key, names)] };
       case 'unary':
         return { math: o.op, args: [expr(o.a, key, names)] };
+      case 'trig':
+        return { math: o.op, args: [expr(o.a, 'Radians', names)] };
+      case 'arc':
+        return { math: o.op, args: [expr(o.a, 'number', names)] };
+      case 'atan2':
+        return { math: 'atan2', args: [expr(o.y, 'Coordinate', names), expr(o.x, 'Coordinate', names)] };
       case 'compare':
         return {
           compare: o.op,

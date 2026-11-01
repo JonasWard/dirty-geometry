@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { BINARY_OPS, isUnary, UNARY_OPS } from '@dirty-geometry/fn/math';
+import { ARC_OPS, ARITHMETIC_BINARY_OPS, ARITHMETIC_UNARY_OPS, isUnary, TRIG_OPS } from '@dirty-geometry/fn/math';
 import type { Expr } from '@dirty-geometry/vec2/recording/definition';
 import type { ExprPath } from '@dirty-geometry/vec2/recording/expr';
 import { operations, type Operation, type Type } from '@dirty-geometry/vec2/schema/schema';
@@ -23,7 +23,19 @@ const TABS: Record<Tab, string> = {
   list: 'List',
   random: 'Random',
 };
-const MATH_LABELS: Record<string, string> = { '+': 'x + y', '-': 'x − y', '*': 'x × y', '/': 'x ÷ y', neg: '−x' };
+const MATH_LABELS: Record<string, string> = {
+  '+': 'x + y',
+  '-': 'x − y',
+  '*': 'x × y',
+  '/': 'x ÷ y',
+  neg: '−x',
+  atan2: 'atan2(y, x)',
+};
+/** The Arithmetic tab's rows: arithmetic, then trigonometry. */
+const MATH_ROWS = [
+  [...ARITHMETIC_BINARY_OPS, ...ARITHMETIC_UNARY_OPS],
+  [...TRIG_OPS, ...ARC_OPS, 'atan2'],
+] as const;
 const tabClass = (active: boolean) =>
   `rounded px-2 py-0.5 text-[11px] ${active ? 'bg-dg-navy-900 text-dg-sky-200' : 'text-dg-subtle hover:text-dg-steel-600'}`;
 const choice =
@@ -254,22 +266,26 @@ export function OperandPicker({
         ) : tab === 'value' ? (
           <Literals expr={expr} slot={slot} put={put} set={(v) => ed.set(path, v)} />
         ) : tab === 'math' ? (
-          <div className='flex flex-wrap gap-1'>
-            {[...BINARY_OPS, ...UNARY_OPS].map((op) => (
-              <button
-                key={op}
-                type='button'
-                className={action}
-                onClick={() =>
-                  put(
-                    isBinaryMath(expr) && !isUnary(op)
-                      ? { ...expr, math: op }
-                      : wrapMath(expr ?? defaultLiteral(roleOf(slot) ?? 'Coordinate') ?? 0, op),
-                  )
-                }
-              >
-                {MATH_LABELS[op] ?? (isUnary(op) ? `${op}(x)` : `${op}(x, y)`)}
-              </button>
+          <div className='space-y-1'>
+            {MATH_ROWS.map((row, r) => (
+              <div key={r} className='flex flex-wrap gap-1'>
+                {row.map((op) => (
+                  <button
+                    key={op}
+                    type='button'
+                    className={action}
+                    onClick={() =>
+                      put(
+                        isBinaryMath(expr) && !isUnary(op)
+                          ? { ...expr, math: op }
+                          : wrapMath(expr ?? defaultLiteral(roleOf(slot) ?? 'Coordinate') ?? 0, op),
+                      )
+                    }
+                  >
+                    {MATH_LABELS[op] ?? (isUnary(op) ? `${op}(x)` : `${op}(x, y)`)}
+                  </button>
+                ))}
+              </div>
             ))}
           </div>
         ) : (

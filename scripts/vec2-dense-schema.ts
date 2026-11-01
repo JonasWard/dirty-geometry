@@ -9,7 +9,7 @@
  *   - one **expression union per type**, named like the TypeScript type (`Vec2`, `Coordinate`, `Vec2[]`,
  *     `Aabb2 | Vec2`): a reference (`input`, `cell`, `param`), a function call (`fn`), an item or field of another
  *     value (`index`, `field`), a stored value (`value`), the shared forms of `@dirty-geometry/fn/forms` that fit
- *     (`math`, `unary`, `white`, `jittered`, `smooth`, `length` for numbers; `compare`, `logic`, `not` for booleans;
+ *     (`math`, `unary`, `trig`, `arc`, `atan2`, `white`, `jittered`, `smooth`, `length` for numbers; `compare`, `logic`, `not` for booleans;
  *     `generate`, `each`, `slice` for lists; `if` and `at` everywhere), the literal shapes the type allows, and every
  *     operation whose result fits, keyed by its id (`Vec2.add`);
  *   - one **object template per operation signature** (`(self: Vec2, other: Vec2)`): `self` (instance members), then
@@ -17,7 +17,7 @@
  *   - `Any`: an expression of any type, keyed by the type's name (cell roots, function bodies, `of`, function args).
  * - `fields`: stamp, inputs, functions and cells. Every union's discriminator is `type`.
  */
-import { BINARY_OPS, COMPARE_OPS, UNARY_OPS } from '../packages/fn/src/math';
+import { ARC_OPS, ARITHMETIC_BINARY_OPS, ARITHMETIC_UNARY_OPS, COMPARE_OPS, TRIG_OPS } from '../packages/fn/src/math';
 import { typeName, typeSystem, type Type } from '../packages/vec2/schema/typing';
 import { SKIP_MEMBERS } from '../packages/vec2/schema/policy';
 
@@ -307,9 +307,13 @@ export function renderDenseSchema({ numbers, types, modules }: Schema): string {
         ...(numeric && {
           nonFinite: variant('nonFinite', nonFinite()),
           ...variants(type, {
-            math: [enumeration('op', BINARY_OPS), self(), expr('b', type)],
-            unary: [enumeration('op', UNARY_OPS), self()],
+            math: [enumeration('op', ARITHMETIC_BINARY_OPS), self(), expr('b', type)],
+            unary: [enumeration('op', ARITHMETIC_UNARY_OPS), self()],
           }),
+          // Trigonometry types its operands itself: an angle in, or a ratio or point in.
+          trig: variant('trig', [enumeration('op', TRIG_OPS), expr('a', 'Radians')]),
+          arc: variant('arc', [enumeration('op', ARC_OPS), expr('a', 'number')]),
+          atan2: variant('atan2', [expr('y', 'Coordinate'), expr('x', 'Coordinate')]),
           white: variant('white', [expr('seed', 'Integer'), expr('index', 'Index')]),
           jittered: variant('jittered', [expr('seed', 'Integer'), expr('index', 'Index'), expr('count', 'Index')]),
           smooth: variant('smooth', [

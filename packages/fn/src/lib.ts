@@ -10,7 +10,8 @@ export const pow = BINARY.pow;
 export const min = BINARY.min;
 export const max = BINARY.max;
 export const mod = BINARY.mod;
-export const { abs, sign, round, floor, ceil } = UNARY;
+export const atan2 = BINARY.atan2;
+export const { abs, sign, round, floor, ceil, sin, cos, tan, cot, asin, acos, atan, acot } = UNARY;
 
 export const smallerThan = (a: number, b: number) => compare('<', a, b);
 export const biggerThan = (a: number, b: number) => compare('>', a, b);

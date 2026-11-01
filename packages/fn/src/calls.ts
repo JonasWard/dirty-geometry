@@ -21,6 +21,15 @@ export const CALLS = {
   round: ['e'],
   floor: ['e'],
   ceil: ['e'],
+  sin: ['e'],
+  cos: ['e'],
+  tan: ['e'],
+  cot: ['e'],
+  asin: ['e'],
+  acos: ['e'],
+  atan: ['e'],
+  acot: ['e'],
+  atan2: ['e', 'e'],
   smallerThan: ['e', 'e'],
   biggerThan: ['e', 'e'],
   equal: ['e', 'e', 'e?'],
@@ -110,12 +119,21 @@ export function fromCall<E>(name: CallName, args: CallArg<E>[]): SharedForm<E> {
     case 'min':
     case 'max':
     case 'mod':
+    case 'atan2':
       return { math: name, args: [a, b] };
     case 'abs':
     case 'sign':
     case 'round':
     case 'floor':
     case 'ceil':
+    case 'sin':
+    case 'cos':
+    case 'tan':
+    case 'cot':
+    case 'asin':
+    case 'acos':
+    case 'atan':
+    case 'acot':
       return { math: name, args: [a] };
     case 'smallerThan':
     case 'biggerThan':

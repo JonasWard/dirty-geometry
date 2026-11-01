@@ -184,6 +184,44 @@ describe('shared forms in definitions', () => {
   });
 });
 
+describe('trigonometry', () => {
+  test('evaluates, and asin out of range fails the cell that uses it', () => {
+    const d = def([
+      { name: 'angle', expr: { math: 'atan2', args: [1, -1] } },
+      { name: 'unit', expr: { math: 'cos', args: [{ math: 'acot', args: [0] }] } },
+      { name: 'big', expr: 2 },
+      { name: 'bad', expr: { math: 'asin', args: [ref('big')] } },
+      { name: 'uses', expr: { math: '+', args: [ref('bad'), 1] } },
+    ]);
+    expect(valueOf(d, 'angle')).toBeCloseTo((3 * Math.PI) / 4, 12);
+    expect(valueOf(d, 'unit')).toBeCloseTo(0, 12);
+    expect(valueOf(d, 'bad')).toBeNull();
+    expect(errorOf(d, 'uses')).toContain('not null');
+  });
+
+  test('asin and acos may be null; the rest are numbers', () => {
+    const d = def([
+      { name: 'a', expr: { math: 'asin', args: [0.5] } },
+      { name: 's', expr: { math: 'sin', args: [0.5] } },
+    ]);
+    const { refs } = checkDefinition(d);
+    expect(refs.get('a')).toEqual({ or: ['number', 'null'] });
+    expect(refs.get('s')).toBe('number');
+  });
+
+  test('operands pack as an angle (sin) or a number (asin, atan2), whatever the slot', () => {
+    // 0.785 is on the Radians grid (0.001); in a Coordinate slot (0.01) it would snap to 0.79.
+    const d = def([
+      { name: 's', expr: { math: 'sin', args: [0.785] }, type: 'Coordinate' },
+      { name: 'r', expr: { math: 'acot', args: [{ math: 'tan', args: [1.571] }] }, type: 'Radians' },
+      { name: 'p', expr: { math: 'atan2', args: [-1.5, 2.25] }, type: 'Radians' },
+      { name: 'c', expr: { math: 'asin', args: [0.5] }, type: 'Radians', output: true },
+    ]);
+    expect(issues(d)).toEqual([]);
+    expect(roundTrip(d)).toEqual(d);
+  });
+});
+
 describe('packing shared forms', () => {
   test('the ring example round-trips', () => {
     expect(roundTrip(ring)).toEqual(ring);

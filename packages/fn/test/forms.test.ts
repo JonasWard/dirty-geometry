@@ -43,6 +43,9 @@ describe('runForm', () => {
   test('math, compare, logic, if', () => {
     expect(run({ math: '+', args: [1, { math: 'pow', args: [2, 3] }] })).toBe(9);
     expect(run({ math: 'floor', args: [-1.5] })).toBe(-2);
+    expect(run({ math: 'atan2', args: [0, -1] })).toBe(Math.PI);
+    expect(run({ math: 'asin', args: [2] })).toBeNull();
+    expect(() => run({ math: '+', args: [{ math: 'asin', args: [2] }, 1] })).toThrow('not null');
     expect(run({ compare: '==', args: [1, 1.05], slack: 0.1 })).toBe(true);
     expect(run({ logic: 'not', args: [{ compare: '<', args: [1, 2] }] })).toBe(false);
     expect(run({ if: { compare: '>', args: [2, 1] }, then: 1, else: 2 })).toBe(1);

@@ -33,4 +33,42 @@ describe('math', () => {
   test('logic', () => {
     expect([logic('and', true, false), logic('or', true, false), logic('not', true)]).toEqual([false, true, false]);
   });
+  describe('trigonometry', () => {
+    const PI = Math.PI;
+    test('sin, cos, tan, cot', () => {
+      expect(UNARY.sin(PI / 2)).toBe(1);
+      expect(UNARY.cos(PI)).toBe(-1);
+      expect(UNARY.tan(PI / 4)).toBeCloseTo(1, 12);
+      expect(UNARY.cot(PI / 4)).toBeCloseTo(1, 12);
+      expect(UNARY.cot(0)).toBe(Infinity);
+    });
+    test('inverses undo their functions on their ranges', () => {
+      for (const t of [-1.5, -0.7, 0, 0.3, 1.2]) {
+        expect(UNARY.asin(UNARY.sin(t))!).toBeCloseTo(t, 12);
+        expect(UNARY.atan(UNARY.tan(t))).toBeCloseTo(t, 12);
+      }
+      for (const t of [0.1, 1, 2, 3]) {
+        expect(UNARY.acos(UNARY.cos(t))!).toBeCloseTo(t, 12);
+        expect(UNARY.acot(UNARY.cot(t))).toBeCloseTo(t, 12);
+      }
+    });
+    test('asin and acos are null outside -1..1', () => {
+      expect(UNARY.asin(1.0000001)).toBeNull();
+      expect(UNARY.acos(-2)).toBeNull();
+      expect(UNARY.asin(1)).toBe(PI / 2);
+      expect(UNARY.acos(-1)).toBe(PI);
+    });
+    test('acot is continuous, in (0, π)', () => {
+      expect(UNARY.acot(0)).toBe(PI / 2);
+      expect(UNARY.acot(-1)).toBeCloseTo((3 * PI) / 4, 12);
+      expect(Math.abs(UNARY.acot(1e-9) - UNARY.acot(-1e-9))).toBeLessThan(1e-8);
+    });
+    test('atan2 covers all four quadrants', () => {
+      expect(BINARY.atan2(1, 1)).toBeCloseTo(PI / 4, 12);
+      expect(BINARY.atan2(1, -1)).toBeCloseTo((3 * PI) / 4, 12);
+      expect(BINARY.atan2(-1, -1)).toBeCloseTo((-3 * PI) / 4, 12);
+      expect(BINARY.atan2(-1, 1)).toBeCloseTo(-PI / 4, 12);
+      expect(BINARY.atan2(0, -1)).toBe(PI);
+    });
+  });
 });

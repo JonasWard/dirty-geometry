@@ -8,6 +8,7 @@
  * options objects and stored values (`value({ type: 'Vec2', x: 1, y: 2 })`). Which operation `a.add(b)` is follows
  * from the type of `a`, so cells are resolved in order.
  */
+import { CallError, fromCall, isCallName, type CallArg } from '@dirty-geometry/fn/calls';
 import type { Cell, Definition, Expr, Fn, Input } from '@dirty-geometry/vec2/recording/definition';
 import { isOptional, isRest, operationById, type Slot, type Type } from '@dirty-geometry/vec2/schema/schema';
 import {
@@ -429,6 +430,22 @@ export function parseDefinition(text: string): Definition {
           return error(`${callee.name} is not a function defined before here`, callee.from, callee.to);
         }
         if (callee.kind !== 'member') return error('Only functions and methods can be called', callee.from, callee.to);
+        if (callee.of.kind === 'name' && callee.of.name === 'lib' && !refs.has('lib')) {
+          if (!isCallName(callee.name)) return error(`lib has no ${callee.name}`, callee.nameFrom, callee.to);
+          const given = node.args.map((arg): CallArg<Expr> => {
+            if (arg.spread) return error('lib calls take no spread arguments', arg.node.from, arg.node.to);
+            const named = arg.node.kind === 'name' && !refs.has(arg.node.name) ? arg.node.name : undefined;
+            if (named === 'undefined') return undefined;
+            if (named !== undefined && fns.has(named)) return { fn: named };
+            return { expr: r(arg.node) };
+          });
+          try {
+            return fromCall(callee.name, given);
+          } catch (e) {
+            if (e instanceof CallError) return error(e.message, node.from, node.to);
+            throw e;
+          }
+        }
         if (callee.of.kind === 'name' && isClass(callee.of.name) && !refs.has(callee.of.name)) {
           const id = `${callee.of.name}.${callee.name}`;
           const op = operationById.get(id);

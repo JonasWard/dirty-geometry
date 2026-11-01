@@ -10,13 +10,14 @@
     "lint": "next lint",
     "test": "bun test packages",
     "test:perf": "PERF=1 bun test packages",
-    "typecheck": "tsc --noEmit -p packages/vec2 && tsc --noEmit -p packages/graph && tsc --noEmit -p packages/visualisation && tsc --noEmit",
+    "typecheck": "tsc --noEmit -p packages/fn && tsc --noEmit -p packages/vec2 && tsc --noEmit -p packages/graph && tsc --noEmit -p packages/visualisation && tsc --noEmit",
     "schema": "bun scripts/vec2-schema.ts",
     "schema:check": "bun scripts/vec2-schema.ts --check",
     "format": "prettier --write \"packages/**/*.{ts,tsx,json}\"",
     "format:check": "prettier --check \"packages/**/*.{ts,tsx,json}\""
   },
   "dependencies": {
+    "@dirty-geometry/fn": "workspace:*",
     "@dirty-geometry/graph": "workspace:*",
     "@dirty-geometry/vec2": "workspace:*",
     "@dirty-geometry/visualisation": "workspace:*",

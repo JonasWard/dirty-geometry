@@ -5,8 +5,12 @@
  * may refer to the inputs and to earlier cells by name; a function body only to its own params (and earlier
  * functions). Cells flagged `output` are the definition's result; each declares its `type`.
  */
+import type * as F from '@dirty-geometry/fn/forms';
+import type { BinaryOp } from '@dirty-geometry/fn/math';
+
 export type Literal = string | number | boolean | null;
-export type MathOp = '+' | '-' | '*' | '/';
+/** The two-operand math operations (`+`, `pow`, `min`, …). */
+export type MathOp = BinaryOp;
 export type Expr =
   | Literal
   /** A list (also a rest argument's items). */
@@ -26,8 +30,26 @@ export type Expr =
   /** An element of a list result, or a field of an object result (`Boolean2Result.polygons`). */
   | { of: Expr; index: number }
   | { of: Expr; field: string }
-  | { math: MathOp; args: [Expr, Expr] }
-  | { math: 'neg'; args: [Expr] };
+  /** The shared forms (`@dirty-geometry/fn/forms`): math, comparisons, logic, `if`, lists that call a user function
+   * by name, and seeded random. */
+  | SharedExpr;
+
+/** The shared forms with vec2 expressions inside (listed one by one: see `@dirty-geometry/fn/forms`). */
+export type SharedExpr =
+  | F.UnaryMath<Expr>
+  | F.BinaryMath<Expr>
+  | F.Compare<Expr>
+  | F.Not<Expr>
+  | F.AndOr<Expr>
+  | F.If<Expr>
+  | F.Generate<Expr>
+  | F.Each<Expr>
+  | F.Slice<Expr>
+  | F.Length<Expr>
+  | F.At<Expr>
+  | F.White<Expr>
+  | F.Jittered<Expr>
+  | F.Smooth<Expr>;
 
 /** `type`: a number type (`Coordinate`, …), `boolean`, `string` or a class; `value` a literal or `{ value }`. */
 export type Input = { name: string; type: string; value: Expr };

@@ -1,7 +1,9 @@
 /** Walking and rebuilding expressions. A path is the keys from an expression down to one inside it. */
+import { formChildren, isSharedForm } from '@dirty-geometry/fn/forms';
 import type { Expr } from './definition';
 
-/** `['args', 'center']`, `['self']`, `['args', 'vertices', 2]`, `['object', 'mesh']`, `['of']`, `['args', 0]` (math). */
+/** `['args', 'center']`, `['self']`, `['args', 'vertices', 2]`, `['object', 'mesh']`, `['of']`, `['args', 0]` (math),
+ * `['items']`, `['then']` (shared forms). */
 export type ExprPath = (string | number)[];
 
 /** The expressions directly inside `e`, with the path step to each. */
@@ -15,7 +17,7 @@ export function children(e: Expr): { path: ExprPath; expr: Expr }[] {
       ...Object.entries(e.args ?? {}).map(([k, expr]) => ({ path: ['args', k], expr })),
     ];
   if ('call' in e) return Object.entries(e.args ?? {}).map(([k, expr]) => ({ path: ['args', k], expr }));
-  if ('math' in e) return e.args.map((expr, i) => ({ path: ['args', i], expr: expr as Expr }));
+  if (isSharedForm<Expr>(e)) return formChildren(e);
   if ('of' in e) return [{ path: ['of'], expr: e.of }];
   return [];
 }

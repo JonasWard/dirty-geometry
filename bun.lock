@@ -5,6 +5,7 @@
     "": {
       "name": "dirty-geometry",
       "dependencies": {
+        "@dirty-geometry/fn": "workspace:*",
         "@dirty-geometry/graph": "workspace:*",
         "@dirty-geometry/vec2": "workspace:*",
         "@dirty-geometry/visualisation": "workspace:*",
@@ -29,6 +30,10 @@
         "typescript": "^5",
       },
     },
+    "packages/fn": {
+      "name": "@dirty-geometry/fn",
+      "version": "0.1.0",
+    },
     "packages/graph": {
       "name": "@dirty-geometry/graph",
       "version": "0.1.0",
@@ -40,6 +45,7 @@
       "name": "@dirty-geometry/vec2",
       "version": "0.1.0",
       "dependencies": {
+        "@dirty-geometry/fn": "workspace:*",
         "densing": "0.5.0",
         "robust-predicates": "3.0.2",
       },
@@ -54,6 +60,7 @@
       "name": "@dirty-geometry/visualisation",
       "version": "0.1.0",
       "dependencies": {
+        "@dirty-geometry/fn": "workspace:*",
         "@dirty-geometry/graph": "workspace:*",
         "@dirty-geometry/vec2": "workspace:*",
         "densing": "0.5.0",
@@ -105,6 +112,8 @@
     "@babel/types": ["@babel/types@7.29.0", "", { "dependencies": { "@babel/helper-string-parser": "^7.27.1", "@babel/helper-validator-identifier": "^7.28.5" } }, "sha512-LwdZHpScM4Qz8Xw2iKSzS+cfglZzJGvofQICy7W7v4caru4EaAmyUuO6BGrbyQ2mYV11W0U8j5mBhd14dd3B0A=="],
 
     "@dimforge/rapier3d-compat": ["@dimforge/rapier3d-compat@0.12.0", "", {}, "sha512-uekIGetywIgopfD97oDL5PfeezkFpNhwlzlaEYNOA0N6ghdsOvh/HYjSMek5Q2O1PYvRSDFcqFVJl4r4ZBwOow=="],
+
+    "@dirty-geometry/fn": ["@dirty-geometry/fn@workspace:packages/fn"],
 
     "@dirty-geometry/graph": ["@dirty-geometry/graph@workspace:packages/graph"],
 

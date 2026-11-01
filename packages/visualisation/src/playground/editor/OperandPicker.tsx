@@ -1,19 +1,29 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { Expr, MathOp } from '@dirty-geometry/vec2/recording/definition';
+import { BINARY_OPS, isUnary, UNARY_OPS } from '@dirty-geometry/fn/math';
+import type { Expr } from '@dirty-geometry/vec2/recording/definition';
 import type { ExprPath } from '@dirty-geometry/vec2/recording/expr';
 import { operations, type Operation, type Type } from '@dirty-geometry/vec2/schema/schema';
 import { assignable, isNumeric, members, roleOf, typeName } from '@dirty-geometry/vec2/schema/typing';
 import { DEFAULT_VALUES, defaultLiteral, literalShape } from '../defaults';
-import { callFunction, chain, changeOp, methodsOf, partsOf, unchain, wrapMath } from '../model/ops';
+import { callFunction, chain, changeOp, formChoices, methodsOf, partsOf, unchain, wrapMath } from '../model/ops';
 import { operationLabel } from '../operations';
 import { useFavourites } from '../store';
 import { ValueEditor } from '../widgets';
 import type { Editing } from './context';
 
-type Tab = 'name' | 'value' | 'operation' | 'math';
-const TABS: Record<Tab, string> = { name: 'Name', value: 'Value', operation: 'Operation', math: 'Arithmetic' };
+type Tab = 'name' | 'value' | 'operation' | 'math' | 'logic' | 'list' | 'random';
+const TABS: Record<Tab, string> = {
+  name: 'Name',
+  value: 'Value',
+  operation: 'Operation',
+  math: 'Arithmetic',
+  logic: 'Logic',
+  list: 'List',
+  random: 'Random',
+};
+const MATH_LABELS: Record<string, string> = { '+': 'x + y', '-': 'x − y', '*': 'x × y', '/': 'x ÷ y', neg: '−x' };
 const tabClass = (active: boolean) =>
   `rounded px-2 py-0.5 text-[11px] ${active ? 'bg-dg-navy-900 text-dg-sky-200' : 'text-dg-subtle hover:text-dg-steel-600'}`;
 const choice =
@@ -61,8 +71,9 @@ function FolderView({
     </>
   );
 }
-const isMath = (e: Expr | undefined): e is { math: MathOp; args: [Expr, Expr] } =>
-  !!e && typeof e === 'object' && 'math' in e && e.math !== 'neg';
+/** A two-operand math expression: picking another two-operand op keeps its operands. */
+const isBinaryMath = (e: Expr | undefined): e is Extract<Expr, { math: string; args: [Expr, Expr] }> =>
+  !!e && typeof e === 'object' && 'math' in e && !isUnary(e.math);
 
 /**
  * Pick what stands in a slot (a name, a literal, an operation or user function, arithmetic), or with `chain` a method
@@ -93,7 +104,10 @@ export function OperandPicker({
   const fits = (type: Type) => any || assignable(type, slot);
   const names = ed.scope.filter((b) => fits(b.type));
   const numeric = any || members(slot).some(isNumeric);
-  const tabs = (Object.keys(TABS) as Tab[]).filter((t) => t !== 'math' || numeric);
+  const forms = useMemo(() => formChoices(expr, slot, ed.fns), [expr, slot, ed.fns]);
+  const tabs = (Object.keys(TABS) as Tab[]).filter((t) =>
+    t === 'math' ? numeric : t === 'logic' || t === 'list' || t === 'random' ? forms.some((f) => f.tab === t) : true,
+  );
   const [tab, setTab] = useState<Tab>(
     expr !== null && typeof expr === 'object' && !Array.isArray(expr) && ('op' in expr || 'call' in expr)
       ? 'operation'
@@ -239,24 +253,37 @@ export function OperandPicker({
           )
         ) : tab === 'value' ? (
           <Literals expr={expr} slot={slot} put={put} set={(v) => ed.set(path, v)} />
-        ) : (
+        ) : tab === 'math' ? (
           <div className='flex flex-wrap gap-1'>
-            {(['+', '-', '*', '/', 'neg'] as const).map((op) => (
+            {[...BINARY_OPS, ...UNARY_OPS].map((op) => (
               <button
                 key={op}
                 type='button'
                 className={action}
                 onClick={() =>
                   put(
-                    isMath(expr) && op !== 'neg'
+                    isBinaryMath(expr) && !isUnary(op)
                       ? { ...expr, math: op }
                       : wrapMath(expr ?? defaultLiteral(roleOf(slot) ?? 'Coordinate') ?? 0, op),
                   )
                 }
               >
-                {op === 'neg' ? '−x' : `x ${{ '+': '+', '-': '−', '*': '×', '/': '÷' }[op]} y`}
+                {MATH_LABELS[op] ?? (isUnary(op) ? `${op}(x)` : `${op}(x, y)`)}
               </button>
             ))}
+          </div>
+        ) : (
+          <div className='flex flex-wrap gap-1'>
+            {forms
+              .filter((f) => f.tab === tab)
+              .map((f) => (
+                <button key={f.label} type='button' className={action} onClick={() => put(f.expr)}>
+                  {f.label}
+                </button>
+              ))}
+            {tab === 'list' && !ed.fns.length && (
+              <p className='w-full text-dg-subtle'>Add a function to generate, map, filter or sort with it.</p>
+            )}
           </div>
         )}
       </div>

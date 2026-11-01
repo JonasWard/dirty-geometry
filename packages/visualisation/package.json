@@ -10,6 +10,7 @@
     "./playground": "./src/playground/index.ts"
   },
   "dependencies": {
+    "@dirty-geometry/fn": "workspace:*",
     "@dirty-geometry/graph": "workspace:*",
     "@dirty-geometry/vec2": "workspace:*",
     "densing": "0.5.0",

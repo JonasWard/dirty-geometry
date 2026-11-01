@@ -7,7 +7,8 @@
  * - A literal's type is the literal itself (`{ enum: [0.5] }`), so it fits enumerations such as `AnglePrecisions`.
  * - A result that may be `null` fits a slot of the non-null type: the playground reports the failure when it runs.
  */
-import type { Definition, Expr } from '../src/recording/definition';
+import { isSharedForm } from '@dirty-geometry/fn/forms';
+import type { Definition, Expr, SharedExpr } from '../src/recording/definition';
 import {
   classes,
   classJson,
@@ -273,7 +274,7 @@ export const RESERVED: ReadonlySet<string> = new Set(
     'break case catch class const continue debugger default delete do else enum export extends false finally for ' +
     'function if import in instanceof new null return super switch this throw true try typeof var void while with ' +
     'yield let static implements interface package private protected public await as async of type undefined ' +
-    'Infinity NaN Math value definition helpers Record'
+    'Infinity NaN Math value definition helpers Record lib'
   ).split(' '),
 );
 /** Why `name` cannot name an input, cell, function or param, if it cannot. */
@@ -354,10 +355,7 @@ export function typer(issues: Issue[], kind: Issue['kind'], name: string) {
       );
       return fn.returns;
     }
-    if ('math' in expr) {
-      expr.args.forEach((arg, i) => check(arg, 'number', scope, [...path, 'args', i], 'an operand'));
-      return 'number';
-    }
+    if (isSharedForm<Expr>(expr)) return form(expr, scope, path);
     const of = typeOf(expr.of, scope, [...path, 'of']);
     if (of === 'unknown') return of;
     const ms = members(of).filter((m) => m !== 'null');
@@ -374,6 +372,111 @@ export function typer(issues: Issue[], kind: Issue['kind'], name: string) {
       return report(path, `${typeName(widen(of))} has no field ${expr.field}`);
     const slots = fields.map((f) => (isOptional(f!) ? { or: [slotType(f!), 'null'] } : slotType(f!)));
     return slots.length === 1 ? slots[0]! : { or: slots };
+  }
+  /** The item type of a list type (a tuple's items joined), or a report when `type` is not a list. */
+  function itemOf(type: Type, path: (string | number)[]): Type {
+    if (type === 'unknown') return type;
+    const items = members(type)
+      .filter((m) => m !== 'null')
+      .map((m) =>
+        Array.isArray(m) ? m[0]! : isKind(m, 'tuple') ? unionOf((m as { tuple: Type[] }).tuple.map(widen)) : undefined,
+      );
+    if (!items.length || items.some((t) => t === undefined))
+      return report(path, `${typeName(widen(type))} is not a list`);
+    return unionOf(items as Type[]);
+  }
+  /** Checks the function a list form calls: it exists, takes at most the arguments given, and each fits its param. */
+  function callback(
+    name: string,
+    given: [string, Type][],
+    scope: Scope,
+    path: (string | number)[],
+  ): FnType | undefined {
+    const fn = scope.fns.get(name);
+    if (!fn) return void report([...path, 'fn'], `${name} is not a function defined before here`);
+    if (fn.params.length > given.length)
+      report(
+        [...path, 'fn'],
+        `${name} takes ${fn.params.length} params; it gets ${given.map(([what]) => what).join(', ')}`,
+      );
+    fn.params.slice(0, given.length).forEach((param, i) => {
+      const [what, type] = given[i]!;
+      if (!assignable(type, param.type))
+        report(
+          [...path, 'fn'],
+          `${name}: its ${what} is ${typeName(widen(type))}; param ${param.name} is ${typeName(param.type)}`,
+        );
+    });
+    return fn;
+  }
+  /** The shared forms (`@dirty-geometry/fn/forms`). */
+  function form(expr: SharedExpr, scope: Scope, path: (string | number)[]): Type {
+    const number = (e: Expr | undefined, key: string | number, what: string, optional = false) =>
+      (e !== undefined || !optional) && check(e, 'number', scope, [...path, key], what);
+    if ('math' in expr) {
+      expr.args.forEach((arg, i) => check(arg, 'number', scope, [...path, 'args', i], 'an operand'));
+      return 'number';
+    }
+    if ('compare' in expr) {
+      expr.args.forEach((arg, i) => check(arg, 'number', scope, [...path, 'args', i], 'an operand'));
+      number(expr.slack, 'slack', 'the slack', true);
+      return 'boolean';
+    }
+    if ('logic' in expr) {
+      expr.args.forEach((arg, i) => check(arg, 'boolean', scope, [...path, 'args', i], 'an operand'));
+      return 'boolean';
+    }
+    if ('if' in expr) {
+      check(expr.if, 'boolean', scope, [...path, 'if'], 'the condition');
+      return unionOf([typeOf(expr.then, scope, [...path, 'then']), typeOf(expr.else, scope, [...path, 'else'])]);
+    }
+    if ('random' in expr) {
+      number(expr.seed, 'seed', 'the seed');
+      if (expr.random === 'smooth') {
+        number(expr.t, 't', 't');
+        number(expr.scale, 'scale', 'the scale', true);
+      } else number(expr.index, 'index', 'the index');
+      if (expr.random === 'jittered') number(expr.count, 'count', 'the count');
+      return 'Parameter';
+    }
+    const data = (): [string, Type][] =>
+      expr.list !== 'slice' && expr.list !== 'length' && expr.list !== 'at' && expr.data !== undefined
+        ? [['data', typeOf(expr.data, scope, [...path, 'data'])]]
+        : [];
+    if (expr.list === 'generate') {
+      number(expr.count, 'count', 'the count');
+      const fn = scope.fns.get(expr.fn);
+      const previous: Type = expr.initial === undefined ? 'null' : typeOf(expr.initial, scope, [...path, 'initial']);
+      // `previous` is `initial` (or null) first, then what the function returns.
+      const fed = fn ? unionOf([previous, fn.returns]) : previous;
+      const called = callback(
+        expr.fn,
+        [['index', 'Index'], ['previous', fed], ['count', 'Index'], ...data()],
+        scope,
+        path,
+      );
+      return [called ? called.returns : 'unknown'];
+    }
+    const items = typeOf(expr.items, scope, [...path, 'items']);
+    const item = itemOf(items, [...path, 'items']);
+    switch (expr.list) {
+      case 'length':
+        return 'Index';
+      case 'at':
+        number(expr.index, 'index', 'the index');
+        return item;
+      case 'slice':
+        number(expr.start, 'start', 'the start');
+        number(expr.end, 'end', 'the end', true);
+        return [item];
+    }
+    const fn = callback(expr.fn, [['item', item], ['index', 'Index'], ...data()], scope, path);
+    if (expr.list === 'map') return [fn ? fn.returns : 'unknown'];
+    if (fn && expr.list === 'filter' && !assignable(fn.returns, 'boolean'))
+      report([...path, 'fn'], `a filter returns true or false; ${expr.fn} returns ${typeName(fn.returns)}`);
+    if (fn && expr.list === 'sort' && !assignable(fn.returns, 'number'))
+      report([...path, 'fn'], `a sort key is a number; ${expr.fn} returns ${typeName(fn.returns)}`);
+    return [item];
   }
   return { typeOf, check, report };
 }

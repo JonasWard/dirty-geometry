@@ -2,6 +2,7 @@
  * Runs a version 4 definition: every cell in order, each on real vec2 values. A failing cell keeps its error and
  * the cells after it still run (those that use it fail with "depends on …"), so the playground can show what works.
  */
+import { isSharedForm, runForm } from '@dirty-geometry/fn/forms';
 import { operationById, isRest } from '../../schema/schema';
 import { defaultRegistry } from '../io/default-registry';
 import type { Definition, Expr, Fn } from './definition';
@@ -52,13 +53,6 @@ export function runOperation(id: string, self: unknown, args: Record<string, unk
   return typeof member === 'function' ? member.apply(target, positional) : member;
 }
 
-const MATH = {
-  '+': (a: number, b: number) => a + b,
-  '-': (a: number, b: number) => a - b,
-  '*': (a: number, b: number) => a * b,
-  '/': (a: number, b: number) => a / b,
-};
-
 export function evaluate(definition: Definition, options: EvaluateOptions = {}): Evaluation {
   if (definition.version !== 4) fail(`Unsupported definition version ${definition.version}`);
   const fns = new Map(definition.functions.map((fn) => [fn.name, fn]));
@@ -92,11 +86,12 @@ export function evaluate(definition: Definition, options: EvaluateOptions = {}):
       );
     }
     if ('call' in expr) return call(fns.get(expr.call) ?? fail(`${expr.call} is not a function`), expr.args ?? {});
-    if ('math' in expr) {
-      const [a, b] = expr.args.map((arg) => run(arg, scope, used) as number);
-      if (expr.math === 'neg') return -a!;
-      return MATH[expr.math](a!, b!);
-    }
+    if (isSharedForm<Expr>(expr))
+      return runForm(
+        expr,
+        (operand) => run(operand, scope, used),
+        (name, values) => callWith(fns.get(name) ?? fail(`${name} is not a function`), values),
+      );
     const of = run(expr.of, scope, used) as Record<string | number, unknown> | null;
     const key = 'index' in expr ? expr.index : expr.field;
     if (Object(of) !== of || !(key in of!)) fail(`the value has no ${'index' in expr ? 'item' : 'field'} ${key}`);
@@ -108,9 +103,14 @@ export function evaluate(definition: Definition, options: EvaluateOptions = {}):
     }
   }
 
+  /** Calls `fn` with positional values (a list form's callback); params past the values get `null`. */
+  function callWith(fn: Fn, values: unknown[]): unknown {
+    return run(fn.body, new Map(fn.params.map((p, i) => [p.name, i < values.length ? values[i] : null])), new Set());
+  }
+
   const fnKey = JSON.stringify(definition.functions);
   for (const cell of definition.cells) {
-    const key = `${JSON.stringify(cell.expr)}|${/"call"/.test(JSON.stringify(cell.expr)) ? fnKey : ''}`;
+    const key = `${JSON.stringify(cell.expr)}|${/"(call|fn)"/.test(JSON.stringify(cell.expr)) ? fnKey : ''}`;
     const before = options.previous?.memo.get(cell.name);
     const reusable = before?.key === key && before.deps.every((dep, i) => dep === depValue(before.depNames[i]!));
     let result: CellResult;

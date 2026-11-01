@@ -17,6 +17,10 @@ import {
 import * as ops from '../src/playground/model/ops';
 import { DEFAULT_FAVOURITES } from '../src/playground/operations';
 import { STARTERS } from '../src/playground/starters';
+import { choosePresets } from '../src/playground/presets';
+import { parseDefinition } from '../src/playground/model/parse';
+import { printDefinition } from '../src/playground/model/print';
+import { createDefinitionSchema } from '@dirty-geometry/vec2/schema/dense/definition';
 import { createPlaygroundStore, favourites } from '../src/playground/store';
 
 const def = (partial: Partial<Definition>): Definition => ({
@@ -51,6 +55,12 @@ describe('playground data', () => {
   });
   test('every default value decodes', () => {
     for (const json of Object.values(DEFAULT_VALUES)) expect(() => defaultRegistry.decode(json)).not.toThrow();
+  });
+  test.each(STARTERS.map((s) => [s.id, s] as const))('starter %s survives the link and the code view', (_, starter) => {
+    const definition = starter.build();
+    const presets = choosePresets(definition, {}, createDefinitionSchema());
+    expect(decodeAppState(encodeAppState({ definition, options: {}, presets })).definition).toEqual(definition);
+    expect(parseDefinition(printDefinition(definition))).toEqual(definition);
   });
   test.each(STARTERS.map((s) => [s.id, s] as const))('starter %s type-checks and evaluates', (_, starter) => {
     const definition = starter.build();
@@ -380,5 +390,49 @@ describe('viewer link', () => {
     const { drawn } = drawnItems(mixed, evaluate(mixed));
     expect(drawn).toHaveLength(1);
     expect(drawn[0]!.color).toBe(outputColor(0));
+  });
+});
+
+describe('arc examples', () => {
+  /** A starter's outputs, with some input values changed (as the View tab does). */
+  const run = (id: string, values: Record<string, Expr> = {}) => {
+    const definition = ops.withInputValues(STARTERS.find((s) => s.id === id)!.build(), values);
+    return evaluate(definition).outputs as Record<string, any>;
+  };
+  const near = (actual: number, expected: number) => expect(actual).toBeCloseTo(expected, 9);
+
+  test('a fillet of radius r in a right-angled corner is a quarter circle, tangent to both legs', () => {
+    const { fillet, length } = run('fillet');
+    near(length, Math.PI / 2);
+    near(fillet.from.x, -1);
+    near(fillet.to.y, 1);
+    near(run('fillet', { radius: 2 }).length, Math.PI);
+  });
+
+  test('the arc through (-2, 0), (0, h), (2, 0) has radius (4 + h²) / 2h', () => {
+    near(run('three-points').radius, 2.5);
+    near(run('three-points', { height: 2 }).radius, 2);
+  });
+
+  test('a 4 × 2 slot with half-circle ends, and the band around it', () => {
+    const { area, offset } = run('slot');
+    near(area, 8 + Math.PI);
+    // grown by 0.5: the straight part is 4 long and 3 wide, the ends half circles of radius 1.5
+    near(offset.area(), 4 * 3 + Math.PI * 1.5 ** 2);
+  });
+
+  test('exact booleans: the lens of two discs through each other’s centres, and their union', () => {
+    const lens = (r: number) => r * r * ((2 * Math.PI) / 3 - Math.sqrt(3) / 2);
+    const { area, both } = run('lens');
+    near(area, lens(2));
+    expect(both).toHaveLength(1);
+    near(both[0].area(), 2 * Math.PI * 4 - lens(2));
+    near(run('lens', { radius: 3 }).area, lens(3));
+  });
+
+  test('a wave of three half circles, and its offset: radii 1.4, 0.6, 1.4', () => {
+    const { length, offset } = run('wave');
+    near(length, 3 * Math.PI);
+    near(offset.length(), 3.4 * Math.PI);
   });
 });

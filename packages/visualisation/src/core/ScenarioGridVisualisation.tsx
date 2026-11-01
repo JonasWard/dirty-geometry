@@ -69,6 +69,8 @@ function GridCamera({
         minZoom={minZoomFor(fittedZoom)}
         maxZoom={Math.max(maxZoom, fittedZoom)}
         zoomSpeed={0.8}
+        // Zoom towards the pointer, so a deep zoom lands on the cell (and the detail) under it.
+        zoomToCursor
       />
     </>
   );
@@ -104,7 +106,7 @@ export function ScenarioGridVisualisation<T extends NamedScenario>({
   zoomScale = 0.85,
   cellScale = 1,
   onPointerMissed,
-  maxZoom = 200,
+  maxZoom = 2000,
 }: ScenarioGridVisualisationProps<T>) {
   const layout = useMemo(
     () => buildScenarioGridLayout(scenarioRows, { columns, padding, zoomScale, cellScale }),

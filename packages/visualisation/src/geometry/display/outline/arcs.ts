@@ -1,7 +1,7 @@
 import type { ArcPolyline2 } from '@dirty-geometry/vec2/geometry/curves/arc-polyline2';
 import type { Arc2 } from '@dirty-geometry/vec2/geometry/primitives/arc2';
 import type { ArcPolygon2 } from '@dirty-geometry/vec2/geometry/regions/arc-polygon2';
-import { arcChainDisplayPoints } from '../shared/arc';
+import { arcChainDisplayPoints, displayChordTolerance } from '../shared/arc';
 import { fittedPolylinePoints } from '../shared/polyline';
 import type { GeometryDisplayContext } from '../context';
 import { GEOMETRY_OUTLINE_THREE_KIND, type PolylineOutlineDisplay } from '../types';
@@ -12,7 +12,8 @@ function chainOutline(
   ctx: GeometryDisplayContext,
 ): PolylineOutlineDisplay | null {
   // The sampled closed chain already ends on its first point, so it is drawn as an open polyline.
-  const points = fittedPolylinePoints(ctx.fit, arcChainDisplayPoints(segments, closed), false, ctx.offset);
+  const sampled = arcChainDisplayPoints(segments, closed, displayChordTolerance(ctx.fit));
+  const points = fittedPolylinePoints(ctx.fit, sampled, false, ctx.offset);
   if (points.length < 2) return null;
   return { threeKind: GEOMETRY_OUTLINE_THREE_KIND.Polyline2, points, closed: false };
 }

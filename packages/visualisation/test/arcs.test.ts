@@ -15,10 +15,23 @@ describe('arc display points', () => {
   test('a half circle is sampled on its circle, ending at its end point', () => {
     const half = new Arc2(V(-1, 0), V(1, 0), 1);
     const points = arcChainDisplayPoints([half], false);
-    expect(points.length).toBe(25); // 24 steps for half a turn, plus the end
+    expect(points.length).toBe(91); // 90 steps (2° each) for half a turn, plus the end
     for (const point of points) expect(point.distance(V(0, 0))).toBeCloseTo(1, 9);
     expect(points[points.length - 1]!.distance(V(1, 0))).toBe(0);
     expect(Math.max(...points.map((p) => p.y))).toBeCloseTo(1, 9);
+  });
+
+  test('a chord tolerance adds samples to large, gentle arcs only', () => {
+    const gentle = new Arc2(V(0, 0), V(10, 0), 0.5); // radius about 25, a small sweep
+    const small = new Arc2(V(0, 0), V(0.2, 0), 0.1); // a half circle of radius 0.1
+    const tolerance = 1e-4;
+    const fine = arcChainDisplayPoints([gentle], false, tolerance);
+    expect(fine.length).toBeGreaterThan(arcChainDisplayPoints([gentle], false).length);
+    for (let i = 1; i < fine.length; i++) {
+      const middle = Vec2.center(fine[i - 1]!, fine[i]!);
+      expect(gentle.distanceToPoint(middle)).toBeLessThanOrEqual(tolerance * 1.01);
+    }
+    expect(arcChainDisplayPoints([small], false, tolerance).length).toBe(91);
   });
 
   test('straight segments add only their ends; closed chains end on the first point', () => {

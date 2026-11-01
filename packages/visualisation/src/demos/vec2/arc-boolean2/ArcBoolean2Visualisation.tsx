@@ -14,7 +14,7 @@ import { ScenarioGridVisualisation } from '../../../core/ScenarioGridVisualisati
 import { fitGeometriesToFrame } from '../../../geometry';
 import { ContainerInteriorMesh } from '../../../geometry/components/ContainerInteriorMesh';
 import { GeometryRender } from '../../../geometry/components/GeometryRender';
-import { arcChainDisplayPoints } from '../../../geometry/display/shared/arc';
+import { arcChainDisplayPoints, displayChordTolerance } from '../../../geometry/display/shared/arc';
 
 const COLORS = {
   subject: '#ffb347',
@@ -23,6 +23,19 @@ const COLORS = {
   hole: '#ff7ad9',
   background: '#0b0d12',
 } as const;
+
+/** Vertex markers of a fixed size on screen, so they stay small however far the view is zoomed in. */
+function VertexDots({ points, color }: { points: [number, number, number][]; color: string }) {
+  const positions = useMemo(() => new Float32Array(points.flat()), [points]);
+  return (
+    <points>
+      <bufferGeometry>
+        <bufferAttribute attach='attributes-position' args={[positions, 3]} />
+      </bufferGeometry>
+      <pointsMaterial color={color} size={3.5} sizeAttenuation={false} />
+    </points>
+  );
+}
 
 function ArcBooleanCell({ scenario, offset }: { scenario: ArcBooleanScenario; offset: Vec2 }) {
   const { result, fit, milliseconds } = useMemo(() => {
@@ -116,16 +129,14 @@ function ArcBooleanCell({ scenario, offset }: { scenario: ArcBooleanScenario; of
       {regions.map((region, index) => (
         <group key={`region-${index}`}>
           <Line
-            points={outline(arcChainDisplayPoints(region.segments(), true))}
+            points={outline(arcChainDisplayPoints(region.segments(), true, displayChordTolerance(fit)))}
             color={region.signedArea() > 0 ? COLORS.result : COLORS.hole}
             lineWidth={2.25}
           />
-          {region.vertices.map((vertex, v) => (
-            <mesh key={v} position={vec2ToTuple(fit(vertex), offset)}>
-              <circleGeometry args={[0.03, 12]} />
-              <meshBasicMaterial color={region.signedArea() > 0 ? COLORS.result : COLORS.hole} />
-            </mesh>
-          ))}
+          <VertexDots
+            points={region.vertices.map((vertex) => vec2ToTuple(fit(vertex), offset))}
+            color={region.signedArea() > 0 ? COLORS.result : COLORS.hole}
+          />
         </group>
       ))}
       {result.polygons.map((polygon, index) => (

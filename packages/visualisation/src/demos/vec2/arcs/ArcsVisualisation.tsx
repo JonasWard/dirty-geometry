@@ -9,7 +9,7 @@ import { arcScenarioRows, type ArcGeometry, type ArcScenario } from '@dirty-geom
 import { fitPointsToFrame, frameCorners, labelPosition, vec2ToTuple } from '../../../core/frame';
 import { ScenarioGridVisualisation } from '../../../core/ScenarioGridVisualisation';
 import { ContainerInteriorMesh } from '../../../geometry/components/ContainerInteriorMesh';
-import { arcChainDisplayPoints } from '../../../geometry/display/shared/arc';
+import { arcChainDisplayPoints, displayChordTolerance } from '../../../geometry/display/shared/arc';
 
 const COLORS = {
   curve: '#4da3ff',
@@ -60,23 +60,26 @@ function Dot({ at, color, radius, offset }: { at: Vec2; color: string; radius: n
 function ArcScenarioVisual({ scenario, offset }: { scenario: ArcScenario; offset: Vec2 }) {
   const scene = useMemo(() => {
     const geometry = scenario.build();
-    const closed = geometry.type === 'ArcPolygon2';
-    const curve = arcChainDisplayPoints(segmentsOf(geometry), closed);
-    const offsets = (scenario.offsets ?? [])
+    const offsetCurves = (scenario.offsets ?? [])
       .map((distance) => offsetOf(geometry, distance, scenario.miterLimit))
-      .filter((value): value is ArcGeometry => value !== null)
-      .map((value) => arcChainDisplayPoints(segmentsOf(value), value.type === 'ArcPolygon2'));
+      .filter((value): value is ArcGeometry => value !== null);
+    const sample = (value: ArcGeometry, tolerance?: number) =>
+      arcChainDisplayPoints(segmentsOf(value), value.type === 'ArcPolygon2', tolerance);
     const arcs = segmentsOf(geometry).filter((segment): segment is Arc2 => segment.type === 'Arc2');
     const samples = (scenario.lengthSamples ?? []).map((length) => geometry.evaluateAtLength(length));
     const closest = scenario.query ? geometry.closestPointForPoint(scenario.query) : null;
 
+    // Fit the frame to coarse samples, then sample finely enough for that frame at the deepest zoom.
     const fit = fitPointsToFrame([
-      ...curve,
+      ...sample(geometry),
       ...(scenario.guides ?? []).flat(),
-      ...offsets.flat(),
+      ...offsetCurves.flatMap((value) => sample(value)),
       ...arcs.map((arc) => arc.apex()),
       ...(scenario.query ? [scenario.query] : []),
     ]);
+    const tolerance = displayChordTolerance(fit);
+    const curve = sample(geometry, tolerance);
+    const offsets = offsetCurves.map((value) => sample(value, tolerance));
     return { geometry, curve, offsets, arcs, samples, closest, fit };
   }, [scenario]);
 

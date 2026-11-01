@@ -1,6 +1,7 @@
 import AboutBody from "@/components/about-body";
 import { getTranslations } from "@/utilities/l10n";
 import { Metadata } from "next";
+import { pageCrumbs } from "@/components/lab/crumbs";
 import Main from "@/components/main";
 import type { Props } from "../route-params";
 
@@ -16,7 +17,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function About({ params }: Readonly<Props>) {
   const { locale } = await params;
   return (
-    <Main locale={locale} page="about">
+    <Main locale={locale} page="about" crumbs={pageCrumbs(locale, "about")}>
       <AboutBody locale={locale} />
     </Main>
   );

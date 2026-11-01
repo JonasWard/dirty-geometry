@@ -17,7 +17,7 @@ import { pathKey, type Editing } from './editor/context';
 import { Operand } from './editor/ExpressionView';
 import * as ops from './model/ops';
 import { usePlayground, useStoreApi } from './store';
-import { inputClass, NumberInput, selectClass, ValueEditor } from './widgets';
+import { inputClass, NumberInput, selectClass, SliderInput, ValueEditor, type SliderRange } from './widgets';
 
 const panel = 'rounded-md border border-dg-border bg-white/60 p-3 text-xs';
 const heading = 'mb-2 text-xs font-bold tracking-widest text-dg-subtle uppercase';
@@ -207,12 +207,28 @@ export function InputsPanel({ analysis }: { analysis: Analysis }) {
   );
 }
 
-/** The value of an input, edited by its kind: a number, a checkbox, text, or a stored vec2 value. */
-export function InputValueEditor({ input, onChange }: { input: Input; onChange: (value: Input['value']) => void }) {
+/**
+ * The value of an input, edited by its kind: a number, a checkbox, text, or a stored vec2 value. With `range`, a
+ * number (and a point's coordinates) whose type has a range gets a slider, with its exact value in a box beside it.
+ */
+export function InputValueEditor({
+  input,
+  onChange,
+  range,
+}: {
+  input: Input;
+  onChange: (value: Input['value']) => void;
+  range?: (type: string) => SliderRange | undefined;
+}) {
   const { value } = input;
   const label = `${input.name} value`;
+  const slider = typeof value === 'number' ? range?.(input.type) : undefined;
   return typeof value === 'number' ? (
-    <NumberInput label={label} value={value} onChange={onChange} />
+    slider ? (
+      <SliderInput label={label} value={value} range={slider} onChange={onChange} />
+    ) : (
+      <NumberInput label={label} value={value} onChange={onChange} />
+    )
   ) : typeof value === 'boolean' ? (
     <input aria-label={label} type='checkbox' checked={value} onChange={(e) => onChange(e.target.checked)} />
   ) : typeof value === 'string' ? (
@@ -221,6 +237,7 @@ export function InputValueEditor({ input, onChange }: { input: Input; onChange: 
     <ValueEditor
       label={label}
       value={value.value as Record<string, unknown>}
+      range={range?.('Coordinate')}
       onChange={(json) => onChange({ value: json })}
     />
   ) : null;

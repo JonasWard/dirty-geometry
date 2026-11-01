@@ -10,41 +10,51 @@ import { VisualisationLegend } from '../core/VisualisationLegend';
 import { CodeEditor } from './CodeEditor';
 import { EncodingPanel } from './EncodingPanel';
 import { JsonEditor } from './JsonEditor';
+import { ModeSwitch, tab, type View } from './ModeSwitch';
 import { CellsPanel, FunctionsPanel, InputsPanel } from './panels';
 import { PLAYGROUND_COLORS, PlaygroundCanvas } from './PlaygroundCanvas';
 import { STARTERS } from './starters';
-import { currentHash, initialDocument } from './location';
+import { initialDocument } from './location';
 import { createPlaygroundStore, StoreContext, useAnalysis, usePlayground, useStoreApi } from './store';
-import { isLegacyHash, readPlaygroundHash } from './url';
+import { decodeAppState, encodeViewState, formatHash, parseHash } from './url';
+import { changedInputs, readValues, ViewerPanel, type Values } from './Viewer';
 
 type Mode = 'cells' | 'code' | 'json';
 const MODES: Record<Mode, string> = { cells: 'Cells', code: 'Code', json: 'JSON' };
-const tab = (active: boolean) =>
-  `border px-3 py-1 text-xs tracking-widest uppercase ${
-    active
-      ? 'border-dg-navy-900 bg-dg-navy-900 text-dg-sky-200'
-      : 'border-dg-border text-dg-subtle hover:border-dg-steel-600'
-  }`;
 const button =
   'rounded border border-dg-border px-2 py-0.5 text-xs hover:border-dg-steel-600 hover:text-dg-steel-600 disabled:opacity-40';
 
 /**
  * The vec2 playground: a definition is inputs, functions and cells, each cell one expression edited in place (or as
  * code, or as JSON). Every cell's geometry is drawn, and the whole definition lives in the link as a densing string.
+ * Its View tab leaves only the inputs' values to change. The link is `#/<app>` for the editor and `#/<app>/<view>`
+ * for the View tab: the app state is the definition (with the editor's values), the view state the input values.
  */
-export function Playground({ viewerHref }: { viewerHref?: string } = {}) {
-  const [{ store, error }] = useState(() => {
-    const { document, error } = initialDocument();
-    return { store: createPlaygroundStore(document), error };
+export function Playground() {
+  const [initial] = useState(() => {
+    const parsed = parseHash(typeof window === 'undefined' ? '' : window.location.hash);
+    const { document, error } = initialDocument(parsed.app);
+    // A link that cannot be read opens the starter in the editor; its view part means nothing then.
+    const read = error ? { values: {} } : readValues(parsed.view, document.options);
+    const view: View = parsed.view && !error ? 'view' : 'edit';
+    return { store: createPlaygroundStore(document), view, values: read.values, error: error ?? read.error };
   });
   return (
-    <StoreContext.Provider value={store}>
-      <PlaygroundView initialError={error} viewerHref={viewerHref} />
+    <StoreContext.Provider value={initial.store}>
+      <PlaygroundView initialError={initial.error} initialView={initial.view} initialValues={initial.values} />
     </StoreContext.Provider>
   );
 }
 
-function PlaygroundView({ initialError, viewerHref }: { initialError?: string; viewerHref?: string }) {
+function PlaygroundView({
+  initialError,
+  initialView,
+  initialValues,
+}: {
+  initialError?: string;
+  initialView: View;
+  initialValues: Values;
+}) {
   const store = useStoreApi();
   const definition = usePlayground((s) => s.definition);
   const options = usePlayground((s) => s.options);
@@ -55,52 +65,82 @@ function PlaygroundView({ initialError, viewerHref }: { initialError?: string; v
   const canUndo = usePlayground((s) => s.past.length > 0);
   const canRedo = usePlayground((s) => s.future.length > 0);
   const [mode, setMode] = useState<Mode>('cells');
+  const [view, setView] = useState<View>(initialView);
+  const [values, setValues] = useState<Values>(initialValues);
   const [notice, setNotice] = useState<string | undefined>(initialError);
   const { analysis, evaluation } = useAnalysis(definition);
   const schema = useMemo(() => createDefinitionSchema(options), [options]);
-  const lastHash = useRef<string | undefined>(undefined);
+  // What this page last wrote to (or read from) the URL, and in which view.
+  const lastHash = useRef(typeof window === 'undefined' ? '' : window.location.hash);
+  const lastView = useRef(initialView);
+  // Bumped when the URL was changed from outside, so it is rewritten as this page writes it.
+  const [visited, setVisited] = useState(0);
 
-  // A link: version 4 is already loaded; an older one is read (its decoder loads on demand) and upgraded.
-  const open = (hash: string, mode: 'push' | 'reset') =>
-    readPlaygroundHash(hash).then(
-      (state) => {
-        lastHash.current = hash;
-        store.getState().load({ ...state, auto: false }, mode);
-        setNotice(state.upgraded ? 'This link was made by an earlier playground; its steps are now cells.' : undefined);
-      },
-      (failure: Error) => setNotice(`Could not read the link: ${failure.message}`),
-    );
-  useEffect(() => {
-    const hash = currentHash();
-    if (hash && isLegacyHash(hash)) void open(hash, 'reset');
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  // The viewer's changed values, and the view state: every input's value (a value no range holds keeps the last link).
+  const changed = useMemo(() => changedInputs(definition, values), [definition, values]);
+  const stored = useMemo((): { text?: string; error?: string } => {
+    if (view !== 'view') return {};
+    const inputs = definition.inputs.map((input) => changed.find((c) => c.name === input.name) ?? input);
+    try {
+      return { text: encodeViewState(options, inputs) };
+    } catch (error) {
+      return { error: (error as Error).message };
+    }
+  }, [view, definition, changed, options]);
+  const target = encoding.hash && !stored.error ? formatHash(encoding.hash, stored.text) : undefined;
 
-  // Keep the URL in step (debounced), without adding history entries.
+  // Keep the URL in step: switching the view adds a history entry (so Back switches back), edits replace it.
   useEffect(() => {
-    if (!encoding.hash || encoding.hash === lastHash.current) return;
-    const timer = setTimeout(() => {
-      lastHash.current = encoding.hash;
-      window.history.replaceState(null, '', `#/${encoding.hash}`);
-    }, 300);
+    if (!target || target === lastHash.current) return;
+    const write = (push: boolean) => {
+      lastHash.current = target;
+      lastView.current = view;
+      if (push) window.history.pushState(null, '', target);
+      else window.history.replaceState(null, '', target);
+    };
+    if (view !== lastView.current) return write(true);
+    const timer = setTimeout(() => write(false), 300);
     return () => clearTimeout(timer);
-  }, [encoding.hash]);
+  }, [target, view, visited]);
 
-  // A different link pasted into this tab (only hashes this page did not write itself).
+  // Back, forward, or a link pasted into this tab (only hashes this page did not write itself).
   useEffect(() => {
     const onHashChange = () => {
-      const hash = currentHash();
-      if (hash && hash !== lastHash.current) void open(hash, 'push');
+      const hash = window.location.hash;
+      if (hash === lastHash.current) return;
+      lastHash.current = hash;
+      const parsed = parseHash(hash);
+      let loadedOptions = store.getState().options;
+      if (parsed.app && parsed.app !== store.getState().encoding.hash) {
+        try {
+          const read = decodeAppState(parsed.app);
+          store.getState().load({ ...read, auto: false }, 'push');
+          loadedOptions = read.options;
+          setNotice(undefined);
+        } catch (error) {
+          // Keep what is open; the next write puts its link back.
+          setNotice(`Could not read the link: ${(error as Error).message}`);
+          setVisited((n) => n + 1);
+          return;
+        }
+      }
+      const next: View = parsed.view ? 'view' : 'edit';
+      lastView.current = next;
+      setView(next);
+      const read = readValues(parsed.view, loadedOptions);
+      setValues(read.values);
+      if (read.error) setNotice(read.error);
+      // Rewrite the link as this page writes it (when the load changed nothing, no edit does).
+      setVisited((n) => n + 1);
     };
     window.addEventListener('hashchange', onHashChange);
     return () => window.removeEventListener('hashchange', onHashChange);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [store]);
 
   // Undo and redo, unless a text field has the keys.
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (!(event.ctrlKey || event.metaKey) || event.key.toLowerCase() !== 'z') return;
+      if (!(event.ctrlKey || event.metaKey) || event.key.toLowerCase() !== 'z' || lastView.current !== 'edit') return;
       const target = event.target as HTMLElement | null;
       if (target && /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName)) return;
       event.preventDefault();
@@ -122,114 +162,145 @@ function PlaygroundView({ initialError, viewerHref }: { initialError?: string; v
           </button>
         </div>
       )}
-      <div className='flex flex-wrap items-center gap-2'>
-        <div className='flex gap-1' role='tablist' aria-label='Editor mode'>
-          {(Object.keys(MODES) as Mode[]).map((m) => (
-            <button
-              key={m}
-              type='button'
-              role='tab'
-              aria-selected={mode === m}
-              className={tab(mode === m)}
-              onClick={() => setMode(m)}
-            >
-              {MODES[m]}
-            </button>
-          ))}
-        </div>
-        <button
-          type='button'
-          className={button}
-          disabled={!canUndo}
-          onClick={() => store.getState().undo()}
-          title='Ctrl+Z'
-        >
-          ↶ undo
-        </button>
-        <button
-          type='button'
-          className={button}
-          disabled={!canRedo}
-          onClick={() => store.getState().redo()}
-          title='Ctrl+Shift+Z'
-        >
-          ↷ redo
-        </button>
-        <label className='ml-auto flex items-center gap-1 text-xs text-dg-subtle'>
-          start from
-          <select
-            aria-label='starter'
-            className='rounded border border-dg-border bg-white px-1.5 py-0.5 text-xs text-dg-ink'
-            value=''
-            onChange={(event) => {
-              const chosen = STARTERS.find((candidate) => candidate.id === event.target.value);
-              if (chosen) store.getState().load({ definition: chosen.build(), options: {}, presets: {}, auto: true });
-            }}
-          >
-            <option value=''>choose…</option>
-            {STARTERS.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.label}
-              </option>
-            ))}
-          </select>
-        </label>
-        {viewerHref && (
-          <a
+      {view === 'view' && (
+        <div className='flex flex-wrap items-center gap-2'>
+          <ModeSwitch view={view} onChange={setView} />
+          <span aria-hidden='true' className='mx-1 h-5 w-px bg-dg-border' />
+          <button
+            type='button'
             className={button}
-            href={encoding.hash ? `${viewerHref}#/${encoding.hash}` : viewerHref}
-            title='Play with the inputs of this definition'
+            disabled={changed.length === 0}
+            onClick={() => setValues({})}
+            title='Back to the editor’s values'
           >
-            open viewer ↗
-          </a>
-        )}
-      </div>
-
-      <div className='grid gap-4 xl:grid-cols-[minmax(0,6fr)_minmax(0,5fr)]'>
-        <div className='min-w-0 space-y-4'>
-          {mode === 'cells' && (
-            <>
-              <InputsPanel analysis={analysis} />
-              <FunctionsPanel analysis={analysis} />
-              <CellsPanel analysis={analysis} evaluation={evaluation} />
-            </>
+            ↺ reset values
+          </button>
+          <span className='text-xs text-dg-subtle'>
+            {changed.length === 0 ? 'the editor’s values' : `${changed.length} changed · kept in the link`}
+          </span>
+          {stored.error && (
+            <span className='text-xs text-amber-700' title={stored.error}>
+              a value is out of range; the link keeps the last one that fit
+            </span>
           )}
-          {mode === 'code' && <CodeEditor definition={definition} onChange={commit} />}
-          {mode === 'json' && <JsonEditor definition={definition} onChange={commit} />}
         </div>
-
-        <div className='min-w-0 space-y-4 xl:sticky xl:top-20 xl:self-start'>
-          <div className='relative h-[60vh] min-h-[420px] w-full overflow-hidden border border-dg-border bg-[#0b0d12]'>
-            <PlaygroundCanvas definition={definition} evaluation={evaluation} selected={selected} />
-            <VisualisationLegend
-              items={[
-                { color: PLAYGROUND_COLORS.intermediate, label: 'Cells', shape: 'line' },
-                { color: PLAYGROUND_COLORS.outputs[0], label: 'Outputs (one colour each)', shape: 'line' },
-                { color: PLAYGROUND_COLORS.selected, label: 'Selected (click a name)', shape: 'line' },
-              ]}
-            />
+      )}
+      {view === 'view' && (
+        <ViewerPanel
+          definition={definition}
+          options={options}
+          presets={active}
+          changed={changed}
+          onValue={(input, value) => setValues((current) => ({ ...current, [input.name]: { ...input, value } }))}
+          onReset={(name) => setValues(({ [name]: _, ...rest }) => rest)}
+        />
+      )}
+      {view === 'edit' && (
+        <>
+          <div className='flex flex-wrap items-center gap-2'>
+            <ModeSwitch view={view} onChange={setView} />
+            <span aria-hidden='true' className='mx-1 h-5 w-px bg-dg-border' />
+            <div className='flex gap-1' role='tablist' aria-label='Editor mode'>
+              {(Object.keys(MODES) as Mode[]).map((m) => (
+                <button
+                  key={m}
+                  type='button'
+                  role='tab'
+                  aria-selected={mode === m}
+                  className={tab(mode === m)}
+                  onClick={() => setMode(m)}
+                >
+                  {MODES[m]}
+                </button>
+              ))}
+            </div>
+            <button
+              type='button'
+              className={button}
+              disabled={!canUndo}
+              onClick={() => store.getState().undo()}
+              title='Ctrl+Z'
+            >
+              ↶ undo
+            </button>
+            <button
+              type='button'
+              className={button}
+              disabled={!canRedo}
+              onClick={() => store.getState().redo()}
+              title='Ctrl+Shift+Z'
+            >
+              ↷ redo
+            </button>
+            <label className='ml-auto flex items-center gap-1 text-xs text-dg-subtle'>
+              start from
+              <select
+                aria-label='starter'
+                className='rounded border border-dg-border bg-white px-1.5 py-0.5 text-xs text-dg-ink'
+                value=''
+                onChange={(event) => {
+                  const chosen = STARTERS.find((candidate) => candidate.id === event.target.value);
+                  if (chosen)
+                    store.getState().load({ definition: chosen.build(), options: {}, presets: {}, auto: true });
+                }}
+              >
+                <option value=''>choose…</option>
+                {STARTERS.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.label}
+                  </option>
+                ))}
+              </select>
+            </label>
           </div>
-          <EncodingPanel
-            schema={schema}
-            options={options}
-            presets={active}
-            auto={auto}
-            stats={encoding}
-            onPresets={(next) => store.getState().update({ presets: next, auto: false })}
-            onOptions={(next) => store.getState().update({ options: next })}
-            onAuto={(next) =>
-              store.getState().update({ auto: next, presets: next ? store.getState().presets : active })
-            }
-            onSnap={() => {
-              try {
-                commit(decodeDefinition(encodeDefinition(definition, active, schema), schema).definition);
-              } catch {
-                // the encoding panel already shows why it cannot encode
-              }
-            }}
-          />
-        </div>
-      </div>
+
+          <div className='grid gap-4 xl:grid-cols-[minmax(0,6fr)_minmax(0,5fr)]'>
+            <div className='min-w-0 space-y-4'>
+              {mode === 'cells' && (
+                <>
+                  <InputsPanel analysis={analysis} />
+                  <FunctionsPanel analysis={analysis} />
+                  <CellsPanel analysis={analysis} evaluation={evaluation} />
+                </>
+              )}
+              {mode === 'code' && <CodeEditor definition={definition} onChange={commit} />}
+              {mode === 'json' && <JsonEditor definition={definition} onChange={commit} />}
+            </div>
+
+            <div className='min-w-0 space-y-4 xl:sticky xl:top-16 xl:self-start'>
+              <div className='relative isolate h-[60vh] min-h-[420px] w-full overflow-hidden border border-dg-border bg-[#0b0d12]'>
+                <PlaygroundCanvas definition={definition} evaluation={evaluation} selected={selected} />
+                <VisualisationLegend
+                  items={[
+                    { color: PLAYGROUND_COLORS.intermediate, label: 'Cells', shape: 'line' },
+                    { color: PLAYGROUND_COLORS.outputs[0], label: 'Outputs (one colour each)', shape: 'line' },
+                    { color: PLAYGROUND_COLORS.selected, label: 'Selected (click a name)', shape: 'line' },
+                  ]}
+                />
+              </div>
+              <EncodingPanel
+                schema={schema}
+                options={options}
+                presets={active}
+                auto={auto}
+                stats={encoding}
+                onPresets={(next) => store.getState().update({ presets: next, auto: false })}
+                onOptions={(next) => store.getState().update({ options: next })}
+                onAuto={(next) =>
+                  store.getState().update({ auto: next, presets: next ? store.getState().presets : active })
+                }
+                onSnap={() => {
+                  try {
+                    commit(decodeDefinition(encodeDefinition(definition, active, schema), schema).definition);
+                  } catch {
+                    // the encoding panel already shows why it cannot encode
+                  }
+                }}
+              />
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }

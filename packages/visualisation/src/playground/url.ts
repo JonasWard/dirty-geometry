@@ -1,9 +1,10 @@
 /**
- * The playground URL: `4/<options>/<definition>`, both densing strings. Options carry the custom presets;
- * the large definition schema is rebuilt from them, so it never travels in the URL.
+ * The playground URL: `#/<app>` for the editor, `#/<app>/<view>` for the View tab. Both parts are densing strings;
+ * the app state carries the custom number ranges it needs, and the large definition schema is rebuilt from them, so
+ * it never travels in the URL.
  */
 import { array, densing, enumArray, enumeration, int, object, optional, schema, undensing } from 'densing';
-import type { Definition } from '@dirty-geometry/vec2/recording/definition';
+import type { Definition, Input } from '@dirty-geometry/vec2/recording/definition';
 import { NUMBER_TYPES } from '@dirty-geometry/vec2/schema/schema';
 import {
   createDefinitionSchema,
@@ -12,6 +13,7 @@ import {
 } from '@dirty-geometry/vec2/schema/dense/definition';
 import type { NumericPreset as CustomPreset } from 'densing';
 import type { ActivePresets, NumericOptions } from '@dirty-geometry/vec2/schema/dense/definition';
+import { choosePresets } from './presets';
 
 const NAME_CHARS = [...'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_$-.@±'];
 const NUMBER_CHARS = [...'0123456789.-e'];
@@ -73,40 +75,56 @@ export function decodeOptions(text: string): NumericOptions {
 }
 
 export type PlaygroundState = { options: NumericOptions; presets: ActivePresets; definition: Definition };
-/** The first segment of a version 4 hash; a version 3 link has no version segment. */
-export const HASH_VERSION = '4';
 
-/** `4/<options>/<definition>` for the URL hash. */
-export function encodePlaygroundHash(state: PlaygroundState): string {
-  const schema = createDefinitionSchema(state.options);
-  return `${HASH_VERSION}/${encodeOptions(state.options)}/${encodeDefinition(state.definition, state.presets, schema)}`;
+const hasCustomRanges = (options: NumericOptions) =>
+  Object.values(options.custom ?? {}).some((ranges) => Object.keys(ranges).length > 0);
+
+/**
+ * The app state: the definition as a densing string, after its custom number ranges (`<options>.<definition>`)
+ * when it has any. `.` is outside densing's alphabet, so the two never mix.
+ */
+export function encodeAppState(state: PlaygroundState): string {
+  const definition = encodeDefinition(state.definition, state.presets, createDefinitionSchema(state.options));
+  return hasCustomRanges(state.options) ? `${encodeOptions(state.options)}.${definition}` : definition;
 }
 
-const segments = (hash: string) => hash.replace(/^#?\/?/, '').split('/');
-/** Whether a hash is a link from before version 4 (`<options>/<definition>`), which `readPlaygroundHash` upgrades. */
-export const isLegacyHash = (hash: string) => segments(hash).length === 2;
-
-/** A version 4 hash. */
-export function decodePlaygroundHash(hash: string): PlaygroundState {
-  const [version, options, definition] = segments(hash);
-  if (version !== HASH_VERSION || !options || !definition) throw new Error('The link has no definition');
-  const decodedOptions = decodeOptions(options);
-  const decoded = decodeDefinition(definition, createDefinitionSchema(decodedOptions));
-  return { options: decodedOptions, presets: decoded.presets, definition: decoded.definition };
+/** An app state written by `encodeAppState`; throws when the text is not one. */
+export function decodeAppState(text: string): PlaygroundState {
+  const parts = text.split('.');
+  if (parts.length > 2 || !parts.at(-1)) throw new Error('The link has no definition');
+  const options = parts.length === 2 ? decodeOptions(parts[0]!) : {};
+  const decoded = decodeDefinition(parts.at(-1)!, createDefinitionSchema(options));
+  return { options, presets: decoded.presets, definition: decoded.definition };
 }
 
 /**
- * Any playground hash. A version 3 link is decoded with the frozen version 3 schema (loaded only then) and turned
- * into cells; its presets are kept where the number types still exist.
+ * The view state: every input's value, as a definition holding only the inputs, packed with the cheapest exact
+ * ranges for them (stored in the string), so a value may leave the range the definition itself was packed with.
  */
-export async function readPlaygroundHash(hash: string): Promise<PlaygroundState & { upgraded: boolean }> {
-  if (!isLegacyHash(hash)) return { ...decodePlaygroundHash(hash), upgraded: false };
-  const [options, definition] = segments(hash) as [string, string];
-  const [{ decodeDefinitionV3 }, { fromV3 }] = await Promise.all([
-    import('@dirty-geometry/vec2/schema/dense/v3/decode'),
-    import('@dirty-geometry/vec2/recording/migrate'),
-  ]);
-  const decodedOptions = decodeOptions(options);
-  const decoded = decodeDefinitionV3(definition, decodedOptions);
-  return { options: decodedOptions, presets: decoded.presets, definition: fromV3(decoded.definition), upgraded: true };
+export function encodeViewState(options: NumericOptions, inputs: readonly Input[]): string {
+  const schema = createDefinitionSchema(options);
+  const definition: Definition = {
+    format: 'vec2-definition',
+    version: 4,
+    inputs: [...inputs],
+    functions: [],
+    cells: [],
+  };
+  return encodeDefinition(definition, choosePresets(definition, {}, schema), schema);
 }
+
+/** The values written by `encodeViewState`, by input name. */
+export function decodeViewState(text: string, options: NumericOptions): Record<string, Input> {
+  const { definition } = decodeDefinition(text, createDefinitionSchema(options));
+  return Object.fromEntries(definition.inputs.map((input) => [input.name, input]));
+}
+
+// ---- the page's hash ----
+
+/** `#/<app>` opens the editor, `#/<app>/<view>` the View tab with those input values. */
+export function parseHash(hash: string): { app: string; view?: string } {
+  const [app = '', view] = hash.replace(/^#?\/?/, '').split('/');
+  return view ? { app, view } : { app };
+}
+
+export const formatHash = (app: string, view?: string) => `#/${app}${view ? `/${view}` : ''}`;

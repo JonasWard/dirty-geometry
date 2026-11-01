@@ -1,5 +1,6 @@
 import FrameBody from "@/components/entries/frame-body";
 import { Metadata } from "next";
+import { pageCrumbs } from "@/components/lab/crumbs";
 import Main from "@/components/main";
 import type { Props } from "../../route-params";
 
@@ -15,7 +16,7 @@ export default async function FramePage({ params }: Readonly<Props>) {
   const { locale } = await params;
 
   return (
-    <Main locale={locale} page="frame">
+    <Main locale={locale} page="frame" crumbs={pageCrumbs(locale, "frame")}>
       <FrameBody />
     </Main>
   );

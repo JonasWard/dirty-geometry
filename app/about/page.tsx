@@ -2,6 +2,7 @@ import AboutBody from "@/components/about-body";
 import { defaultLocale } from "@/config";
 import { getTranslations } from "@/utilities/l10n";
 import { Metadata } from "next";
+import { pageCrumbs } from "@/components/lab/crumbs";
 import Main from "@/components/main";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -14,7 +15,7 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default function About() {
   return (
-    <Main locale={defaultLocale} page="about">
+    <Main locale={defaultLocale} page="about" crumbs={pageCrumbs(defaultLocale, "about")}>
       <AboutBody locale={defaultLocale} />
     </Main>
   );

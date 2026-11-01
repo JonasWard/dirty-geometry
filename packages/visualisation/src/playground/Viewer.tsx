@@ -61,6 +61,9 @@ export function ViewerPanel({
   changed,
   onValue,
   onReset,
+  onResetAll,
+  linkError,
+  modeSwitch,
   about,
 }: {
   definition: Definition;
@@ -70,6 +73,12 @@ export function ViewerPanel({
   changed: readonly Input[];
   onValue: (input: Input, value: Input['value']) => void;
   onReset: (name: string) => void;
+  /** Every input back to the editor's value. */
+  onResetAll: () => void;
+  /** Why the latest values could not be written to the link (the link keeps the last ones that fit). */
+  linkError?: string;
+  /** The Edit | View switch, drawn on the drawing's top left. */
+  modeSwitch?: ReactNode;
   /** The playground's help, shown at the top of the drawer on phones (elsewhere it is above the toolbar). */
   about?: { title: ReactNode; body: ReactNode };
 }) {
@@ -144,6 +153,19 @@ export function ViewerPanel({
           <section className={panel} aria-label='Inputs'>
             <div className='mb-2 flex items-center gap-3'>
               <h3 className={heading}>Inputs</h3>
+              <button
+                type='button'
+                className={textButton}
+                disabled={changed.length === 0}
+                onClick={onResetAll}
+                title={
+                  changed.length === 0
+                    ? 'The editor’s values'
+                    : `${changed.length} changed (kept in the link): back to the editor’s values`
+                }
+              >
+                ↺ reset values
+              </button>
               <div className='ml-auto flex gap-2' role='group' aria-label='Number inputs as'>
                 {(
                   [
@@ -163,6 +185,11 @@ export function ViewerPanel({
                 ))}
               </div>
             </div>
+            {linkError && (
+              <p className='mb-2 text-[11px] text-amber-700' title={linkError}>
+                A value is out of range; the link keeps the last one that fit.
+              </p>
+            )}
             {definition.inputs.length === 0 && <p className='text-dg-subtle'>This definition has no inputs.</p>}
             {/* Name | value | reset, as columns, so the sliders line up. */}
             <ul className='grid grid-cols-[max-content_minmax(0,1fr)_auto] items-center gap-x-2 gap-y-1.5'>
@@ -299,16 +326,24 @@ export function ViewerPanel({
       </aside>
 
       <div className='min-w-0 xl:sticky xl:top-16 xl:self-start'>
-        {/* Phones: the screen height left under the header and toolbar. */}
-        <div className='relative isolate h-[calc(100dvh-11rem)] min-h-[320px] w-full overflow-hidden border border-dg-border bg-[#0b0d12] md:h-[70vh] md:min-h-[420px]'>
-          <PlaygroundCanvas
-            definition={tweaked}
-            evaluation={evaluation}
-            selected={hovered}
-            hidden={drawnHidden}
-            intermediates={showIntermediates}
-            onHover={setHovered}
-          />
+        {/* Phones: the screen height left under the header; edge to edge. */}
+        <div className='relative h-[calc(100dvh-8.5rem)] min-h-[320px] w-full overflow-hidden border border-dg-border bg-[#0b0d12] max-md:border-x-0 md:h-[70vh] md:min-h-[420px]'>
+          {modeSwitch && (
+            <div className='absolute left-2 top-2 z-10 rounded bg-dg-canvas/90 shadow ring-1 ring-white/40'>
+              {modeSwitch}
+            </div>
+          )}
+          {/* The drawing's own stacking context keeps its labels under the switch and the drawer. */}
+          <div className='absolute inset-0 isolate'>
+            <PlaygroundCanvas
+              definition={tweaked}
+              evaluation={evaluation}
+              selected={hovered}
+              hidden={drawnHidden}
+              intermediates={showIntermediates}
+              onHover={setHovered}
+            />
+          </div>
         </div>
       </div>
     </div>

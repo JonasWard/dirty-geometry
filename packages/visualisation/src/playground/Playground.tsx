@@ -183,29 +183,6 @@ function PlaygroundView({
         </div>
       )}
       {view === 'view' && (
-        <div className='flex flex-wrap items-center gap-2'>
-          <ModeSwitch view={view} onChange={setView} />
-          <span aria-hidden='true' className='mx-1 h-5 w-px bg-dg-border' />
-          <button
-            type='button'
-            className={button}
-            disabled={changed.length === 0}
-            onClick={() => setValues({})}
-            title='Back to the editor’s values'
-          >
-            ↺ reset values
-          </button>
-          <span className='text-xs text-dg-subtle'>
-            {changed.length === 0 ? 'the editor’s values' : `${changed.length} changed · kept in the link`}
-          </span>
-          {stored.error && (
-            <span className='text-xs text-amber-700' title={stored.error}>
-              a value is out of range; the link keeps the last one that fit
-            </span>
-          )}
-        </div>
-      )}
-      {view === 'view' && (
         <ViewerPanel
           definition={definition}
           options={options}
@@ -213,6 +190,9 @@ function PlaygroundView({
           changed={changed}
           onValue={(input, value) => setValues((current) => ({ ...current, [input.name]: { ...input, value } }))}
           onReset={(name) => setValues(({ [name]: _, ...rest }) => rest)}
+          onResetAll={() => setValues({})}
+          linkError={stored.error}
+          modeSwitch={<ModeSwitch view={view} onChange={setView} />}
           about={about}
         />
       )}

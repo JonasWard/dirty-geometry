@@ -64,7 +64,6 @@ export function ViewerPanel({
   onResetAll,
   linkError,
   modeSwitch,
-  about,
 }: {
   definition: Definition;
   /** The number ranges the definition is packed with: a slider spans its type's. */
@@ -79,8 +78,6 @@ export function ViewerPanel({
   linkError?: string;
   /** The Edit | View switch, drawn on the drawing's top left. */
   modeSwitch?: ReactNode;
-  /** The playground's help, shown at the top of the drawer on phones (elsewhere it is above the toolbar). */
-  about?: { title: ReactNode; body: ReactNode };
 }) {
   // Phones: the panels are a drawer over the drawing, closed to its handle at first.
   const [drawer, setDrawer] = useState(false);
@@ -144,12 +141,6 @@ export function ViewerPanel({
             drawer ? 'max-md:min-h-0 max-md:overflow-y-auto max-md:px-2 max-md:pb-2' : 'max-md:hidden'
           }`}
         >
-          {about && (
-            <section className='rounded-md border border-dg-sky-400/70 bg-dg-sky-200/25 p-3 text-sm md:hidden'>
-              <div className='mb-1 [&_h1]:text-sm'>{about.title}</div>
-              <div className='leading-relaxed text-dg-muted'>{about.body}</div>
-            </section>
-          )}
           <section className={panel} aria-label='Inputs'>
             <div className='mb-2 flex items-center gap-3'>
               <h3 className={heading}>Inputs</h3>
@@ -326,8 +317,8 @@ export function ViewerPanel({
       </aside>
 
       <div className='min-w-0 xl:sticky xl:top-16 xl:self-start'>
-        {/* Phones: the screen height left under the header; edge to edge. */}
-        <div className='relative h-[calc(100dvh-8.5rem)] min-h-[320px] w-full overflow-hidden border border-dg-border bg-[#0b0d12] max-md:border-x-0 md:h-[70vh] md:min-h-[420px]'>
+        {/* Phones: exactly the screen under the header (85px: its 48px row, the 36px breadcrumb row, a 1px border), edge to edge. */}
+        <div className='relative h-[calc(100dvh-85px)] min-h-[320px] w-full overflow-hidden border border-dg-border bg-[#0b0d12] max-md:border-x-0 md:h-[70vh] md:min-h-[420px]'>
           {modeSwitch && (
             <div className='absolute left-2 top-2 z-10 rounded bg-dg-canvas/90 shadow ring-1 ring-white/40'>
               {modeSwitch}

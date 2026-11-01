@@ -112,7 +112,8 @@ export function EncodingPanel({
         </button>
       </div>
 
-      <div className='grid grid-cols-[auto_1fr] items-center gap-x-2 gap-y-1'>
+      {/* The ranges' column may shrink below its longest option, so the panel fits a phone. */}
+      <div className='grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-2 gap-y-1'>
         {NUMBER_TYPES.map((numericRole) => {
           const definition = definitions.find((candidate) => candidate.name === numericRole);
           const active = presets[numericRole] ?? definition?.defaultPreset ?? '';
@@ -121,7 +122,7 @@ export function EncodingPanel({
               <span className='font-mono text-dg-subtle'>{numericRole}</span>
               <select
                 aria-label={`${numericRole} preset`}
-                className={input}
+                className={`${input} w-full min-w-0`}
                 value={active}
                 onChange={(event) => onPresets({ ...presets, [numericRole]: event.target.value })}
               >

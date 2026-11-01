@@ -165,14 +165,13 @@ function PlaygroundView({
 
   const commit = (next: typeof definition) => store.getState().commit(next);
   return (
-    <div className='space-y-3'>
-      {/* The help folds to its title; on phones the View tab shows it in its drawer instead. */}
-      {about && (
-        <div className={view === 'view' ? 'max-md:hidden' : undefined}>
-          <InfoBox storageKey='dirty-geometry.playground.info' title={about.title}>
-            <div className='max-w-4xl'>{about.body}</div>
-          </InfoBox>
-        </div>
+    // On phones the page has no padding of its own: the View tab fills the screen, the Edit tab keeps some room.
+    <div className={`space-y-3 ${view === 'edit' ? 'max-md:py-3' : ''}`}>
+      {/* The help folds to its title; only the editor shows it. */}
+      {about && view === 'edit' && (
+        <InfoBox storageKey='dirty-geometry.playground.info' title={about.title}>
+          <div className='max-w-4xl'>{about.body}</div>
+        </InfoBox>
       )}
       {notice && (
         <div className='rounded border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800'>
@@ -193,7 +192,6 @@ function PlaygroundView({
           onResetAll={() => setValues({})}
           linkError={stored.error}
           modeSwitch={<ModeSwitch view={view} onChange={setView} />}
-          about={about}
         />
       )}
       {view === 'edit' && (

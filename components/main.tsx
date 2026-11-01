@@ -19,7 +19,7 @@ export default function Main({
   return (
     <div className="min-h-screen bg-dg-canvas text-dg-ink">
       <SiteHeader locale={locale} page={page} crumbs={crumbs} wide={wide} />
-      <main className={`py-6 md:py-8 ${wide ? "md:px-8" : "px-4 md:px-8"}`}>
+      <main className={wide ? "md:px-8 md:py-8" : "px-4 md:px-8 py-6 md:py-8"}>
         <div className={wide ? "w-full" : "max-w-[1400px] mx-auto w-full"}>{children}</div>
       </main>
     </div>

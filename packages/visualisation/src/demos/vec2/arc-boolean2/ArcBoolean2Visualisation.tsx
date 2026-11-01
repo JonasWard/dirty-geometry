@@ -25,15 +25,17 @@ const COLORS = {
 } as const;
 
 function ArcBooleanCell({ scenario, offset }: { scenario: ArcBooleanScenario; offset: Vec2 }) {
-  const { result, fit } = useMemo(() => {
+  const { result, fit, milliseconds } = useMemo(() => {
+    const start = performance.now();
     const result = evaluateArcBooleanScenario(scenario);
+    const milliseconds = performance.now() - start;
     const geometries: Geometry2[] = [
       ...scenario.inputs,
       ...(scenario.clips ?? []),
       ...(result.regions ?? []),
       ...result.polygons,
     ];
-    return { result, fit: fitGeometriesToFrame(geometries) };
+    return { result, fit: fitGeometriesToFrame(geometries), milliseconds };
   }, [scenario]);
 
   const regions = result.regions ?? [];
@@ -139,7 +141,7 @@ function ArcBooleanCell({ scenario, offset }: { scenario: ArcBooleanScenario; of
         <div className='whitespace-nowrap rounded bg-black/75 px-1.5 py-0.5 text-center text-[8px] leading-tight text-white'>
           <div className='font-semibold'>{scenario.name}</div>
           <div className='text-white/70'>
-            {scenario.section} · area {area.toFixed(3)}
+            {scenario.section} · area {area.toFixed(3)} · {milliseconds.toFixed(1)} ms
           </div>
           <div className='text-green-300'>
             {approximate

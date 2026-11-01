@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import {
   arcBooleanScenarios,
+  arcManyScenarios,
   evaluateArcBooleanScenario,
   type ArcBooleanScenario,
 } from '../../examples/arc-boolean2/scenarios';
@@ -11,7 +12,9 @@ const area = (result: Boolean2Result) =>
   (result.regions ?? []).reduce((sum, r) => sum + r.signedArea(), 0) +
   result.polygons.reduce((sum, p) => sum + p.signedArea(), 0);
 const byName = (name: string): ArcBooleanScenario => arcBooleanScenarios.find((s) => s.name === name)!;
-const exactScenarios = arcBooleanScenarios.filter((s) => s.options?.arcs?.mode !== 'approximate');
+const exactScenarios = arcBooleanScenarios.filter(
+  (s) => s.options?.arcs?.mode !== 'approximate' && !arcManyScenarios.includes(s),
+);
 
 describe('arc boolean demo scenarios', () => {
   for (const scenario of exactScenarios) {
@@ -29,6 +32,16 @@ describe('arc boolean demo scenarios', () => {
     });
   }
 
+  for (const scenario of arcManyScenarios) {
+    test(`${scenario.name}: exact matches the approximation (relative)`, () => {
+      const exact = evaluateArcBooleanScenario(scenario);
+      const approximate = evaluateArcBooleanScenario(scenario, {
+        arcs: { mode: 'approximate', chordTolerance: 1e-4 },
+      });
+      expect(Math.abs(area(exact) - area(approximate)) / area(exact)).toBeLessThan(1e-3);
+    });
+  }
+
   test('structure: holes, splits and islands', () => {
     const holes = (name: string) =>
       evaluateArcBooleanScenario(byName(name)).regions!.filter((r) => r.signedArea() < 0).length;
@@ -37,6 +50,8 @@ describe('arc boolean demo scenarios', () => {
     expect(holes('Annulus ∩ rounded block')).toBe(1);
     expect(count('Block − curved wall')).toBe(2);
     expect(count('Rounded block − holed scallop')).toBe(3); // the block, the scallop hole, the island inside it
+    expect(holes('Lattice of 40 walls')).toBe(306); // every cell between the walls is a hole
+    expect(holes('Slab − 80 random discs')).toBe(37);
   });
 
   test('approximate cells converge on the exact one', () => {

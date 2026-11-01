@@ -123,11 +123,83 @@ export const arcModeScenarios: ArcBooleanScenario[] = [
   },
 ];
 
+/** Seeded, so the demo and its tests see the same shapes. */
+function seeded(seed: number): () => number {
+  let state = seed;
+  return () => (state = (state * 1103515245 + 12345) % 2147483648) / 2147483648;
+}
+
+function flowerBlockGrid(k: number): Boolean2Shape[] {
+  const shapes: Boolean2Shape[] = [];
+  for (let i = 0; i < k; i++) {
+    for (let j = 0; j < k; j++) {
+      shapes.push(
+        (i + j) % 2
+          ? roundedRectangle(i * 1.6, j * 1.6, 2, 2, 0.4)
+          : flower(V(i * 1.6 + 1, j * 1.6 + 1), 6, 1.1, 0.3, (i * 0.7 + j) % 1),
+      );
+    }
+  }
+  return shapes;
+}
+
+function wallLattice(count: number, length: number): Boolean2Shape[] {
+  const walls: Boolean2Shape[] = [];
+  for (let i = 0; i < count; i++) {
+    const at = ((i + 0.5) / count) * length;
+    walls.push(
+      pill(V(0, at), V(length, at + (i % 3) * 0.3), 0.12),
+      pill(V(at, 0), V(at - (i % 2) * 0.4, length), 0.12),
+    );
+  }
+  return walls;
+}
+
+function randomDiscs(count: number, size: number, seed: number, minRadius: number, maxRadius: number) {
+  const random = seeded(seed);
+  return Array.from({ length: count }, () =>
+    disc(random() * size, random() * size, minRadius + random() * (maxRadius - minRadius)),
+  );
+}
+
+/** Curved streets: wall bands along gently curving centrelines, crossing each other. */
+function curvedStreets(count: number, size: number): Boolean2Shape[] {
+  const random = seeded(11);
+  return Array.from({ length: count }, (_, i) => {
+    const horizontal = i % 2 === 0;
+    const at = ((Math.floor(i / 2) + 0.5) / Math.ceil(count / 2)) * size;
+    const ends = horizontal
+      ? [V(-0.5, at), V(size / 2, at + random() - 0.5), V(size + 0.5, at)]
+      : [V(at, -0.5), V(at + random() - 0.5, size / 2), V(at, size + 0.5)];
+    return wallBand(new ArcPolyline2(ends, [0.6 * (random() - 0.5), 0.6 * (random() - 0.5)]), 0.35);
+  });
+}
+
+/** Many shapes at once: the exact path at block and district scale. */
+export const arcManyScenarios: ArcBooleanScenario[] = [
+  { name: '64 flowers and blocks', section: 'union', inputs: flowerBlockGrid(8) },
+  { name: 'Lattice of 40 walls', section: 'union', inputs: wallLattice(20, 12) },
+  { name: '150 random discs', section: 'union', inputs: randomDiscs(150, 10, 5, 0.2, 0.7) },
+  {
+    name: 'Slab − 80 random discs',
+    section: 'subtract',
+    inputs: [roundedRectangle(0, 0, 10, 10, 1.5)],
+    clips: randomDiscs(80, 10, 9, 0.15, 0.55),
+  },
+  {
+    name: '16 curved streets ∩ disc',
+    section: 'intersect',
+    inputs: curvedStreets(16, 10),
+    clips: [disc(5, 5, 4.6)],
+  },
+];
+
 export const arcBooleanScenarioRows = [
   arcUnionScenarios,
   arcIntersectScenarios,
   arcSubtractScenarios,
   arcModeScenarios,
+  arcManyScenarios,
 ] as const;
 
 export const arcBooleanScenarios: ArcBooleanScenario[] = arcBooleanScenarioRows.flat();

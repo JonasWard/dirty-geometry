@@ -2,6 +2,7 @@
 import { isGeometry2, type Geometry2 } from '@dirty-geometry/vec2/geometry/kinds';
 import type { Definition } from '@dirty-geometry/vec2/recording/definition';
 import type { Evaluation } from '@dirty-geometry/vec2/recording/evaluate';
+import { NUMBER_TYPES } from '@dirty-geometry/vec2/schema/schema';
 
 export const PLAYGROUND_COLORS = {
   intermediate: '#5b6577',
@@ -42,7 +43,15 @@ export type DrawOptions = {
   intermediates?: boolean;
 };
 
-/** Output colours by the output's place among the definition's outputs. */
+const PLAIN = new Set([...NUMBER_TYPES, 'number', 'boolean', 'string']);
+/** Whether a declared type holds plain values (numbers, flags, text, or lists of them): nothing to draw. */
+export const isPlainType = (type: string | undefined) => !!type && PLAIN.has(type.replace(/(\[\])+$/, ''));
+
+/** The outputs that can be drawn (not plain values), in definition order; their place picks their colour. */
+export const drawableOutputs = (definition: Definition) =>
+  definition.cells.filter((cell) => cell.output && !isPlainType(cell.type));
+
+/** Output colours by the output's place among the drawable outputs. */
 export const outputColor = (index: number) => PLAYGROUND_COLORS.outputs[index % PLAYGROUND_COLORS.outputs.length]!;
 
 /**
@@ -54,12 +63,13 @@ export function drawnItems(
   evaluation: Evaluation,
   { selected = null, hidden, intermediates = true }: DrawOptions = {},
 ): { drawn: Drawn[]; framed: Geometry2[] } {
-  const outputs = definition.cells.filter((cell) => cell.output).map((cell) => cell.name);
+  const outputs = drawableOutputs(definition).map((cell) => cell.name);
+  const plain = new Set(definition.cells.filter((cell) => cell.output && isPlainType(cell.type)).map((c) => c.name));
   const items: Drawn[] = [];
   const framed: Geometry2[] = [];
   for (const { name } of [...definition.inputs, ...definition.cells]) {
     const output = outputs.indexOf(name);
-    if (output < 0 && !intermediates && name !== selected) continue;
+    if (plain.has(name) || (output < 0 && !intermediates && name !== selected)) continue;
     const role = name === selected ? 'selected' : output >= 0 ? 'output' : 'intermediate';
     const color =
       role === 'selected'

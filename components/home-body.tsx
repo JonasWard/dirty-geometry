@@ -1,5 +1,4 @@
-import Logo from "@/components/logo";
-import Nav from "@/components/nav";
+import SiteHeader from "@/components/site-header";
 import { Page, basePath } from '@/config';
 import { getDemoPath, getLocale, getPath, getPlaygroundPath, getTranslations } from '@/utilities/l10n';
 import { demoLibraries, demoLibraryInfo, demosFor } from '@dirty-geometry/visualisation/meta';
@@ -64,17 +63,9 @@ export default function HomeBody({ locale, page = 'home' }: { locale?: string; p
 
   return (
     <div className="min-h-screen bg-dg-canvas text-dg-ink">
-      <header className="sticky top-0 z-50 bg-dg-canvas/95 backdrop-blur-sm border-b border-dg-border">
-        <div className="max-w-[1400px] mx-auto w-full px-6 md:px-12 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Logo />
-            <span className="text-sm font-bold tracking-[0.2em] uppercase hidden sm:inline">dirty-geometry</span>
-          </div>
-          <Nav locale={locale} page={page} />
-        </div>
-      </header>
+      <SiteHeader locale={activeLocale} page={page} />
 
-      <section className="relative flex flex-col justify-center px-8 md:px-16 lg:px-24 pt-20 pb-28 overflow-hidden min-h-[90vh]">
+      <section className="relative flex flex-col justify-center px-4 md:px-8 py-12 md:py-16 overflow-hidden min-h-[50vh]">
         <div
           className="absolute inset-0 pointer-events-none"
           aria-hidden="true"
@@ -92,11 +83,11 @@ export default function HomeBody({ locale, page = 'home' }: { locale?: string; p
             <p className="text-xs font-bold tracking-[0.45em] uppercase mb-6 text-dg-sky-600">{t.home.hero.eyebrow}</p>
             <h1
               className="font-extrabold leading-[0.88] tracking-tight mb-6"
-              style={{ fontSize: 'clamp(4.5rem, 17vw, 15rem)' }}
+              style={{ fontSize: 'clamp(3.5rem, 11vw, 9rem)' }}
             >
               {t.home.hero.heading}
             </h1>
-            <p className="font-light text-dg-muted mb-12" style={{ fontSize: 'clamp(1.25rem, 2.5vw, 2.25rem)' }}>
+            <p className="font-light text-dg-muted mb-8" style={{ fontSize: 'clamp(1.25rem, 2.5vw, 2.25rem)' }}>
               {t.home.hero.tagline}
             </p>
             <a
@@ -115,9 +106,9 @@ export default function HomeBody({ locale, page = 'home' }: { locale?: string; p
         </div>
       </section>
 
-      <section id="work" className="border-t border-dg-border px-8 md:px-16 lg:px-24 py-24">
+      <section id="work" className="border-t border-dg-border px-4 md:px-8 py-12 md:py-16">
         <div className="max-w-[1400px] mx-auto">
-          <p className="text-xs font-bold tracking-[0.45em] uppercase mb-16 text-dg-sky-600">
+          <p className="text-xs font-bold tracking-[0.45em] uppercase mb-8 text-dg-sky-600">
             {t.home.problems.entries}
           </p>
           <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-8 lg:gap-12">
@@ -137,9 +128,9 @@ export default function HomeBody({ locale, page = 'home' }: { locale?: string; p
         </div>
       </section>
 
-      <section id="lab" className="border-t border-dg-border px-8 md:px-16 lg:px-24 py-24">
+      <section id="lab" className="border-t border-dg-border px-4 md:px-8 py-12 md:py-16">
         <div className="max-w-[1400px] mx-auto">
-          <div className="flex flex-wrap items-end justify-between gap-6 mb-16">
+          <div className="flex flex-wrap items-end justify-between gap-6 mb-8">
             <div>
               <p className="text-xs font-bold tracking-[0.45em] uppercase mb-6 text-dg-sky-600">{t.lab.homeSection}</p>
               <h2 className="font-bold leading-tight max-w-2xl" style={{ fontSize: 'clamp(2rem, 4vw, 3.25rem)' }}>
@@ -157,7 +148,7 @@ export default function HomeBody({ locale, page = 'home' }: { locale?: string; p
             {demoLibraries.map((library) => {
               const demos = demosFor(library);
               return (
-                <article key={library} className="border border-dg-border p-8 flex flex-col">
+                <article key={library} className="border border-dg-border p-6 flex flex-col">
                   <Link href={getPath(activeLocale, library)} className="group">
                     <h3 className="text-3xl font-extrabold tracking-tight mb-2 group-hover:text-dg-steel-600 transition-colors duration-200">
                       {demoLibraryInfo[library].label}
@@ -172,7 +163,7 @@ export default function HomeBody({ locale, page = 'home' }: { locale?: string; p
                       {t.lab.openPlayground} <span aria-hidden="true">→</span>
                     </Link>
                   )}
-                  <ul className="flex flex-wrap gap-2 mb-8">
+                  <ul className="flex flex-wrap gap-2 mb-6">
                     {demos.map((demo) => (
                       <li key={demo.id}>
                         <Link
@@ -197,9 +188,9 @@ export default function HomeBody({ locale, page = 'home' }: { locale?: string; p
         </div>
       </section>
 
-      <section className="border-t border-dg-navy-800 bg-dg-navy-900 text-dg-sky-200 px-8 md:px-16 lg:px-24 py-28">
+      <section className="border-t border-dg-navy-800 bg-dg-navy-900 text-dg-sky-200 px-4 md:px-8 py-12 md:py-16">
         <div className="max-w-[1400px] mx-auto">
-          <h2 className="font-bold leading-tight mb-10 max-w-2xl" style={{ fontSize: 'clamp(2rem, 5vw, 4rem)' }}>
+          <h2 className="font-bold leading-tight mb-6 max-w-2xl" style={{ fontSize: 'clamp(1.75rem, 4vw, 3rem)' }}>
             {t.home.contact.heading}
           </h2>
           <a
@@ -211,7 +202,7 @@ export default function HomeBody({ locale, page = 'home' }: { locale?: string; p
         </div>
       </section>
 
-      <footer className="bg-dg-navy-950 border-t border-dg-navy-800 px-8 md:px-16 lg:px-24 py-6 text-dg-sky-400/65 text-xs">
+      <footer className="bg-dg-navy-950 border-t border-dg-navy-800 px-4 md:px-8 py-5 text-dg-sky-400/65 text-xs">
         <div className="max-w-[1400px] mx-auto w-full flex justify-between items-center">
           <span>© {new Date().getFullYear()} dirty-geometry</span>
           <span>jonasward.ch/dirty-geometry</span>

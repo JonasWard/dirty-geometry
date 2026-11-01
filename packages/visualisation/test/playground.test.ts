@@ -5,10 +5,22 @@ import { defaultRegistry } from '@dirty-geometry/vec2/io/default-registry';
 import { operationById } from '@dirty-geometry/vec2/schema/schema';
 import { checkDefinition, typer, widen } from '@dirty-geometry/vec2/schema/typing';
 import { DEFAULT_VALUES } from '../src/playground/defaults';
-import { drawnItems, outputColor, PLAYGROUND_COLORS } from '../src/playground/draw';
+import { drawableOutputs, drawnItems, isPlainType, outputColor, PLAYGROUND_COLORS } from '../src/playground/draw';
+import {
+  decodeAppState,
+  decodeViewState,
+  encodeAppState,
+  encodeViewState,
+  formatHash,
+  parseHash,
+} from '../src/playground/url';
 import * as ops from '../src/playground/model/ops';
 import { DEFAULT_FAVOURITES } from '../src/playground/operations';
 import { STARTERS } from '../src/playground/starters';
+import { choosePresets } from '../src/playground/presets';
+import { parseDefinition } from '../src/playground/model/parse';
+import { printDefinition } from '../src/playground/model/print';
+import { createDefinitionSchema } from '@dirty-geometry/vec2/schema/dense/definition';
 import { createPlaygroundStore, favourites } from '../src/playground/store';
 
 const def = (partial: Partial<Definition>): Definition => ({
@@ -43,6 +55,12 @@ describe('playground data', () => {
   });
   test('every default value decodes', () => {
     for (const json of Object.values(DEFAULT_VALUES)) expect(() => defaultRegistry.decode(json)).not.toThrow();
+  });
+  test.each(STARTERS.map((s) => [s.id, s] as const))('starter %s survives the link and the code view', (_, starter) => {
+    const definition = starter.build();
+    const presets = choosePresets(definition, {}, createDefinitionSchema());
+    expect(decodeAppState(encodeAppState({ definition, options: {}, presets })).definition).toEqual(definition);
+    expect(parseDefinition(printDefinition(definition))).toEqual(definition);
   });
   test.each(STARTERS.map((s) => [s.id, s] as const))('starter %s type-checks and evaluates', (_, starter) => {
     const definition = starter.build();
@@ -190,10 +208,10 @@ describe('store', () => {
 
   test('presets follow the definition while automatic, and the hash is kept current', () => {
     const store = fresh();
-    expect(store.getState().active.Coordinate).toBe('0..10@1');
+    expect(store.getState().active.Coordinate).toBe('±10');
     store.getState().commit(ops.setInput(base, 'w', { value: -2.5 }));
-    expect(store.getState().active.Coordinate).toBe('±10@0.01');
-    expect(store.getState().encoding.hash).toMatch(/^4\//);
+    expect(store.getState().active.Coordinate).toBe('±10@0.1');
+    expect(decodeAppState(store.getState().encoding.hash!).definition).toEqual(store.getState().definition);
     store.getState().update({ auto: false, presets: { Coordinate: '±1@0.001' } });
     expect(store.getState().encoding.error).toBeDefined();
   });
@@ -297,5 +315,174 @@ describe('viewer', () => {
 
     const hovered = drawnItems(shown, evaluation, { intermediates: false, selected: 'a' });
     expect(hovered.drawn.at(-1)).toMatchObject({ name: 'a', role: 'selected', color: PLAYGROUND_COLORS.selected });
+  });
+});
+
+describe('viewer link', () => {
+  const definition = def({
+    inputs: [
+      { name: 'w', type: 'Coordinate', value: 2 },
+      { name: 'on', type: 'boolean', value: false },
+      { name: 'p', type: 'Vec2', value: { value: { type: 'Vec2', x: 1, y: 2 } } },
+    ],
+    cells: [{ name: 'a', expr: vec({ ref: 'w' }, 0), type: 'Vec2', output: true }],
+  });
+  const app = encodeAppState({ definition, options: {}, presets: {} });
+
+  test('the app state is the definition alone; custom ranges go in front of it after a dot', () => {
+    expect(app).toMatch(/^[\w-]+$/);
+    expect(decodeAppState(app).definition).toEqual(definition);
+    const custom = {
+      options: { custom: { Coordinate: { site: { min: -500, max: 500, precision: 0.25 } } } },
+      presets: { Coordinate: 'site' },
+      definition,
+    };
+    const text = encodeAppState(custom);
+    expect(text).toMatch(/^[\w-]+\.[\w-]+$/);
+    const read = decodeAppState(text);
+    expect(read.options).toEqual(custom.options);
+    expect(read.presets).toMatchObject({ Coordinate: 'site' });
+    expect(read.definition).toEqual(definition);
+    expect(() => decodeAppState('')).toThrow();
+    expect(() => decodeAppState('a.b.c')).toThrow();
+  });
+
+  test('input values round-trip, also outside the range the definition was packed with', () => {
+    const inputs = [
+      { ...definition.inputs[0]!, value: 87.25 },
+      { ...definition.inputs[1]!, value: true },
+      { ...definition.inputs[2]!, value: { value: { type: 'Vec2', x: -3.5, y: 40 } } },
+    ];
+    const text = encodeViewState({}, inputs);
+    expect(text).toMatch(/^[\w-]+$/);
+    const read = decodeViewState(text, {}, definition.inputs);
+    expect(read.w!.value).toBe(87.25);
+    expect(read.on!.value).toBe(true);
+    expect(read.p!.value).toEqual({ value: { type: 'Vec2', x: -3.5, y: 40 } });
+    expect(read.w!.type).toBe('Coordinate');
+  });
+
+  test('#/<app> is the editor, #/<app>/<view> the View tab', () => {
+    const view = encodeViewState({}, definition.inputs);
+    expect(formatHash(app)).toBe(`#/${app}`);
+    expect(formatHash(app, view)).toBe(`#/${app}/${view}`);
+    expect(parseHash(`#/${app}`)).toEqual({ app });
+    expect(parseHash(`#/${app}/${view}`)).toEqual({ app, view });
+    expect(parseHash(formatHash(app, view))).toEqual({ app, view });
+    expect(parseHash('')).toEqual({ app: '' });
+    expect(parseHash(`#${app}`)).toEqual({ app });
+  });
+
+  test('the view state holds only the values: short, nothing shared with the app state', () => {
+    const gear = STARTERS.find((s) => s.id === 'gear')!.build();
+    const gearApp = encodeAppState({
+      definition: gear,
+      options: {},
+      presets: choosePresets(gear, {}, createDefinitionSchema()),
+    });
+    const tweaked = gear.inputs.map((input, i) => ({ ...input, value: [4.25, 3.61, 2.12, 3.46][i]! }));
+    const view = encodeViewState({}, tweaked);
+    expect(view.length).toBeLessThanOrEqual(14); // was 58 when names, types and the stamp were repeated
+    expect(view.slice(2, 8)).not.toBe(gearApp.slice(2, 8)); // no repeated stamp
+    // the whole round trip, as the page does it
+    const { app: readApp, view: readView } = parseHash(formatHash(gearApp, view));
+    const read = decodeViewState(readView!, {}, decodeAppState(readApp).definition.inputs);
+    expect(Object.values(read).map((input) => input.value)).toEqual([4.25, 3.61, 2.12, 3.46]);
+  });
+
+  test('a view state read against other inputs fails or reads other values, never throws past readValues', () => {
+    const view = encodeViewState({}, definition.inputs);
+    expect(() => decodeViewState('!!', {}, definition.inputs)).toThrow();
+    expect(() => decodeViewState(view, {}, [{ name: 'q', type: 'Circle2', value: 0 }])).toThrow();
+  });
+
+  test('older links are not read', () => {
+    expect(() => decodeAppState(parseHash(`#/4/EA/${app}`).app)).toThrow();
+  });
+
+  test('plain-value outputs are listed, not drawn, and take no colour', () => {
+    expect(['Length', 'number', 'number[]', 'boolean', 'string', 'Index[]'].every(isPlainType)).toBe(true);
+    expect(['Polygon2', 'Vec2[]', 'Geometry2', undefined].some(isPlainType)).toBe(false);
+    const mixed = def({
+      cells: [
+        { name: 'n', expr: 3, type: 'number', output: true },
+        { name: 'v', expr: vec(1, 1), type: 'Vec2', output: true },
+      ],
+    });
+    expect(drawableOutputs(mixed).map((cell) => cell.name)).toEqual(['v']);
+    const { drawn } = drawnItems(mixed, evaluate(mixed));
+    expect(drawn).toHaveLength(1);
+    expect(drawn[0]!.color).toBe(outputColor(0));
+  });
+});
+
+describe('arc examples', () => {
+  /** A starter's outputs, with some input values changed (as the View tab does). */
+  const run = (id: string, values: Record<string, Expr> = {}) => {
+    const definition = ops.withInputValues(STARTERS.find((s) => s.id === id)!.build(), values);
+    return evaluate(definition).outputs as Record<string, any>;
+  };
+  const near = (actual: number, expected: number) => expect(actual).toBeCloseTo(expected, 9);
+
+  test('a fillet of radius r in a right-angled corner is a quarter circle, tangent to both legs', () => {
+    const { fillet, length } = run('fillet');
+    near(length, Math.PI / 2);
+    near(fillet.from.x, -1);
+    near(fillet.to.y, 1);
+    near(run('fillet', { radius: 2 }).length, Math.PI);
+  });
+
+  test('the arc through (-2, 0), (0, h), (2, 0) has radius (4 + h²) / 2h', () => {
+    near(run('three-points').radius, 2.5);
+    near(run('three-points', { height: 2 }).radius, 2);
+  });
+
+  test('a 4 × 2 slot with half-circle ends, and the band around it', () => {
+    const { area, offset } = run('slot');
+    near(area, 8 + Math.PI);
+    // grown by 0.5: the straight part is 4 long and 3 wide, the ends half circles of radius 1.5
+    near(offset.area(), 4 * 3 + Math.PI * 1.5 ** 2);
+  });
+
+  test('exact booleans: the lens of two discs through each other’s centres, and their union', () => {
+    const lens = (r: number) => r * r * ((2 * Math.PI) / 3 - Math.sqrt(3) / 2);
+    const { area, both } = run('lens');
+    near(area, lens(2));
+    expect(both).toHaveLength(1);
+    near(both[0].area(), 2 * Math.PI * 4 - lens(2));
+    near(run('lens', { radius: 3 }).area, lens(3));
+  });
+
+  test('mounting plate: a rounded rectangle less four bolt holes, and the wall left by its inner offset', () => {
+    const rounded = (w: number, h: number, r: number) => w * h - (4 - Math.PI) * r * r;
+    const { plate, area, ring } = run('mounting-plate');
+    expect(plate).toHaveLength(5); // the outline and its four holes
+    near(area, rounded(6, 4, 1) - 4 * Math.PI * 0.3 ** 2);
+    near(ring, rounded(6, 4, 1) - rounded(5.5, 3.5, 0.75));
+    near(run('mounting-plate', { width: 8, bolt: 0.4 }).area, rounded(8, 4, 1) - 4 * Math.PI * 0.4 ** 2);
+  });
+
+  test('half ring: an exact annulus cut along a line through its centre', () => {
+    near(run('half-ring').area, (Math.PI * (3 ** 2 - 2 ** 2)) / 2);
+    near(run('half-ring', { outer: 4, inner: 1 }).area, (Math.PI * (4 ** 2 - 1 ** 2)) / 2);
+  });
+
+  test('gear: a disc, eight rotated teeth and a bore', () => {
+    // Each tooth adds the part of a width × (radius + height) bar outside the disc; the bore takes a disc out.
+    const gear = (r: number, h: number, w: number, b: number) => {
+      const y = w / 2;
+      const inside = 2 * ((y / 2) * Math.sqrt(r * r - y * y) + ((r * r) / 2) * Math.asin(y / r));
+      return Math.PI * r * r + 8 * (w * (r + h) - inside) - Math.PI * b * b;
+    };
+    const { gear: regions, area } = run('gear');
+    expect(regions).toHaveLength(2); // the outline and the bore
+    near(area, gear(2, 0.6, 0.5, 0.6));
+    near(run('gear', { width: 0.3, height: 1 }).area, gear(2, 1, 0.3, 0.6));
+  });
+
+  test('a wave of three half circles, and its offset: radii 1.4, 0.6, 1.4', () => {
+    const { length, offset } = run('wave');
+    near(length, 3 * Math.PI);
+    near(offset.length(), 3.4 * Math.PI);
   });
 });

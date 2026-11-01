@@ -54,6 +54,13 @@ export const DEFAULT_VALUES: Readonly<Record<string, unknown>> = {
   Polyline2: { type: 'Polyline2', vertices: [v(0, 0), v(1, 0), v(1, 1)] },
   Polygon2: { type: 'Polygon2', vertices: [v(0, 0), v(1, 0), v(1, 1), v(0, 1)] },
   Circle2: { type: 'Circle2', center: v(0, 0), radius: 1 },
+  Arc2: { type: 'Arc2', from: v(0, 0), to: v(2, 0), sagitta: 0.5 },
+  ArcPolyline2: { type: 'ArcPolyline2', vertices: [v(0, 0), v(2, 0), v(4, 0)], sagittas: [0.5, -0.5] },
+  ArcPolygon2: {
+    type: 'ArcPolygon2',
+    vertices: [v(0, 0), v(2, 0), v(2, 2), v(0, 2)],
+    sagittas: [0, -0.5, 0, -0.5],
+  },
   TriMesh2: { type: 'TriMesh2', vertices: [v(0, 0), v(1, 0), v(0, 1)], triangles: [[0, 1, 2]] },
   GridCell2: { type: 'GridCell2', i: 0, j: 0 },
   Axis: { type: 'Axis', kind: 'unit' },

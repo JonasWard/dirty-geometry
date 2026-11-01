@@ -3,7 +3,7 @@ import { densing, schemaFromJson, undensing } from 'densing';
 import { Vec2 } from '../../../src/core/vec2';
 import { Line2 } from '../../../src/geometry/primitives/line2';
 import { defaultRegistry } from '../../../src/io/default-registry';
-import type { Definition } from '../../../src/recording/definition';
+import type { Definition, Input } from '../../../src/recording/definition';
 import { evaluate } from '../../../src/recording/evaluate';
 import { fromV3 } from '../../../src/recording/migrate';
 import type { DefinitionV3 } from '../../../src/recording/v3';
@@ -14,8 +14,10 @@ import {
   createDefinitionSchema,
   createValueSchema,
   decodeDefinition,
+  decodeInputValues,
   decodeValue,
   encodeDefinition,
+  encodeInputValues,
   encodeValue,
   resolvePreset,
 } from '../../../schema/dense/definition';
@@ -296,8 +298,24 @@ describe('value schema', () => {
     const point = new Vec2(1234.5, 2);
     expect(() => encodeValue(point, {}, schema)).toThrow();
     expect(decodeValue(encodeValue(point, { Coordinate: '±10000@0.1' }, schema))).toEqual(point.toJson());
-    const small = encodeValue(new Vec2(1, 2), { Coordinate: '0..10@1' }, schema);
+    const small = encodeValue(new Vec2(1, 2), { Coordinate: '±10' }, schema);
     expect(small.length).toBeLessThan(encodeValue(new Vec2(1, 2), { Coordinate: '±10000@0.0001' }, schema).length);
+  });
+
+  test('Coordinates are always signed and Lengths never negative: spans 1 … 10000 by precisions 1 … 0.0001', () => {
+    const { schema } = createDefinitionSchema();
+    const presets = (type: string) => Object.values(schema.definitions!.find((n) => n.name === type)!.presets);
+    for (const [type, signed] of [
+      ['Coordinate', true],
+      ['Length', false],
+    ] as const) {
+      const all = presets(type);
+      expect(all).toHaveLength(25);
+      expect(all.every((p) => p.min === (signed ? -p.max : 0))).toBe(true);
+      const grid = new Set(all.map((p) => `${p.max}@${p.precision ?? 1}`));
+      for (const span of [1, 10, 100, 1000, 10000])
+        for (const precision of [1, 0.1, 0.01, 0.001, 0.0001]) expect(grid.has(`${span}@${precision}`)).toBe(true);
+    }
   });
 
   test('custom ranges are added to their number type; refinements clamp their parent', () => {
@@ -311,5 +329,40 @@ describe('value schema', () => {
     expect(resolvePreset(schema.definitions!, 'Coordinate').name).toBe('±100@0.01');
     expect(resolvePreset(schema.definitions!, 'Length').name).toBe('0..100@0.01');
     expect(resolvePreset(schema.definitions!, 'Index').name).toBe('0..1024');
+  });
+});
+
+describe('input values alone', () => {
+  const v = (x: number, y: number) => ({ type: 'Vec2', x, y });
+  const inputs: Input[] = [
+    { name: 'radius', type: 'Length', value: 4.25 },
+    { name: 'count', type: 'Index', value: 16 },
+    { name: 'far', type: 'Coordinate', value: 250 },
+    { name: 'on', type: 'boolean', value: true },
+    { name: 'label', type: 'string', value: 'Hi there!' },
+    { name: 'p', type: 'Vec2', value: { value: v(-3.5, 40) } },
+    { name: 'c', type: 'Circle2', value: { value: { type: 'Circle2', center: v(1, 2), radius: 3 } } },
+    { name: 'a', type: 'Arc2', value: { value: { type: 'Arc2', from: v(0, 0), to: v(2, 0), sagitta: 0.5 } } },
+  ];
+  const types = inputs.map((input) => input.type);
+
+  test('every kind of input round-trips, numbers in the ranges chosen for them', () => {
+    // 250 is outside Coordinate's default ±100: the payload picks ±1000 for it.
+    const text = encodeInputValues(inputs, { Length: '0..10@0.01', Coordinate: '±1000@0.1' });
+    expect(decodeInputValues(text, types)).toEqual(inputs.map((input) => input.value));
+  });
+
+  test('only the values are stored: no names, types or stamp', () => {
+    const four = ['a', 'b', 'c', 'd'].map((name, i) => ({ name, type: 'Length', value: [4.25, 3.61, 2.12, 3.46][i]! }));
+    const renamed = four.map((input) => ({ ...input, name: `${input.name}_much_longer_name` }));
+    const text = encodeInputValues(four, { Length: '0..10@0.01' });
+    expect(encodeInputValues(renamed, { Length: '0..10@0.01' })).toBe(text);
+    expect(text.length).toBeLessThanOrEqual(12);
+  });
+
+  test('values that cannot be stored are refused', () => {
+    expect(() => encodeInputValues([{ name: 'x', type: 'Coordinate', value: { number: 'Infinity' } }])).toThrow();
+    expect(() => encodeInputValues([{ name: 'x', type: 'Coordinate', value: 250 }])).toThrow(); // default ±100
+    expect(() => decodeInputValues('!!', ['Length'])).toThrow();
   });
 });

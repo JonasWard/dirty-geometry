@@ -9,6 +9,7 @@ import {
   type ActivePresets,
   type CustomPreset,
   type DenseDefinitionSchema,
+  type NumericOptions,
 } from '@dirty-geometry/vec2/schema/dense/definition';
 
 const same = (a: number, b: number) => Math.abs(a - b) < 1e-12;
@@ -82,4 +83,18 @@ export function choosePresets(
     if (name) chosen[role] = name;
   }
   return chosen;
+}
+
+export type Range = { min: number; max: number; step: number };
+/**
+ * The range a number type is packed with under `presets` (for a slider): its active preset's bounds, stepping by
+ * its precision (1 when it has none, as when packing). A type without presets (`number`) has none.
+ */
+export function rangeOf(options: NumericOptions, presets: ActivePresets, type: string): Range | undefined {
+  try {
+    const preset = resolvePreset(createDefinitionSchema(options).schema.definitions ?? [], type, presets);
+    return { min: preset.min, max: preset.max, step: preset.precision ?? 1 };
+  } catch {
+    return undefined;
+  }
 }

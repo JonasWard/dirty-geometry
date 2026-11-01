@@ -33,9 +33,6 @@ export const getDemoPath = (locale: Locale, library: string, id: string) =>
 /** Path of the vec2 playground. */
 export const getPlaygroundPath = (locale: Locale) => `${getPath(locale, "vec2")}playground/`;
 
-/** Path of the vec2 playground viewer (the definition comes in the link hash). */
-export const getViewerPath = (locale: Locale) => `${getPlaygroundPath(locale)}viewer/`;
-
 /** Absolute URL of a site path (paths end in `/`, matching the trailing-slash export). */
 export const getAbsoluteUrl = (path: string) => `${baseUrl}${path}`;
 

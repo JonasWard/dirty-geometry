@@ -16,7 +16,7 @@ import {
 } from '@dirty-geometry/vec2/schema/dense/definition';
 import { choosePresets, quantisationReport } from './presets';
 import { DEFAULT_FAVOURITES } from './operations';
-import { encodePlaygroundHash } from './url';
+import { encodeAppState } from './url';
 
 /** What undo restores. `auto`: the presets follow the definition (cheapest exact ones) until the user picks one. */
 export type Document = { definition: Definition; options: NumericOptions; presets: ActivePresets; auto: boolean };
@@ -50,7 +50,7 @@ export function derive(document: Document): Pick<PlaygroundStore, 'active' | 'en
   const jsonBytes = new TextEncoder().encode(JSON.stringify(document.definition)).length;
   const changes = quantisationReport(document.definition, active, schema);
   try {
-    const hash = encodePlaygroundHash({ definition: document.definition, options: document.options, presets: active });
+    const hash = encodeAppState({ definition: document.definition, options: document.options, presets: active });
     return { active, encoding: { jsonBytes, hash, changes } };
   } catch (error) {
     return { active, encoding: { jsonBytes, error: (error as Error).message, changes } };

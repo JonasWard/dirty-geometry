@@ -1,13 +1,9 @@
 import { describe, expect, test } from 'bun:test';
 import type { Definition } from '@dirty-geometry/vec2/recording/definition';
-import { fromV3 } from '@dirty-geometry/vec2/recording/migrate';
-import type { DefinitionV3 } from '@dirty-geometry/vec2/recording/v3';
 import { encodeDefinition } from '@dirty-geometry/vec2/schema/dense/definition';
-import { choosePresets, quantisationReport } from '../src/playground/presets';
-import { decodePlaygroundHash, encodePlaygroundHash, isLegacyHash, readPlaygroundHash } from '../src/playground/url';
-import fixtureJson from '../../vec2/test/schema/dense/v3/fixtures.json';
+import { choosePresets, quantisationReport, rangeOf } from '../src/playground/presets';
+import { decodeAppState, encodeAppState } from '../src/playground/url';
 
-const fixtures = fixtureJson as unknown as { name: string; url: string; definition: DefinitionV3 }[];
 const point = (x: number, y: number): Definition => ({
   format: 'vec2-definition',
   version: 4,
@@ -28,7 +24,7 @@ describe('presets', () => {
   test('choosePresets picks the cheapest exact presets', () => {
     const definition = point(3, 7);
     const presets = choosePresets(definition);
-    expect(presets.Coordinate).toBe('0..10@1');
+    expect(presets.Coordinate).toBe('±10');
     expect(encodeDefinition(definition, presets).length).toBeLessThan(encodeDefinition(definition).length);
     expect(choosePresets(point(0.123, 4)).Coordinate).toBe('±10@0.001');
   });
@@ -41,21 +37,23 @@ describe('playground URL', () => {
       presets: { Coordinate: 'site' },
       definition: point(123.25, -40),
     };
-    const hash = encodePlaygroundHash(state);
-    expect(hash).toMatch(/^4\/[\w-]+\/[\w-]+$/);
-    expect(isLegacyHash(hash)).toBe(false);
-    const decoded = decodePlaygroundHash(`#/${hash}`);
+    const decoded = decodeAppState(encodeAppState(state));
     expect(decoded.options).toEqual(state.options);
     expect(decoded.presets).toMatchObject({ Coordinate: 'site' });
     expect(decoded.definition).toEqual(state.definition);
   });
+});
 
-  test.each(fixtures.map((f) => [f.name, f] as const))('a version 3 link (%s) opens as cells', async (_, fixture) => {
-    expect(isLegacyHash(fixture.url)).toBe(true);
-    const state = await readPlaygroundHash(`#/${fixture.url}`);
-    expect(state.upgraded).toBe(true);
-    expect(state.definition).toEqual(fromV3(fixture.definition));
-    // and it is written back as a version 4 link
-    expect(decodePlaygroundHash(encodePlaygroundHash(state)).definition).toEqual(state.definition);
+describe('slider ranges', () => {
+  test("a number type's slider spans its active preset, stepping by its precision", () => {
+    expect(rangeOf({}, { Coordinate: '±10@0.01' }, 'Coordinate')).toEqual({ min: -10, max: 10, step: 0.01 });
+    expect(rangeOf({}, {}, 'Index')).toEqual({ min: 0, max: 1024, step: 1 });
+  });
+
+  test('custom presets count; a type without presets has no slider', () => {
+    const options = { custom: { Length: { site: { min: 0, max: 500, precision: 0.25 } } } };
+    expect(rangeOf(options, { Length: 'site' }, 'Length')).toEqual({ min: 0, max: 500, step: 0.25 });
+    expect(rangeOf({}, {}, 'number')).toBeUndefined();
+    expect(rangeOf({}, {}, 'Vec2')).toBeUndefined();
   });
 });

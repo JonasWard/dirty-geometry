@@ -22,13 +22,22 @@ const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b)
 /** The viewer's values by input name; one counts while the definition has that input with the same type. */
 export type Values = Record<string, Input>;
 
-/** The values stored in a link (its last part in the viewer), or none when they cannot be read. */
-export function readValues(text: string | undefined, options: NumericOptions): { values: Values; error?: string } {
+/** The values stored in a link (its last part, read against the definition's `inputs`), or none when they cannot be read. */
+export function readValues(
+  text: string | undefined,
+  options: NumericOptions,
+  inputs: readonly Input[],
+): { values: Values; error?: string } {
   if (!text) return { values: {} };
   try {
-    return { values: decodeViewState(text, options) };
-  } catch (error) {
-    return { values: {}, error: `The input values in the link could not be read: ${(error as Error).message}` };
+    return { values: decodeViewState(text, options, inputs) };
+  } catch {
+    // An older link, or one cut short: the definition still opens, with its own values.
+    return {
+      values: {},
+      error:
+        "The input values in this link could not be read (it may be from an older version), so the editor's values are shown.",
+    };
   }
 }
 

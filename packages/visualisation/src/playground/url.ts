@@ -9,7 +9,9 @@ import { NUMBER_TYPES } from '@dirty-geometry/vec2/schema/schema';
 import {
   createDefinitionSchema,
   decodeDefinition,
+  decodeInputValues,
   encodeDefinition,
+  encodeInputValues,
 } from '@dirty-geometry/vec2/schema/dense/definition';
 import type { NumericPreset as CustomPreset } from 'densing';
 import type { ActivePresets, NumericOptions } from '@dirty-geometry/vec2/schema/dense/definition';
@@ -98,25 +100,34 @@ export function decodeAppState(text: string): PlaygroundState {
 }
 
 /**
- * The view state: every input's value, as a definition holding only the inputs, packed with the cheapest exact
- * ranges for them (stored in the string), so a value may leave the range the definition itself was packed with.
+ * The view state: every input's value alone, in the definition's input order (names and types come from the app
+ * state). Numbers are packed with the cheapest exact ranges for them (stored in the string), so a value may leave
+ * the range the definition itself was packed with.
  */
 export function encodeViewState(options: NumericOptions, inputs: readonly Input[]): string {
   const schema = createDefinitionSchema(options);
-  const definition: Definition = {
+  const inputsOnly: Definition = {
     format: 'vec2-definition',
     version: 4,
     inputs: [...inputs],
     functions: [],
     cells: [],
   };
-  return encodeDefinition(definition, choosePresets(definition, {}, schema), schema);
+  return encodeInputValues(inputs, choosePresets(inputsOnly, {}, schema), options);
 }
 
-/** The values written by `encodeViewState`, by input name. */
-export function decodeViewState(text: string, options: NumericOptions): Record<string, Input> {
-  const { definition } = decodeDefinition(text, createDefinitionSchema(options));
-  return Object.fromEntries(definition.inputs.map((input) => [input.name, input]));
+/** The values written by `encodeViewState` for `inputs` (the definition's), by input name. */
+export function decodeViewState(
+  text: string,
+  options: NumericOptions,
+  inputs: readonly Input[],
+): Record<string, Input> {
+  const values = decodeInputValues(
+    text,
+    inputs.map((input) => input.type),
+    options,
+  );
+  return Object.fromEntries(inputs.map((input, i) => [input.name, { ...input, value: values[i]! }]));
 }
 
 // ---- the page's hash ----

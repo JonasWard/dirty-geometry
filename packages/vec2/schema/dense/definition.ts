@@ -11,7 +11,7 @@
 import * as d from 'densing';
 import type { Cell, Definition, Expr, Fn, Input } from '../../src/recording/definition';
 import { DefinitionError, fail as raise } from '../../src/recording/definition';
-import { operationById, type Type } from '../schema';
+import { classJson, operationById, type Type } from '../schema';
 import { checkDefinition, members, parseTypeName, typeName, typer, widen, type FnType } from '../typing';
 import dense from '../vec2.dense.json';
 
@@ -384,3 +384,73 @@ export const encodeValue = (value: { toJson(): unknown }, presets: ActivePresets
   d.densing(schema, { $presets: presets, value: walker(schema, presets, false)(VALUE, value.toJson()) });
 export const decodeValue = (encoded: string, schema = createValueSchema()) =>
   walker(schema, {}, true)(VALUE, (d.undensing(schema, encoded) as F).value);
+
+// ---- input values alone: the View tab's part of a playground link ----
+
+/** The characters a stored string input may hold. */
+const PRINTABLE = Array.from({ length: 95 }, (_, i) => String.fromCharCode(32 + i));
+const NUMBER_DEFINITIONS = new Set((dense.definitions as { name: string }[]).map((n) => n.name));
+
+/** The field one input's value is packed in: a number in its type's range, a bit, text, or a class's own fields. */
+function inputField(type: string, name: string): F {
+  if (NUMBER_DEFINITIONS.has(type)) return { type: 'reference_numeric', name, ref: type };
+  if (type === 'boolean') return { type: 'bool', name, defaultValue: false };
+  if (type === 'string') return d.enumArray(name, d.enumeration('char', PRINTABLE), 0, 64);
+  const ref = classJson[type] === undefined ? undefined : INDEX.get(classJson[type]!);
+  if (ref === undefined || ref >= VALUE_TEMPLATES.length) fail(`An input of type ${type} cannot be stored`);
+  return { type: 'reference', name, ref };
+}
+
+const valuesCache = new Map<string, d.DenseSchema>();
+/**
+ * The schema of the values of inputs of `types`, in that order. Names and types are not stored, nor a stamp:
+ * whoever reads the values knows the inputs (a playground link's definition comes before them).
+ */
+export function createInputValuesSchema(types: readonly string[], options: NumericOptions = {}): d.DenseSchema {
+  const key = JSON.stringify([types, options]);
+  if (!valuesCache.has(key)) {
+    // densing wants every template referenced; one always-empty optional value (1 bit) covers them all.
+    const fields = [...types.map((type, i) => inputField(type, `v${i}`)), d.optional('_', VALUE as d.DenseField)];
+    valuesCache.set(key, d.schemaFromJson({ definitions: ranges(options), templates: VALUE_TEMPLATES, fields }));
+  }
+  return valuesCache.get(key)!;
+}
+
+/** The values of `inputs` alone, numbers packed with `presets` (each number type's range for this payload). */
+export function encodeInputValues(
+  inputs: readonly Input[],
+  presets: ActivePresets = {},
+  options: NumericOptions = {},
+): string {
+  const schema = createInputValuesSchema(
+    inputs.map((input) => input.type),
+    options,
+  );
+  const walk = walker(schema, presets, false);
+  const data: F = { $presets: presets, _: null };
+  inputs.forEach((input, i) => {
+    const field = schema.fields[i] as F;
+    const value = input.value;
+    if (field.type === 'reference') {
+      if (!(value && typeof value === 'object' && 'value' in value)) fail(`${input.name}: expected a stored value`);
+      data[field.name] = walk(field, (value as { value: unknown }).value);
+    } else if (field.type === 'enum_array') data[field.name] = [...(value as string)];
+    else if (field.type === 'reference_numeric' && !Number.isFinite(value))
+      fail(`${input.name}: cannot store ${value}`);
+    else data[field.name] = value;
+  });
+  return d.densing(schema, data);
+}
+
+/** The values written by `encodeInputValues` for inputs of `types`, in that order. */
+export function decodeInputValues(text: string, types: readonly string[], options: NumericOptions = {}): Expr[] {
+  const schema = createInputValuesSchema(types, options);
+  const data = d.undensing(schema, text) as F;
+  const walk = walker(schema, {}, true);
+  return (schema.fields as F[]).slice(0, types.length).map((field) => {
+    const value = data[field.name];
+    if (field.type === 'reference') return { value: walk(field, value) };
+    if (field.type === 'enum_array') return (value as string[]).join('');
+    return value as Expr;
+  });
+}

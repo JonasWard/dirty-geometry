@@ -355,7 +355,7 @@ describe('viewer link', () => {
     ];
     const text = encodeViewState({}, inputs);
     expect(text).toMatch(/^[\w-]+$/);
-    const read = decodeViewState(text, {});
+    const read = decodeViewState(text, {}, definition.inputs);
     expect(read.w!.value).toBe(87.25);
     expect(read.on!.value).toBe(true);
     expect(read.p!.value).toEqual({ value: { type: 'Vec2', x: -3.5, y: 40 } });
@@ -371,6 +371,29 @@ describe('viewer link', () => {
     expect(parseHash(formatHash(app, view))).toEqual({ app, view });
     expect(parseHash('')).toEqual({ app: '' });
     expect(parseHash(`#${app}`)).toEqual({ app });
+  });
+
+  test('the view state holds only the values: short, nothing shared with the app state', () => {
+    const gear = STARTERS.find((s) => s.id === 'gear')!.build();
+    const gearApp = encodeAppState({
+      definition: gear,
+      options: {},
+      presets: choosePresets(gear, {}, createDefinitionSchema()),
+    });
+    const tweaked = gear.inputs.map((input, i) => ({ ...input, value: [4.25, 3.61, 2.12, 3.46][i]! }));
+    const view = encodeViewState({}, tweaked);
+    expect(view.length).toBeLessThanOrEqual(14); // was 58 when names, types and the stamp were repeated
+    expect(view.slice(2, 8)).not.toBe(gearApp.slice(2, 8)); // no repeated stamp
+    // the whole round trip, as the page does it
+    const { app: readApp, view: readView } = parseHash(formatHash(gearApp, view));
+    const read = decodeViewState(readView!, {}, decodeAppState(readApp).definition.inputs);
+    expect(Object.values(read).map((input) => input.value)).toEqual([4.25, 3.61, 2.12, 3.46]);
+  });
+
+  test('a view state read against other inputs fails or reads other values, never throws past readValues', () => {
+    const view = encodeViewState({}, definition.inputs);
+    expect(() => decodeViewState('!!', {}, definition.inputs)).toThrow();
+    expect(() => decodeViewState(view, {}, [{ name: 'q', type: 'Circle2', value: 0 }])).toThrow();
   });
 
   test('older links are not read', () => {

@@ -35,8 +35,9 @@ export function Playground() {
     const parsed = parseHash(typeof window === 'undefined' ? '' : window.location.hash);
     const { document, error } = initialDocument(parsed.app);
     // A link that cannot be read opens the starter in the editor; its view part means nothing then.
-    const read = error ? { values: {} } : readValues(parsed.view, document.options);
-    const view: View = parsed.view && !error ? 'view' : 'edit';
+    const read = error ? { values: {} } : readValues(parsed.view, document.options, document.definition.inputs);
+    // An unreadable view part (from an older link) opens the editor, with the notice.
+    const view: View = parsed.view && !error && !read.error ? 'view' : 'edit';
     return { store: createPlaygroundStore(document), view, values: read.values, error: error ?? read.error };
   });
   return (
@@ -124,10 +125,10 @@ function PlaygroundView({
           return;
         }
       }
-      const next: View = parsed.view ? 'view' : 'edit';
+      const read = readValues(parsed.view, loadedOptions, store.getState().definition.inputs);
+      const next: View = parsed.view && !read.error ? 'view' : 'edit';
       lastView.current = next;
       setView(next);
-      const read = readValues(parsed.view, loadedOptions);
       setValues(read.values);
       if (read.error) setNotice(read.error);
       // Rewrite the link as this page writes it (when the load changed nothing, no edit does).

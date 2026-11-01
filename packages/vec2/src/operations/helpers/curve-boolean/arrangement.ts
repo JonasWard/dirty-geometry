@@ -26,12 +26,13 @@ export type Arrangement = { vertices: Vec2[]; edges: ArrangementEdge[] };
 /** Points within `tolerance` of each other share one vertex (looked up in a grid of that cell size). */
 class VertexSnap {
   readonly vertices: Vec2[] = [];
-  private readonly cells = new Map<string, number[]>();
+  private readonly cells = new Map<number, number[]>();
 
   constructor(private readonly tolerance: number) {}
 
-  private key(i: number, j: number): string {
-    return `${i},${j}`;
+  /** Cell key; distinct cells may share one, which only adds candidates (distances are still checked). */
+  private key(i: number, j: number): number {
+    return i * 67108864 + j;
   }
 
   index(point: Vec2): number {
@@ -60,11 +61,15 @@ export function buildArrangement(segments: readonly CurveSegment2[], slack: Epsi
     { t: 1, point: segment.to },
   ]);
 
-  for (let i = 0; i < segments.length; i++) {
-    for (let j = i + 1; j < segments.length; j++) {
-      const a = boxes[i]!;
+  // Sweep along x: each segment meets only the ones whose x-range starts before its own ends.
+  const order = segments.map((_, i) => i).sort((p, q) => boxes[p]!.x.min - boxes[q]!.x.min);
+  for (let oi = 0; oi < order.length; oi++) {
+    const i = order[oi]!;
+    const a = boxes[i]!;
+    for (let oj = oi + 1; oj < order.length; oj++) {
+      const j = order[oj]!;
       const b = boxes[j]!;
-      if (a.x.max + tolerance < b.x.min || b.x.max + tolerance < a.x.min) continue;
+      if (b.x.min > a.x.max + tolerance) break;
       if (a.y.max + tolerance < b.y.min || b.y.max + tolerance < a.y.min) continue;
       for (const point of segmentIntersections(segments[i]!, segments[j]!, slack)) {
         cuts[i]!.push({ t: segments[i]!.closestParameterForPoint(point), point });
@@ -75,12 +80,12 @@ export function buildArrangement(segments: readonly CurveSegment2[], slack: Epsi
 
   const snap = new VertexSnap(tolerance);
   const edges: ArrangementEdge[] = [];
-  const seen = new Map<string, number[]>();
+  const seen = new Map<number, number[]>();
   const add = (from: number, to: number, sagitta: number, source: CurveSegment2, t0: number, t1: number) => {
     if (from === to) return;
     const s = Math.abs(sagitta) <= tolerance ? 0 : sagitta;
     // One key per unordered vertex pair; the sagitta is stored as seen walking from the lower index.
-    const key = from < to ? `${from}-${to}` : `${to}-${from}`;
+    const key = from < to ? from * 67108864 + to : to * 67108864 + from; // exact below 2^26 vertices
     const canonical = from < to ? s : -s;
     const known = seen.get(key) ?? [];
     if (known.some((other) => Math.abs(other - canonical) <= tolerance)) return;

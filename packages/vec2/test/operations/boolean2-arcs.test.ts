@@ -8,6 +8,7 @@ import { ArcPolygon2 } from '../../src/geometry/regions/arc-polygon2';
 import { Circle2 } from '../../src/geometry/regions/circle2';
 import { Polygon2 } from '../../src/geometry/regions/polygon2';
 import { Boolean2, type Boolean2Result } from '../../src/operations/boolean2';
+import { ArcWindingIndex } from '../../src/operations/helpers/curve-boolean/winding-index';
 
 const V = (x: number, y: number) => new Vec2(x, y);
 const disc = (x: number, y: number, r = 1) => new Circle2(V(x, y), r);
@@ -215,4 +216,30 @@ describe('Boolean2 with arcs: exact agrees with a fine approximation on random i
     }
     expect(worst).toBeLessThan(1e-3);
   }, 30_000);
+});
+
+describe('ArcWindingIndex', () => {
+  test('matches summed windingNumber, including on chords, arcs and vertices', () => {
+    const loops = [
+      ArcPolygon2.fromCircle2(disc(0, 0, 2)),
+      roundedRectangle(4, 2, 0.5),
+      new ArcPolygon2([V(-1, -1), V(3, -1), V(3, 3), V(-1, 3)], [0, -0.8, 0.6, 0]).inverse(),
+      new ArcPolygon2([V(0, 0), V(2, 0)], [0, -1]),
+    ];
+    const index = new ArcWindingIndex([loops.slice(0, 2), loops.slice(2)]);
+    let seed = 3;
+    const random = () => (seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648;
+    const probes: Vec2[] = Array.from({ length: 2000 }, () => V(random() * 8 - 3, random() * 8 - 3));
+    for (const loop of loops) {
+      probes.push(...loop.vertices);
+      for (const segment of loop.segments()) probes.push(segment.evaluate(0.5), Vec2.center(segment.from, segment.to));
+    }
+    for (const point of probes) {
+      const expected = [
+        loops[0]!.windingNumber(point) + loops[1]!.windingNumber(point),
+        loops[2]!.windingNumber(point) + loops[3]!.windingNumber(point),
+      ];
+      expect([...index.winding(point)]).toEqual(expected);
+    }
+  });
 });

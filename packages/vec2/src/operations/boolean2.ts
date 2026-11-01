@@ -12,6 +12,7 @@ import { TriMesh2 } from '../geometry/regions/tri-mesh2';
 import { insideByRule, WindingIndex, type FillRule } from '../geometry/regions/winding';
 import { triangulateGeometries } from './helpers/cdt/triangulate';
 import { exactCurveBoolean } from './helpers/curve-boolean/exact';
+import { ArcWindingIndex } from './helpers/curve-boolean/winding-index';
 
 /** A filled shape: straight-sided, with arcs, or a circle. Clockwise shapes are holes. */
 export type Boolean2Shape = Polygon2 | ArcPolygon2 | Circle2;
@@ -152,19 +153,18 @@ function exactBoolean(
   const halfPlanes = clips.filter((clip): clip is InfiniteLine2 => clip.type === 'InfiniteLine2');
   const clipRegions = clips.filter((clip): clip is Boolean2Shape => clip.type !== 'InfiniteLine2').map(asRegion);
   const groups = groupClipRegions(clipRegions).map(({ outer, holes }) => [outer, ...holes]);
-  const insideLoops = (loops: readonly ArcPolygon2[], point: Vec2) =>
-    insideByRule(
-      loops.reduce((sum, loop) => sum + loop.windingNumber(point), 0),
-      rule,
-    );
+  // Operand 0 is the subject, operand 1 + i the clip region `groups[i]`.
+  const winding = new ArcWindingIndex([subjectRegions, ...groups]);
 
   const inside = (point: Vec2): boolean => {
-    if (!insideLoops(subjectRegions, point)) return false;
+    const totals = winding.winding(point);
+    if (!insideByRule(totals[0]!, rule)) return false;
     if (mode === 'union') return true;
     const inPlane = (plane: InfiniteLine2) => plane.signedDistance(point) <= 0;
+    const inGroup = (_: unknown, i: number) => insideByRule(totals[i + 1]!, rule);
     return mode === 'intersect'
-      ? halfPlanes.every(inPlane) && groups.every((group) => insideLoops(group, point))
-      : !halfPlanes.some(inPlane) && !groups.some((group) => insideLoops(group, point));
+      ? halfPlanes.every(inPlane) && groups.every(inGroup)
+      : !halfPlanes.some(inPlane) && !groups.some(inGroup);
   };
 
   const regions = [...subjectRegions, ...clipRegions];

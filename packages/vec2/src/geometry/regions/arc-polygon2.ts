@@ -15,18 +15,18 @@ import {
   offsetChain,
   reverseChain,
   samplePoints,
-  segmentTangent,
   sliceChain,
   transformChain,
   validateChain,
   type CurveSegment2,
 } from '../curves/arc-chain';
+import { segmentTangent } from '../curves/arc-intersections';
 import { ArcPolyline2 } from '../curves/arc-polyline2';
 import type { Arc2 } from '../primitives/arc2';
 import type { Line2 } from '../primitives/line2';
 import type { Circle2 } from './circle2';
 import { Polygon2 } from './polygon2';
-import { insideByRule, windingStep, type FillRule } from './winding';
+import { capStep, insideByRule, windingStep, type FillRule } from './winding';
 
 type State = { epsilon: Epsilon; segments?: CurveSegment2[]; table?: number[] };
 const states = new WeakMap<ArcPolygon2, State>();
@@ -167,7 +167,21 @@ export class ArcPolygon2 {
       winding += windingStep(a.x, a.y, b.x, b.y, point.x, point.y);
     }
     for (const segment of this.cachedSegments()) {
-      if (segment.type === 'Arc2' && inCap(segment, point)) winding -= Math.sign(segment.sagitta);
+      if (segment.type !== 'Arc2') continue;
+      const centre = segment.centre();
+      const { from, to } = segment;
+      winding += capStep(
+        centre.x,
+        centre.y,
+        segment.radius(),
+        from.x,
+        from.y,
+        to.x - from.x,
+        to.y - from.y,
+        Math.sign(segment.sagitta),
+        point.x,
+        point.y,
+      );
     }
     return winding;
   }
@@ -276,16 +290,3 @@ export type ArcPolygon2Json = {
   vertices: Vec2Json[];
   sagittas: Coordinate[];
 };
-
-/**
- * Inside the region between an arc and its chord: inside the circle, on the bulge side of the chord.
- * A point on the chord is decided as `windingStep` decides a point on an edge: as if moved slightly
- * towards +x (or, for a horizontal chord, +y), so chord polygon and caps agree.
- */
-function inCap(arc: Arc2, point: Vec2): boolean {
-  if (point.distance(arc.centre()) >= arc.radius()) return false;
-  const chord = arc.to.subtract(arc.from);
-  const side = chord.crossProduct(point.subtract(arc.from));
-  const sign = side !== 0 ? Math.sign(side) : chord.y !== 0 ? -Math.sign(chord.y) : Math.sign(chord.x);
-  return sign === Math.sign(arc.sagitta);
-}

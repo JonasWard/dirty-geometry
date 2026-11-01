@@ -20,6 +20,31 @@ export function windingStep(ax: number, ay: number, bx: number, by: number, x: n
   return by <= y && side < 0 ? -1 : 0;
 }
 
+/**
+ * Contribution at `(x, y)` of an arc's cap (the region between the arc and its chord) to the winding number of
+ * the loop it belongs to, given the arc's circle `(cx, cy, radius)`, its start `(fx, fy)`, its chord vector
+ * `(chordX, chordY)` and `sagittaSign`. Inside the circle and on the bulge side of the chord the cap adds
+ * `−sagittaSign` (a bulge to the right of travel adds area). A point on the chord is decided as `windingStep`
+ * decides a point on an edge: as if moved slightly towards +x (or, for a horizontal chord, +y).
+ */
+export function capStep(
+  cx: number,
+  cy: number,
+  radius: number,
+  fx: number,
+  fy: number,
+  chordX: number,
+  chordY: number,
+  sagittaSign: number,
+  x: number,
+  y: number,
+): number {
+  if (Math.hypot(x - cx, y - cy) >= radius) return 0;
+  const side = chordX * (y - fy) - chordY * (x - fx);
+  const sign = side !== 0 ? Math.sign(side) : chordY !== 0 ? -Math.sign(chordY) : Math.sign(chordX);
+  return sign === sagittaSign ? -sign : 0;
+}
+
 /** Summed winding number of `loops` at `point`. */
 export function windingNumber(loops: readonly Loop[], point: Vec2): number {
   let winding = 0;

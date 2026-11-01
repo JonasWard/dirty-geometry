@@ -131,22 +131,16 @@ export class Contains2 {
       return false;
     }
 
+    /** The arc's farthest point towards the boundary must be inside too (when it is not an end). */
     const supportIn = (direction: Vec2): boolean => {
-      if (direction.isZeroLength() || !arc.containsAngle(Math.atan2(direction.y, direction.x))) return true;
-      return Contains2.pointIn(container, arc.centre().add(direction.unit().scale(arc.radius())), slack);
+      const extreme = arc.extremePoint(direction);
+      return extreme === null || Contains2.pointIn(container, extreme, slack);
     };
 
     switch (container.type) {
-      case 'InfiniteLine2': {
-        // signedDistance is linear: its gradient points out of the half-plane.
-        const centre = arc.centre();
-        const base = container.signedDistance(centre);
-        const gradient = new Vec2(
-          container.signedDistance(centre.add(Vec2.baseX())) - base,
-          container.signedDistance(centre.add(Vec2.baseY())) - base,
-        );
-        return supportIn(gradient);
-      }
+      case 'InfiniteLine2':
+        // signedDistance grows to the left of the direction: that is the way out of the half-plane.
+        return supportIn(container.direction.perpendicular());
       case 'Circle2':
         return supportIn(arc.centre().subtract(container.center));
       case 'Aabb2':

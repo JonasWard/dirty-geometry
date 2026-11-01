@@ -6,6 +6,7 @@ import type { Epsilon } from '../../../core/epsilon';
 import type { Vec2 } from '../../../core/vec2';
 import { segmentIntersections, type CurveSegment2 } from '../../../geometry/curves/arc-intersections';
 import { sagittaFromSweep } from '../../../geometry/primitives/arc2';
+import { hash2, undirectedHash2, wrapHashIndex } from '../../../hash/core';
 
 /**
  * A piece from vertex `from` to vertex `to`, bulging `sagitta` to its left (0: straight). It is the part
@@ -26,28 +27,28 @@ export type Arrangement = { vertices: Vec2[]; edges: ArrangementEdge[] };
 /** Points within `tolerance` of each other share one vertex (looked up in a grid of that cell size). */
 class VertexSnap {
   readonly vertices: Vec2[] = [];
+  /** Vertex indices per grid cell (`Vec2.hash` at the snapping tolerance). */
   private readonly cells = new Map<number, number[]>();
 
   constructor(private readonly tolerance: number) {}
 
-  /** Cell key; distinct cells may share one, which only adds candidates (distances are still checked). */
-  private key(i: number, j: number): number {
-    return i * 67108864 + j;
-  }
-
   index(point: Vec2): number {
+    // The cell `point.hash(tolerance)` names; points within one cell size are in it or a neighbour. The
+    // neighbours are visited in place (as `mooreNeighborCellHashes` lists them) to avoid an array per lookup.
     const i = Math.floor(point.x / this.tolerance);
     const j = Math.floor(point.y / this.tolerance);
     for (let di = -1; di <= 1; di++) {
       for (let dj = -1; dj <= 1; dj++) {
-        for (const index of this.cells.get(this.key(i + di, j + dj)) ?? []) {
+        for (const index of this.cells.get(hash2(wrapHashIndex(i + di), wrapHashIndex(j + dj))) ?? []) {
           if (this.vertices[index]!.distance(point) <= this.tolerance) return index;
         }
       }
     }
     const index = this.vertices.push(point) - 1;
-    const key = this.key(i, j);
-    this.cells.set(key, [...(this.cells.get(key) ?? []), index]);
+    const cell = point.hash(this.tolerance);
+    const bucket = this.cells.get(cell);
+    if (bucket) bucket.push(index);
+    else this.cells.set(cell, [index]);
     return index;
   }
 }
@@ -85,7 +86,7 @@ export function buildArrangement(segments: readonly CurveSegment2[], slack: Epsi
     if (from === to) return;
     const s = Math.abs(sagitta) <= tolerance ? 0 : sagitta;
     // One key per unordered vertex pair; the sagitta is stored as seen walking from the lower index.
-    const key = from < to ? from * 67108864 + to : to * 67108864 + from; // exact below 2^26 vertices
+    const key = undirectedHash2(from, to);
     const canonical = from < to ? s : -s;
     const known = seen.get(key) ?? [];
     if (known.some((other) => Math.abs(other - canonical) <= tolerance)) return;

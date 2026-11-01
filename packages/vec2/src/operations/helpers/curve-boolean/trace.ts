@@ -1,20 +1,11 @@
 /** Chains oriented arrangement edges (result on their left) into closed loops. */
 import type { Epsilon } from '../../../core/epsilon';
 import type { Vec2 } from '../../../core/vec2';
-import type { CurveSegment2 } from '../../../geometry/curves/arc-intersections';
+import { TAU } from '../../../core/angle';
+import { segmentCurvature, segmentTangent, type CurveSegment2 } from '../../../geometry/curves/arc-intersections';
 import { Arc2, sagittaFromSweep, segmentOf } from '../../../geometry/primitives/arc2';
 import { ArcPolygon2 } from '../../../geometry/regions/arc-polygon2';
 import type { ArrangementEdge } from './arrangement';
-
-const TAU = 2 * Math.PI;
-
-function tangentOf(segment: CurveSegment2, t: number): Vec2 {
-  return segment.type === 'Arc2' ? segment.tangent(t) : segment.direction().unit();
-}
-
-function curvatureOf(segment: CurveSegment2): number {
-  return segment.type === 'Arc2' ? segment.curvature() : 0;
-}
 
 /**
  * @internal Closed loops through `edges`, each used once. At a vertex with several ways on, the walk takes
@@ -40,24 +31,24 @@ export function traceLoops(
     let current = start;
     let closed = true;
     while (edges[current]!.to !== edges[start]!.from) {
-      const back = tangentOf(segments[current]!, 1).negate();
+      const back = segmentTangent(segments[current]!, 1).negate();
       const candidates = (outgoing.get(edges[current]!.to) ?? []).filter((index) => !used[index]);
       if (candidates.length === 0) {
         closed = false;
         break;
       }
       const rank = (index: number) => {
-        const out = tangentOf(segments[index]!, 0);
+        const out = segmentTangent(segments[index]!, 0);
         let angle = Math.atan2(back.crossProduct(out), back.dot(out));
         if (angle < 0) angle += TAU;
         // Leaving straight back the way it came: the curvature says which side of that direction it bends to.
-        if (angle < 1e-9 || angle > TAU - 1e-9) angle = curvatureOf(segments[index]!) >= 0 ? 0 : TAU;
+        if (angle < 1e-9 || angle > TAU - 1e-9) angle = segmentCurvature(segments[index]!) >= 0 ? 0 : TAU;
         return angle;
       };
       const next = candidates.reduce((best, index) => {
         const difference = rank(index) - rank(best);
         if (Math.abs(difference) > 1e-9) return difference > 0 ? index : best;
-        return curvatureOf(segments[index]!) > curvatureOf(segments[best]!) ? index : best;
+        return segmentCurvature(segments[index]!) > segmentCurvature(segments[best]!) ? index : best;
       });
       used[next] = true;
       loop.push(next);

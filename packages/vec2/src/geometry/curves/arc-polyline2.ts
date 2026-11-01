@@ -17,12 +17,12 @@ import {
   offsetChain,
   reverseChain,
   samplePoints,
-  segmentTangent,
   sliceChain,
   transformChain,
   validateChain,
   type CurveSegment2,
 } from './arc-chain';
+import { segmentTangent } from './arc-intersections';
 import { Polyline2 } from './polyline2';
 
 type State = { epsilon: Epsilon; segments?: CurveSegment2[]; table?: number[] };

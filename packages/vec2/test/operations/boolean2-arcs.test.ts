@@ -1,13 +1,12 @@
 import { describe, expect, test } from 'bun:test';
 import { Mat3 } from '../../src/core/mat3';
 import { Vec2 } from '../../src/core/vec2';
-import { Arc2 } from '../../src/geometry/primitives/arc2';
 import { InfiniteLine2 } from '../../src/geometry/primitives/infinite-line2';
-import { Line2 } from '../../src/geometry/primitives/line2';
 import { ArcPolygon2 } from '../../src/geometry/regions/arc-polygon2';
 import { Circle2 } from '../../src/geometry/regions/circle2';
 import { Polygon2 } from '../../src/geometry/regions/polygon2';
 import { Boolean2, type Boolean2Result } from '../../src/operations/boolean2';
+import { roundedRectangle } from '../../examples/arc-shapes';
 import { ArcWindingIndex } from '../../src/operations/helpers/curve-boolean/winding-index';
 
 const V = (x: number, y: number) => new Vec2(x, y);
@@ -20,13 +19,6 @@ const arcCount = (region: ArcPolygon2) => region.sagittas.filter((s) => s !== 0)
 /** Two unit discs whose centres are 1 apart: the lens they share, and their union. */
 const lens = 2 * Math.acos(0.5) - 0.5 * Math.sqrt(3);
 const discs = [disc(0, 0), disc(1, 0)];
-
-/** A rectangle with circular corners, built from fillets. */
-function roundedRectangle(width: number, height: number, radius: number): ArcPolygon2 {
-  const corners = [V(0, 0), V(width, 0), V(width, height), V(0, height)];
-  const fillets = corners.map((c, i) => Arc2.fromFillet(corners[(i + 3) % 4]!, c, corners[(i + 1) % 4]!, radius));
-  return ArcPolygon2.fromSegments(fillets.flatMap((f, i) => [f, new Line2(f.to, fillets[(i + 1) % 4]!.from)]));
-}
 
 describe('Boolean2 with arcs, exact', () => {
   test('union of two discs: one region of two arcs', () => {
@@ -72,7 +64,7 @@ describe('Boolean2 with arcs, exact', () => {
   });
 
   test('a disc and a rounded rectangle', () => {
-    const rounded = roundedRectangle(4, 2, 0.5);
+    const rounded = roundedRectangle(0, 0, 4, 2, 0.5);
     const result = Boolean2.intersect([rounded], [disc(4, 2, 1)]);
     // Only the rounded corner's quarter of the disc remains: inside the corner arc's circle and the disc.
     const approximate = Boolean2.intersect([rounded], [disc(4, 2, 1)], {
@@ -85,7 +77,7 @@ describe('Boolean2 with arcs, exact', () => {
 
 describe('Boolean2 with arcs: shared and touching boundaries', () => {
   test('A ∪ A = A', () => {
-    const shape = roundedRectangle(4, 2, 0.5);
+    const shape = roundedRectangle(0, 0, 4, 2, 0.5);
     const result = Boolean2.union([shape, shape]);
     expect(result.regions!.length).toBe(1);
     expect(regionArea(result)).toBeCloseTo(shape.signedArea(), 9);
@@ -93,7 +85,7 @@ describe('Boolean2 with arcs: shared and touching boundaries', () => {
   });
 
   test('a rounded rectangle and a rectangle sharing a side', () => {
-    const rounded = roundedRectangle(4, 2, 0.5);
+    const rounded = roundedRectangle(0, 0, 4, 2, 0.5);
     const block = new Polygon2([V(0.5, 2), V(3.5, 2), V(3.5, 4), V(0.5, 4)]); // sits on the top side
     const result = Boolean2.union([rounded, block]);
     expect(result.regions!.length).toBe(1);
@@ -181,7 +173,7 @@ describe('Boolean2 with arcs: exact agrees with a fine approximation on random i
     if (kind === 0) return disc(random() * 4, random() * 4, 0.5 + random() * 1.5);
     if (kind === 1) {
       const [x, y] = [random() * 3, random() * 3];
-      const rounded = roundedRectangle(1 + random() * 2, 1 + random() * 2, 0.1 + random() * 0.4);
+      const rounded = roundedRectangle(0, 0, 1 + random() * 2, 1 + random() * 2, 0.1 + random() * 0.4);
       return rounded.transform(Mat3.translation(x, y));
     }
     const n = 3 + Math.floor(random() * 3);
@@ -222,7 +214,7 @@ describe('ArcWindingIndex', () => {
   test('matches summed windingNumber, including on chords, arcs and vertices', () => {
     const loops = [
       ArcPolygon2.fromCircle2(disc(0, 0, 2)),
-      roundedRectangle(4, 2, 0.5),
+      roundedRectangle(0, 0, 4, 2, 0.5),
       new ArcPolygon2([V(-1, -1), V(3, -1), V(3, 3), V(-1, 3)], [0, -0.8, 0.6, 0]).inverse(),
       new ArcPolygon2([V(0, 0), V(2, 0)], [0, -1]),
     ];

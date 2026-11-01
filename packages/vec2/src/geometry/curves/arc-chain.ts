@@ -7,12 +7,13 @@ import type { Coordinate, Length, Parameter, Tolerance } from '../../core/number
 import type { Mat3 } from '../../core/mat3';
 import { partialSum } from '../../analysis/aggregation/partial-sum';
 import { Aabb2 } from '../../bounds/aabb2';
+import { TAU } from '../../core/angle';
 import { Epsilon } from '../../core/epsilon';
 import { Vec2 } from '../../core/vec2';
 import { Arc2, sagittaFromSweep, segmentOf, similarityOf } from '../primitives/arc2';
 import { InfiniteLine2 } from '../primitives/infinite-line2';
 import { Circle2 } from '../regions/circle2';
-import { supportIntersections, type CurveSegment2, type Support2 } from './arc-intersections';
+import { segmentTangent, supportIntersections, type CurveSegment2, type Support2 } from './arc-intersections';
 
 export type ChainData = { vertices: Vec2[]; sagittas: number[] };
 
@@ -64,11 +65,6 @@ export function chainLengthTable(segments: readonly CurveSegment2[]): number[] {
     segments.map((segment) => segment.length()),
     true,
   );
-}
-
-/** Unit direction of travel along a segment. */
-export function segmentTangent(segment: CurveSegment2, t: Parameter): Vec2 {
-  return segment.type === 'Arc2' ? segment.tangent(t) : segment.direction().unit();
 }
 
 /**
@@ -346,7 +342,7 @@ function pieceSagitta(piece: Piece): number {
 }
 
 function wrapToPi(radians: number): number {
-  return radians - 2 * Math.PI * Math.round(radians / (2 * Math.PI));
+  return radians - TAU * Math.round(radians / TAU);
 }
 
 /** Segments joining end to end within epsilon, as chain data (closed: the last segment must end at the first's start). */

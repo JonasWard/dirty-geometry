@@ -5,7 +5,7 @@
  */
 import type { Vec2 } from '../../../core/vec2';
 import type { ArcPolygon2 } from '../../../geometry/regions/arc-polygon2';
-import { windingStep } from '../../../geometry/regions/winding';
+import { capStep, windingStep } from '../../../geometry/regions/winding';
 
 /** Chord `a → b` of one operand: `ax, ay, bx, by, operand` runs. */
 const CHORD = 5;
@@ -56,17 +56,17 @@ export class ArcWindingIndex {
         for (const segment of loop.segments()) {
           if (segment.type !== 'Arc2') continue;
           const centre = segment.centre();
-          const chord = segment.to.subtract(segment.from);
+          const { from, to } = segment;
           // The cap lies within the arc's box (it is inside the arc's convex hull).
           const box = segment.aabb2();
           const run = [
             centre.x,
             centre.y,
             segment.radius(),
-            segment.from.x,
-            segment.from.y,
-            chord.x,
-            chord.y,
+            from.x,
+            from.y,
+            to.x - from.x,
+            to.y - from.y,
             Math.sign(segment.sagitta),
             operand,
             box.x.min,
@@ -98,13 +98,19 @@ export class ArcWindingIndex {
     const caps = this.caps[k]!;
     for (let i = 0; i < caps.length; i += CAP) {
       if (x < caps[i + 9]! || x > caps[i + 10]!) continue;
-      // Same arithmetic and tie-breaking as `inCap` in arc-polygon2.ts.
-      if (Math.hypot(x - caps[i]!, y - caps[i + 1]!) >= caps[i + 2]!) continue;
-      const chordX = caps[i + 5]!;
-      const chordY = caps[i + 6]!;
-      const side = chordX * (y - caps[i + 4]!) - chordY * (x - caps[i + 3]!);
-      const sign = side !== 0 ? Math.sign(side) : chordY !== 0 ? -Math.sign(chordY) : Math.sign(chordX);
-      if (sign === caps[i + 7]!) totals[caps[i + 8]!]! -= sign;
+      const step = capStep(
+        caps[i]!,
+        caps[i + 1]!,
+        caps[i + 2]!,
+        caps[i + 3]!,
+        caps[i + 4]!,
+        caps[i + 5]!,
+        caps[i + 6]!,
+        caps[i + 7]!,
+        x,
+        y,
+      );
+      if (step !== 0) totals[caps[i + 8]!]! += step;
     }
     return totals;
   }

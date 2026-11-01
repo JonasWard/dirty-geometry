@@ -12,6 +12,16 @@ import type { Circle2 } from '../regions/circle2';
 /** A straight or circular segment. */
 export type CurveSegment2 = Line2 | Arc2;
 
+/** Unit direction of travel at parameter `t`. */
+export function segmentTangent(segment: CurveSegment2, t: number): Vec2 {
+  return segment.type === 'Arc2' ? segment.tangent(t) : segment.direction().unit();
+}
+
+/** Signed curvature, counter-clockwise positive (0 for a straight segment). */
+export function segmentCurvature(segment: CurveSegment2): number {
+  return segment.type === 'Arc2' ? segment.curvature() : 0;
+}
+
 /** The infinite line or full circle a segment lies on (`Line2.infiniteLine()`, `Arc2.circle()`). */
 export type Support2 = InfiniteLine2 | Circle2;
 

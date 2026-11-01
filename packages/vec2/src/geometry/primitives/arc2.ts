@@ -1,7 +1,7 @@
 import type { Coordinate, Length, Parameter, Radians, Tolerance } from '../../core/numbers';
 import type { Mat3 } from '../../core/mat3';
 import { Aabb2 } from '../../bounds/aabb2';
-import { TAU } from '../../core/angle';
+import { Angle, TAU } from '../../core/angle';
 import { Epsilon } from '../../core/epsilon';
 import { Vec2, type Vec2Json } from '../../core/vec2';
 import { Circle2 } from '../regions/circle2';
@@ -230,9 +230,7 @@ export class Arc2 {
 
   /** Angle from the start to `radians`, in the direction of travel, in `[0, 2π)`. */
   private angleOffset(radians: Radians): number {
-    const raw = (radians - this.startAngle()) * Math.sign(this.sweep());
-    const wrapped = raw - TAU * Math.floor(raw / TAU);
-    return wrapped >= TAU ? 0 : wrapped;
+    return Angle.wrapToTau((radians - this.startAngle()) * Math.sign(this.sweep()));
   }
 
   /** Nearest parameter: the projection onto the circle when it is within the sweep, else the nearer end. */
@@ -254,14 +252,21 @@ export class Arc2 {
     return point.distance(this.closestPointForPoint(point));
   }
 
-  /** The end points plus every extreme point of the circle (0, π/2, π, 3π/2) inside the sweep. */
+  /**
+   * The point of the circle farthest in `direction`, when it lies within the sweep; otherwise `null` (the
+   * arc's farthest point in that direction is then one of its ends).
+   */
+  extremePoint(direction: Vec2): Vec2 | null {
+    if (direction.isZeroLength() || !this.containsAngle(Math.atan2(direction.y, direction.x))) return null;
+    return this.centre().add(direction.unit().scale(this.radius()));
+  }
+
+  /** The end points plus every extreme point of the circle (+x, +y, −x, −y) inside the sweep. */
   aabb2(): Aabb2 {
     const points = [this.from, this.to];
-    const centre = this.centre();
-    const radius = this.radius();
-    for (let k = 0; k < 4; k++) {
-      const angle = (k * Math.PI) / 2;
-      if (this.containsAngle(angle)) points.push(centre.add(polar(angle, radius)));
+    for (const direction of [Vec2.baseX(), Vec2.baseY(), Vec2.baseX().negate(), Vec2.baseY().negate()]) {
+      const extreme = this.extremePoint(direction);
+      if (extreme) points.push(extreme);
     }
     return Aabb2.fromPointList(points);
   }

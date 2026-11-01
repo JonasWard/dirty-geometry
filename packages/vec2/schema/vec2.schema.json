@@ -312,6 +312,7 @@
             "epsilon": { "returns": "Epsilon" },
             "evaluate": { "params": { "t": "Parameter" }, "returns": "Vec2" },
             "evaluateAtLength": { "params": { "length": "Length" }, "returns": "Vec2" },
+            "extremePoint": { "params": { "direction": "Vec2" }, "returns": { "or": ["Vec2", "null"] } },
             "from": { "value": "Vec2" },
             "fromCentre": { "static": true, "params": { "centre": "Vec2", "radius": "Length", "startAngle": "Radians", "sweep": "Radians", "epsilon": { "type": "Epsilon", "optional": true } }, "returns": "Arc2" },
             "fromFillet": { "static": true, "params": { "from": "Vec2", "corner": "Vec2", "to": "Vec2", "radius": "Length", "epsilon": { "type": "Epsilon", "optional": true } }, "returns": "Arc2" },

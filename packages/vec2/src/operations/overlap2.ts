@@ -3,7 +3,7 @@ import { Interval2 } from '../bounds/interval2';
 import { assertNever } from '../core/assert';
 import { Epsilon } from '../core/epsilon';
 import { Vec2 } from '../core/vec2';
-import { segmentIntersections, type CurveSegment2 } from '../geometry/curves/arc-intersections';
+import { segmentIntersections, segmentTangent, type CurveSegment2 } from '../geometry/curves/arc-intersections';
 import type { ArcPolyline2 } from '../geometry/curves/arc-polyline2';
 import type { Polyline2 } from '../geometry/curves/polyline2';
 import type { Arc2 } from '../geometry/primitives/arc2';
@@ -536,8 +536,7 @@ function pointInFilled(
 function properlyCrosses(a: CurveSegment2, b: CurveSegment2, point: Vec2, slack: Epsilon): boolean {
   const tolerance = Math.abs(slack.value);
   if ([a.from, a.to, b.from, b.to].some((end) => end.distance(point) <= tolerance)) return false;
-  const direction = (segment: CurveSegment2) =>
-    segment.type === 'Arc2' ? segment.tangent(segment.closestParameterForPoint(point)) : segment.direction().unit();
+  const direction = (segment: CurveSegment2) => segmentTangent(segment, segment.closestParameterForPoint(point));
   return Math.abs(direction(a).crossProduct(direction(b))) > tolerance;
 }
 
@@ -579,15 +578,9 @@ function pointsOf(geometry: NormalisedGeometry2): Vec2[] {
 function lowestSignedDistance(plane: InfiniteLine2, segment: CurveSegment2): number {
   let lowest = Math.min(plane.signedDistance(segment.from), plane.signedDistance(segment.to));
   if (segment.type === 'Arc2') {
-    const centre = segment.centre();
-    const base = plane.signedDistance(centre);
-    const down = new Vec2(
-      base - plane.signedDistance(centre.add(Vec2.baseX())),
-      base - plane.signedDistance(centre.add(Vec2.baseY())),
-    );
-    if (!down.isZeroLength() && segment.containsAngle(Math.atan2(down.y, down.x))) {
-      lowest = Math.min(lowest, plane.signedDistance(centre.add(down.unit().scale(segment.radius()))));
-    }
+    // signedDistance falls to the right of the direction: the arc's lowest point is its extreme that way.
+    const extreme = segment.extremePoint(plane.direction.perpendicular().negate());
+    if (extreme) lowest = Math.min(lowest, plane.signedDistance(extreme));
   }
   return lowest;
 }

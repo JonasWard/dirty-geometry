@@ -208,9 +208,9 @@ describe('store', () => {
 
   test('presets follow the definition while automatic, and the hash is kept current', () => {
     const store = fresh();
-    expect(store.getState().active.Coordinate).toBe('0..10@1');
+    expect(store.getState().active.Coordinate).toBe('±10');
     store.getState().commit(ops.setInput(base, 'w', { value: -2.5 }));
-    expect(store.getState().active.Coordinate).toBe('±10@0.01');
+    expect(store.getState().active.Coordinate).toBe('±10@0.1');
     expect(decodeAppState(store.getState().encoding.hash!).definition).toEqual(store.getState().definition);
     store.getState().update({ auto: false, presets: { Coordinate: '±1@0.001' } });
     expect(store.getState().encoding.error).toBeDefined();

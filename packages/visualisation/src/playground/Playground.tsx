@@ -188,6 +188,8 @@ function PlaygroundView({
       {view === 'view' && (
         <ViewerPanel
           definition={definition}
+          options={options}
+          presets={active}
           changed={changed}
           onValue={(input, value) => setValues((current) => ({ ...current, [input.name]: { ...input, value } }))}
           onReset={(name) => setValues(({ [name]: _, ...rest }) => rest)}

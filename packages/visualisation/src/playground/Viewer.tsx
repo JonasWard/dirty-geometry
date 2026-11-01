@@ -2,13 +2,14 @@
 
 import { Fragment, useMemo, useState } from 'react';
 import type { Definition, Input } from '@dirty-geometry/vec2/recording/definition';
-import type { NumericOptions } from '@dirty-geometry/vec2/schema/dense/definition';
+import type { ActivePresets, NumericOptions } from '@dirty-geometry/vec2/schema/dense/definition';
 import { VisualisationLegend } from '../core/VisualisationLegend';
 import { describeValue } from './describe';
 import { drawableOutputs, isPlainType } from './draw';
 import { withInputValues } from './model/ops';
 import { InputValueEditor } from './panels';
 import { outputColor, PLAYGROUND_COLORS, PlaygroundCanvas } from './PlaygroundCanvas';
+import { rangeOf } from './presets';
 import { useAnalysis } from './store';
 import { decodeViewState } from './url';
 
@@ -47,15 +48,26 @@ export const changedInputs = (definition: Definition, values: Values): Input[] =
  */
 export function ViewerPanel({
   definition,
+  options,
+  presets,
   changed,
   onValue,
   onReset,
 }: {
   definition: Definition;
+  /** The number ranges the definition is packed with: a slider spans its type's. */
+  options: NumericOptions;
+  presets: ActivePresets;
   changed: readonly Input[];
   onValue: (input: Input, value: Input['value']) => void;
   onReset: (name: string) => void;
 }) {
+  // Sliders (with the exact value beside each) or number boxes only; this page's choice, not the link's.
+  const [sliders, setSliders] = useState(true);
+  const range = useMemo(
+    () => (sliders ? (type: string) => rangeOf(options, presets, type) : undefined),
+    [sliders, options, presets],
+  );
   const [hidden, setHidden] = useState<ReadonlySet<string>>(() => new Set());
   const [hovered, setHovered] = useState<string | null>(null);
   const [intermediates, setIntermediates] = useState<boolean | undefined>(undefined);
@@ -90,29 +102,53 @@ export function ViewerPanel({
     <div className='grid gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(0,5fr)]'>
       <div className='min-w-0 space-y-4'>
         <section className={panel} aria-label='Inputs'>
-          <h3 className={`${heading} mb-2`}>Inputs</h3>
+          <div className='mb-2 flex items-center gap-3'>
+            <h3 className={heading}>Inputs</h3>
+            <div className='ml-auto flex gap-2' role='group' aria-label='Number inputs as'>
+              {(
+                [
+                  [true, 'sliders'],
+                  [false, 'numbers'],
+                ] as const
+              ).map(([value, label]) => (
+                <button
+                  key={label}
+                  type='button'
+                  aria-pressed={sliders === value}
+                  className={`${textButton} ${sliders === value ? 'font-semibold text-dg-navy-900' : ''}`}
+                  onClick={() => setSliders(value)}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
           {definition.inputs.length === 0 && <p className='text-dg-subtle'>This definition has no inputs.</p>}
-          <ul className='space-y-1.5'>
+          {/* Name | value | reset, as columns, so the sliders line up. */}
+          <ul className='grid grid-cols-[max-content_minmax(0,1fr)_auto] items-center gap-x-2 gap-y-1.5'>
             {tweaked.inputs.map((input) => {
               const isChanged = changedNames.has(input.name);
               return (
-                <li key={input.name} className='flex flex-wrap items-center gap-2' title={input.type}>
-                  <span className='min-w-16 font-mono font-semibold'>
+                <li key={input.name} className='contents'>
+                  <span className='font-mono font-semibold' title={input.type}>
                     {input.name}
                     {isChanged && <span className='text-dg-sky-600'> •</span>}
                   </span>
-                  <InputValueEditor input={input} onChange={(value) => onValue(input, value)} />
-                  {isChanged && (
-                    <button
-                      type='button'
-                      className='px-1 text-dg-subtle hover:text-dg-steel-600'
-                      aria-label={`reset ${input.name}`}
-                      title='Back to the editor’s value'
-                      onClick={() => onReset(input.name)}
-                    >
-                      ↺
-                    </button>
-                  )}
+                  <span className='flex min-w-0 items-center'>
+                    <InputValueEditor input={input} range={range} onChange={(value) => onValue(input, value)} />
+                  </span>
+                  {/* Always in place (hidden when unchanged), so a slider does not shift when it appears. */}
+                  <button
+                    type='button'
+                    className={`px-1 text-dg-subtle hover:text-dg-steel-600 ${isChanged ? '' : 'invisible'}`}
+                    aria-label={`reset ${input.name}`}
+                    aria-hidden={!isChanged}
+                    tabIndex={isChanged ? undefined : -1}
+                    title='Back to the editor’s value'
+                    onClick={() => onReset(input.name)}
+                  >
+                    ↺
+                  </button>
                 </li>
               );
             })}

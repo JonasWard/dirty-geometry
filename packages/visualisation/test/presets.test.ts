@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import type { Definition } from '@dirty-geometry/vec2/recording/definition';
 import { encodeDefinition } from '@dirty-geometry/vec2/schema/dense/definition';
-import { choosePresets, quantisationReport } from '../src/playground/presets';
+import { choosePresets, quantisationReport, rangeOf } from '../src/playground/presets';
 import { decodeAppState, encodeAppState } from '../src/playground/url';
 
 const point = (x: number, y: number): Definition => ({
@@ -41,5 +41,19 @@ describe('playground URL', () => {
     expect(decoded.options).toEqual(state.options);
     expect(decoded.presets).toMatchObject({ Coordinate: 'site' });
     expect(decoded.definition).toEqual(state.definition);
+  });
+});
+
+describe('slider ranges', () => {
+  test("a number type's slider spans its active preset, stepping by its precision", () => {
+    expect(rangeOf({}, { Coordinate: '±10@0.01' }, 'Coordinate')).toEqual({ min: -10, max: 10, step: 0.01 });
+    expect(rangeOf({}, {}, 'Index')).toEqual({ min: 0, max: 1024, step: 1 });
+  });
+
+  test('custom presets count; a type without presets has no slider', () => {
+    const options = { custom: { Length: { site: { min: 0, max: 500, precision: 0.25 } } } };
+    expect(rangeOf(options, { Length: 'site' }, 'Length')).toEqual({ min: 0, max: 500, step: 0.25 });
+    expect(rangeOf({}, {}, 'number')).toBeUndefined();
+    expect(rangeOf({}, {}, 'Vec2')).toBeUndefined();
   });
 });

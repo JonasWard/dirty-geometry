@@ -430,6 +430,33 @@ describe('arc examples', () => {
     near(run('lens', { radius: 3 }).area, lens(3));
   });
 
+  test('mounting plate: a rounded rectangle less four bolt holes, and the wall left by its inner offset', () => {
+    const rounded = (w: number, h: number, r: number) => w * h - (4 - Math.PI) * r * r;
+    const { plate, area, ring } = run('mounting-plate');
+    expect(plate).toHaveLength(5); // the outline and its four holes
+    near(area, rounded(6, 4, 1) - 4 * Math.PI * 0.3 ** 2);
+    near(ring, rounded(6, 4, 1) - rounded(5.5, 3.5, 0.75));
+    near(run('mounting-plate', { width: 8, bolt: 0.4 }).area, rounded(8, 4, 1) - 4 * Math.PI * 0.4 ** 2);
+  });
+
+  test('half ring: an exact annulus cut along a line through its centre', () => {
+    near(run('half-ring').area, (Math.PI * (3 ** 2 - 2 ** 2)) / 2);
+    near(run('half-ring', { outer: 4, inner: 1 }).area, (Math.PI * (4 ** 2 - 1 ** 2)) / 2);
+  });
+
+  test('gear: a disc, eight rotated teeth and a bore', () => {
+    // Each tooth adds the part of a width × (radius + height) bar outside the disc; the bore takes a disc out.
+    const gear = (r: number, h: number, w: number, b: number) => {
+      const y = w / 2;
+      const inside = 2 * ((y / 2) * Math.sqrt(r * r - y * y) + ((r * r) / 2) * Math.asin(y / r));
+      return Math.PI * r * r + 8 * (w * (r + h) - inside) - Math.PI * b * b;
+    };
+    const { gear: regions, area } = run('gear');
+    expect(regions).toHaveLength(2); // the outline and the bore
+    near(area, gear(2, 0.6, 0.5, 0.6));
+    near(run('gear', { width: 0.3, height: 1 }).area, gear(2, 1, 0.3, 0.6));
+  });
+
   test('a wave of three half circles, and its offset: radii 1.4, 0.6, 1.4', () => {
     const { length, offset } = run('wave');
     near(length, 3 * Math.PI);

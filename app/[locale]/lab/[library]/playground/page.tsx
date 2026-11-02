@@ -2,11 +2,13 @@ import PlaygroundPage from "@/components/lab/playground-page";
 import { labCrumbs } from "@/components/lab/crumbs";
 import Main from "@/components/main";
 import { getTranslations } from "@/utilities/l10n";
-import { Metadata } from "next";
+import { Metadata, Viewport } from "next";
 
 type Props = { params: Promise<{ locale?: string }> };
 
 export const dynamicParams = false;
+/** The playground is a tool, not a page to read: the page itself does not zoom (the node canvas zooms on its own). */
+export const viewport: Viewport = { width: "device-width", initialScale: 1, maximumScale: 1, userScalable: false };
 /** Only vec2 has a playground. */
 export const generateStaticParams = () => [{ library: "vec2" }];
 

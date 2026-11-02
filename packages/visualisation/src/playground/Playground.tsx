@@ -178,6 +178,21 @@ function PlaygroundView({
     return () => window.removeEventListener('hashchange', onHashChange);
   }, [store]);
 
+  // The page itself does not zoom while the playground is open (the viewport tag says so, which iOS Safari ignores):
+  // the page may only pan, and Safari's own pinch gestures are swallowed. The node canvas still zooms: React Flow
+  // reads the touches itself.
+  useEffect(() => {
+    const root = document.documentElement;
+    const before = root.style.touchAction;
+    root.style.touchAction = 'pan-x pan-y';
+    const block = (event: Event) => event.preventDefault();
+    for (const name of ['gesturestart', 'gesturechange']) document.addEventListener(name, block, { passive: false });
+    return () => {
+      root.style.touchAction = before;
+      for (const name of ['gesturestart', 'gesturechange']) document.removeEventListener(name, block);
+    };
+  }, []);
+
   // Undo and redo, unless a text field has the keys.
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {

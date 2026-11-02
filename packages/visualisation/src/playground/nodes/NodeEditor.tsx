@@ -55,6 +55,13 @@ export type NodeEditorProps = {
   onSelect: (key: string | null) => void;
   /** On a narrow screen: the drawing (and its inputs' sliders), shown in a small window in the scene. */
   viewer?: { canvas: React.ReactNode; inputs: React.ReactNode };
+  /** Fill the parent's height (a narrow screen's one-screen layout) instead of the window's. */
+  fill?: boolean;
+  /** The link and its packing (the Densing panel), in a drawer of the scene. */
+  packing?: React.ReactNode;
+  /** Definitions to start from, in a panel of the scene. */
+  starters?: readonly { id: string; label: string }[];
+  onStarter?: (id: string) => void;
 };
 
 export function NodeEditor(props: NodeEditorProps) {
@@ -71,7 +78,22 @@ function valueText(evaluation: Evaluation, name: string): string | undefined {
   return evaluation.inputs.has(name) ? describeValue(evaluation.inputs.get(name)) : undefined;
 }
 
-function Canvas({ definition, graph, layout, analysis, evaluation, selected, onSelect, viewer }: NodeEditorProps) {
+function Canvas({
+  definition,
+  graph,
+  layout,
+  analysis,
+  evaluation,
+  selected,
+  onSelect,
+  viewer,
+  fill,
+  packing,
+  starters,
+  onStarter,
+}: NodeEditorProps) {
+  /** The packing drawer at the bottom of the scene. */
+  const [drawer, setDrawer] = useState(false);
   const [viewerState, setViewerState] = useState<ViewerState>('small');
   const store = useStoreApi();
   const flow = useReactFlow();
@@ -94,7 +116,7 @@ function Canvas({ definition, graph, layout, analysis, evaluation, selected, onS
   const icons = prefs.icons;
   /** The selection whose icon bar is open on a touch screen (by a long press). With a mouse it opens on selecting. */
   const [menuFor, setMenuFor] = useState<string | null>(null);
-  const [panel, setPanel] = useState<'settings' | 'help' | null>(null);
+  const [panel, setPanel] = useState<'settings' | 'help' | 'starters' | null>(null);
   /** On a touch screen the less used buttons fold away behind one. */
   const [more, setMore] = useState(false);
   const touch = useMemo(() => typeof window !== 'undefined' && !!window.matchMedia?.('(pointer: coarse)').matches, []);
@@ -389,7 +411,7 @@ function Canvas({ definition, graph, layout, analysis, evaluation, selected, onS
   return (
     <div
       ref={box}
-      className='relative h-[calc(100dvh-5.75rem)] min-h-[360px] w-full overflow-hidden bg-white md:h-[calc(100dvh-3rem)]'
+      className={`relative w-full overflow-hidden bg-white ${fill ? 'h-full' : 'h-[calc(100dvh-5.75rem)] min-h-[360px] md:h-[calc(100dvh-3rem)]'}`}
     >
       <ReactFlow
         nodes={nodes}
@@ -519,23 +541,43 @@ function Canvas({ definition, graph, layout, analysis, evaluation, selected, onS
 
       {/* The floating buttons: + (add) and the small ones above it. */}
       <div className='absolute right-3 bottom-3 z-10 flex flex-col items-end gap-2'>
-        <div className='relative flex flex-col items-center gap-2'>
+        <div className='relative flex flex-col items-end gap-2'>
           {panel && (
             <div className={`${card} absolute right-12 bottom-0 w-64 flex-col items-stretch !p-2`}>
               {panel === 'help' ? (
                 <Help />
+              ) : panel === 'starters' ? (
+                <div className='max-h-72 space-y-0.5 overflow-y-auto'>
+                  <p className='text-[11px] font-semibold text-dg-ink'>Start from</p>
+                  {starters?.map((s) => (
+                    <button
+                      key={s.id}
+                      type='button'
+                      className='block w-full rounded px-1.5 py-1 text-left text-xs hover:bg-dg-sky-100 coarse:py-1.5'
+                      onClick={() => {
+                        onStarter?.(s.id);
+                        setPanel(null);
+                      }}
+                    >
+                      {s.label}
+                    </button>
+                  ))}
+                </div>
               ) : (
                 <IconSettings icons={icons} onChange={(next) => setPrefs({ icons: next })} />
               )}
             </div>
           )}
           {(more || !touch) && (
-            <>
+            // On a touch screen the extra buttons form a row, so a short phone keeps them inside the scene.
+            <div className={touch ? 'flex flex-row-reverse flex-wrap justify-start gap-2' : 'contents'}>
+              {starters && fab('start', () => setPanel(panel === 'starters' ? null : 'starters'), panel === 'starters')}
+              {packing && fab('link', () => setDrawer((open) => !open), drawer)}
               {fab('help', () => setPanel(panel === 'help' ? null : 'help'), panel === 'help')}
               {fab('settings', () => setPanel(panel === 'settings' ? null : 'settings'), panel === 'settings')}
               {fab('values', () => setPrefs({ showValues: !prefs.showValues }), prefs.showValues)}
               {fab('newCluster', newCluster)}
-            </>
+            </div>
           )}
           {touch && fab('more', () => setMore((on) => !on), more)}
           {fab('select', () => setBoxSelect((on) => !on), boxSelect)}
@@ -549,11 +591,31 @@ function Canvas({ definition, graph, layout, analysis, evaluation, selected, onS
             {icons.add}
           </button>
         </div>
-        {viewer && viewerState === 'hidden' && fab('drawing', () => setViewerState('small'))}
-        {viewer && (
+        {viewer && viewerState === 'hidden' && !drawer && fab('drawing', () => setViewerState('small'))}
+        {viewer && !drawer && (
           <MiniViewer state={viewerState} onState={setViewerState} canvas={viewer.canvas} inputs={viewer.inputs} />
         )}
       </div>
+
+      {/* The link and its packing: a drawer over the bottom of the scene (above the floating buttons). */}
+      {packing && drawer && (
+        <div
+          role='dialog'
+          aria-label='link and packing'
+          className='absolute inset-x-0 bottom-0 z-30 flex max-h-[70%] flex-col rounded-t-lg border border-dg-border bg-dg-canvas/95 shadow-[0_-6px_20px_rgba(0,0,0,0.25)] backdrop-blur-sm'
+        >
+          <button
+            type='button'
+            aria-expanded='true'
+            className='flex w-full shrink-0 items-center gap-2 px-3 py-2 text-xs'
+            onClick={() => setDrawer(false)}
+          >
+            <span className='font-semibold tracking-widest text-dg-subtle uppercase'>link &amp; packing</span>
+            <span className='ml-auto'>▾</span>
+          </button>
+          <div className='min-h-0 overflow-y-auto px-2 pb-2'>{packing}</div>
+        </div>
+      )}
 
       {palette && (
         <Palette definition={definition} at={palette.screen} onPick={pick} onClose={() => setPalette(null)} />

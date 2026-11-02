@@ -6,7 +6,7 @@
  * empty: a dashed chip, which sets a starting value when its type has one.
  */
 import { Handle, Position, type Node, type NodeProps } from '@xyflow/react';
-import { memo, useState } from 'react';
+import { memo, useRef, useState } from 'react';
 import type { Expr } from '@dirty-geometry/vec2/recording/definition';
 import { typeName } from '@dirty-geometry/vec2/schema/typing';
 import { defaultLiteral } from '../defaults';
@@ -23,6 +23,8 @@ export type NodeActions = {
   enter: (fn: string) => void;
   paramType: (key: string, type: string) => void;
   removeParam: (key: string) => void;
+  /** A long press (or a right click): select the node and open its actions. */
+  longPress: (key: string) => void;
 };
 export type ComponentData = {
   node: GraphNode;
@@ -36,6 +38,10 @@ export type ComponentData = {
   nameable: boolean;
   /** The types a cluster param can have. */
   types?: readonly string[];
+  /** Whether ports show their values (a viewer's setting; the selected node always does). */
+  showValues?: boolean;
+  /** The character of the button that opens a cluster. */
+  openIcon?: string;
   actions?: NodeActions;
 };
 export type ComponentNodeType = Node<ComponentData, 'component'>;
@@ -107,12 +113,14 @@ function PortRow({
   wired,
   issues,
   actions,
+  showValues = true,
 }: {
   node: GraphNode;
   port: Port;
   wired: boolean;
   issues?: string[];
   actions?: NodeActions;
+  showValues?: boolean;
 }) {
   const missing = !port.filled && !port.optional;
   const broken = port.unresolved !== undefined;
@@ -131,7 +139,7 @@ function PortRow({
         className={`${handle} ${issues || broken ? '!bg-red-500' : ''}`}
       />
       <span className={`text-[10px] ${issues ? 'text-red-600' : 'text-dg-subtle'}`}>{port.label}</span>
-      {!wired && port.filled && port.literal !== undefined && (
+      {showValues && !wired && port.filled && port.literal !== undefined && (
         <>
           <LiteralEditor
             value={port.literal}
@@ -151,7 +159,7 @@ function PortRow({
         </>
       )}
       {broken && <span className='font-mono text-[10px] text-red-600'>?{port.unresolved}</span>}
-      {!port.filled && (
+      {!port.filled && (missing || showValues) && (
         <button
           type='button'
           disabled={!startable || !actions}
@@ -203,7 +211,13 @@ function NameEditor({ node, actions }: { node: GraphNode; actions: NodeActions }
 }
 
 export const ComponentNode = memo(function ComponentNode({ data, selected }: NodeProps<ComponentNodeType>) {
-  const { node, issues, value, wired, actions, nameable } = data;
+  const { node, issues, value, wired, actions, showValues = true } = data;
+  // A long press (no movement for a moment) opens the node's actions; a right click does the same.
+  const press = useRef<{ timer: ReturnType<typeof setTimeout>; x: number; y: number } | null>(null);
+  const cancel = () => {
+    if (press.current) clearTimeout(press.current.timer);
+    press.current = null;
+  };
   const bad = !!issues && (issues.node.length > 0 || issues.ports.size > 0);
   const style = KIND_STYLE[node.kind] ?? 'border-dg-border bg-white';
   const enter = node.kind === 'call' ? node.label : node.fn;
@@ -211,32 +225,30 @@ export const ComponentNode = memo(function ComponentNode({ data, selected }: Nod
   const named = !!node.cell;
   return (
     <div
-      className={`group min-w-[140px] rounded-md border text-xs shadow-sm ${style} ${bad ? '!border-red-400' : ''} ${selected ? 'ring-2 ring-dg-steel-600' : ''}`}
+      className={`group min-w-[140px] rounded-md border text-xs shadow-sm select-none [-webkit-touch-callout:none] ${style} ${bad ? '!border-red-400' : ''} ${selected ? 'ring-2 ring-dg-steel-600' : ''}`}
       title={issues?.node.join('\n') || undefined}
+      onPointerDown={(event) => {
+        cancel();
+        const { clientX: x, clientY: y } = event;
+        press.current = { timer: setTimeout(() => actions?.longPress(node.key), 450), x, y };
+      }}
+      onPointerMove={(event) => {
+        const p = press.current;
+        if (p && Math.hypot(event.clientX - p.x, event.clientY - p.y) > 8) cancel();
+      }}
+      onPointerUp={cancel}
+      onPointerCancel={cancel}
+      onContextMenu={(event) => {
+        event.preventDefault();
+        cancel();
+        actions?.longPress(node.key);
+      }}
     >
-      {(named || (nameable && actions)) && (
-        <div
-          className={`flex items-center gap-1 rounded-t-md px-2 py-0.5 font-mono text-[10px] ${named ? 'bg-dg-navy-900 text-dg-sky-200' : selected ? 'text-dg-subtle' : 'text-dg-subtle invisible group-hover:visible'}`}
-        >
-          {actions && nameable ? (
-            <NameEditor node={node} actions={actions} />
-          ) : (
-            <span className='font-semibold'>{node.cell?.name}</span>
-          )}
-          {actions && nameable ? (
-            <button
-              type='button'
-              title={node.cell?.output ? 'an output: click to make it a plain cell' : 'make it an output'}
-              aria-label={`${node.cell?.output ? 'unmark' : 'mark'} ${node.cell?.name ?? node.label} as output`}
-              className={`nodrag rounded px-1 ${node.cell?.output ? 'bg-dg-sky-200 text-dg-navy-900' : 'border border-current'}`}
-              onClick={() => actions.output(node.key, !node.cell?.output)}
-            >
-              out
-            </button>
-          ) : (
-            node.cell?.output && <span className='rounded bg-dg-sky-200 px-1 text-dg-navy-900'>out</span>
-          )}
-          {node.cell?.type && <span className='ml-auto opacity-75'>{node.cell.type}</span>}
+      {named && (
+        <div className='flex items-center gap-1 rounded-t-md bg-dg-navy-900 px-2 py-0.5 font-mono text-[10px] text-dg-sky-200'>
+          <span className='font-semibold'>{node.cell!.name}</span>
+          {node.cell!.output && <span className='rounded bg-dg-sky-200 px-1 text-dg-navy-900'>out</span>}
+          {node.cell!.type && <span className='ml-auto opacity-75'>{node.cell!.type}</span>}
         </div>
       )}
       <div className='flex items-center gap-1 border-b border-dg-border/60 px-2 py-1' title={node.detail}>
@@ -282,7 +294,7 @@ export const ComponentNode = memo(function ComponentNode({ data, selected }: Nod
             className='nodrag ml-auto rounded px-1 text-[10px] text-violet-700 hover:bg-violet-100'
             onClick={() => actions.enter(enter)}
           >
-            ⤢
+            {data.openIcon ?? '⤢'}
           </button>
         )}
       </div>
@@ -295,6 +307,7 @@ export const ComponentNode = memo(function ComponentNode({ data, selected }: Nod
             wired={wired.has(port.key)}
             issues={issues?.ports.get(port.key)}
             actions={actions}
+            showValues={showValues}
           />
         ))}
         {actions &&

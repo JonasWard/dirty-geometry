@@ -513,3 +513,10 @@ export function insertNode(doc: GraphDoc, targetKey: string, portKey: string, ex
   const definition = setIn(doc.definition, target.owner!, path, expr);
   return { definition, layout: { ...doc.layout, [nodeKey(target.owner!, path)]: position } };
 }
+
+/** A new, empty cluster to fill: one param, and its result is that param. */
+export function newCluster(doc: GraphDoc): GraphDoc & { name: string } {
+  const name = ops.freeName(doc.definition, 'cluster');
+  const fn = { name, params: [{ name: 'x', type: 'Coordinate' }], body: { ref: 'x' } };
+  return { ...doc, definition: { ...doc.definition, functions: [...doc.definition.functions, fn] }, name };
+}

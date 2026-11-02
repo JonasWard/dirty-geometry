@@ -41,6 +41,8 @@ export function selectionActions(graph: Graph, keys: readonly string[], edge: st
     canDelete: removable(node),
     canName: node.kind === 'input' || node.kind === 'param' || (node.canvas === 'main' && node.kind !== 'out'),
     canOutput: node.canvas === 'main' && node.kind !== 'input',
+    // One node can be a cluster too (a function of what flows into it).
+    canCluster: node.canvas === 'main' && node.kind !== 'input',
     ...(fn && functions.has(fn) && { open: fn }),
   };
 }

@@ -11,24 +11,37 @@ export const tab = (active: boolean) =>
       : 'border-dg-border text-dg-subtle hover:border-dg-steel-600'
   }`;
 
-/** Edit | View: the editor, or only the inputs' values to play with. Both are views of one page and one link. */
-export function ModeSwitch({ view, onChange }: { view: View; onChange: (view: View) => void }) {
-  const item = (which: View, label: string, title: string) => (
+/**
+ * Raw | Nodes | View: the definition as cells, code or JSON (Raw); as a node graph (Nodes); or only the inputs' values
+ * to play with (View). All are views of one page and one link.
+ */
+export function ModeSwitch({
+  view,
+  nodes,
+  onChange,
+}: {
+  view: View;
+  /** Whether the editor shows the node graph. */
+  nodes: boolean;
+  onChange: (view: View, nodes: boolean) => void;
+}) {
+  const item = (label: string, title: string, active: boolean, next: View, toNodes: boolean) => (
     <button
       type='button'
       role='tab'
-      aria-selected={view === which}
-      className={tab(view === which)}
+      aria-selected={active}
+      className={tab(active)}
       title={title}
-      onClick={() => onChange(which)}
+      onClick={() => onChange(next, toNodes)}
     >
       {label}
     </button>
   );
   return (
     <div className='flex' role='tablist' aria-label='Playground view'>
-      {item('edit', 'Edit', 'Change the inputs, functions and cells')}
-      {item('view', 'View', 'Play with the input values only')}
+      {item('Raw', 'The inputs, functions and cells, as cells, code or JSON', view === 'edit' && !nodes, 'edit', false)}
+      {item('Nodes', 'The definition as a node graph', view === 'edit' && nodes, 'edit', true)}
+      {item('View', 'Play with the input values only', view === 'view', 'view', nodes)}
     </div>
   );
 }

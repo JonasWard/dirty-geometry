@@ -382,3 +382,21 @@ describe('touch: what the toolbar offers, and double taps', () => {
     expect(isDoubleTap(null, first)).toBe(false);
   });
 });
+
+describe('starting clusters', () => {
+  test('one node can be made a cluster too', () => {
+    const graph = toGraph(starter('line'));
+    expect(selectionActions(graph, ['c:line'], null).canCluster).toBe(true);
+    expect(selectionActions(graph, ['i:t'], null).canCluster).toBe(false);
+  });
+  test('+ cluster: an empty one to fill, whose result is its param', () => {
+    const made = edits.newCluster({ definition: starter('line'), layout: {} });
+    expect(made.name).toBe('cluster');
+    expect(made.definition.functions.at(-1)).toEqual({
+      name: 'cluster',
+      params: [{ name: 'x', type: 'Coordinate' }],
+      body: { ref: 'x' },
+    });
+    expect(edits.newCluster(made).name).toBe('cluster2');
+  });
+});

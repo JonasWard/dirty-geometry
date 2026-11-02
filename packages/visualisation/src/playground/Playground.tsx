@@ -24,7 +24,8 @@ import { decodeAppState, encodeViewState, formatHash, parseHash } from './url';
 import { changedInputs, readValues, ViewerPanel, type Values } from './Viewer';
 
 type Mode = 'cells' | 'nodes' | 'code' | 'json';
-const MODES: Record<Mode, string> = { cells: 'Cells', nodes: 'Nodes', code: 'Code', json: 'JSON' };
+/** The Raw editor's own modes (Nodes is a view of its own, beside Raw and View). */
+const MODES: Record<Exclude<Mode, 'nodes'>, string> = { cells: 'Cells', code: 'Code', json: 'JSON' };
 const button =
   'rounded border border-dg-border px-2 py-0.5 text-xs hover:border-dg-steel-600 hover:text-dg-steel-600 disabled:opacity-40';
 
@@ -70,6 +71,12 @@ function PlaygroundView({
   const canUndo = usePlayground((s) => s.past.length > 0);
   const canRedo = usePlayground((s) => s.future.length > 0);
   const [mode, setMode] = useState<Mode>('cells');
+  /** The Raw mode to come back to from Nodes. */
+  const [raw, setRaw] = useState<Exclude<Mode, 'nodes'>>('cells');
+  const switchTo = (next: View, nodes: boolean) => {
+    setView(next);
+    if (next === 'edit') setMode(nodes ? 'nodes' : raw);
+  };
   const [view, setView] = useState<View>(initialView);
   const [values, setValues] = useState<Values>(initialValues);
   const [notice, setNotice] = useState<string | undefined>(initialError);
@@ -78,7 +85,8 @@ function PlaygroundView({
   const graph = useMemo(() => toGraph(definition), [definition]);
   // The node view's selection: any node; its value is drawn (a cell's own name selects the cell).
   const [nodeKey, setNodeKey] = useState<string | null>(null);
-  const preview = usePreview(definition, evaluation, mode === 'nodes' ? nodeKey : null, graph);
+  const nodes = mode === 'nodes';
+  const preview = usePreview(definition, evaluation, nodes ? nodeKey : null, graph);
   const schema = useMemo(() => createDefinitionSchema(options), [options]);
   // What this page last wrote to (or read from) the URL, and in which view.
   const lastHash = useRef(typeof window === 'undefined' ? '' : window.location.hash);
@@ -176,7 +184,7 @@ function PlaygroundView({
       )}
       {view === 'view' && (
         <div className='flex flex-wrap items-center gap-2'>
-          <ModeSwitch view={view} onChange={setView} />
+          <ModeSwitch view={view} nodes={mode === 'nodes'} onChange={switchTo} />
           <span aria-hidden='true' className='mx-1 h-5 w-px bg-dg-border' />
           <button
             type='button'
@@ -210,22 +218,27 @@ function PlaygroundView({
       {view === 'edit' && (
         <>
           <div className='flex flex-wrap items-center gap-2'>
-            <ModeSwitch view={view} onChange={setView} />
+            <ModeSwitch view={view} nodes={mode === 'nodes'} onChange={switchTo} />
             <span aria-hidden='true' className='mx-1 h-5 w-px bg-dg-border' />
-            <div className='flex gap-1' role='tablist' aria-label='Editor mode'>
-              {(Object.keys(MODES) as Mode[]).map((m) => (
-                <button
-                  key={m}
-                  type='button'
-                  role='tab'
-                  aria-selected={mode === m}
-                  className={tab(mode === m)}
-                  onClick={() => setMode(m)}
-                >
-                  {MODES[m]}
-                </button>
-              ))}
-            </div>
+            {mode !== 'nodes' && (
+              <div className='flex gap-1' role='tablist' aria-label='Raw mode'>
+                {(Object.keys(MODES) as (keyof typeof MODES)[]).map((m) => (
+                  <button
+                    key={m}
+                    type='button'
+                    role='tab'
+                    aria-selected={mode === m}
+                    className={tab(mode === m)}
+                    onClick={() => {
+                      setMode(m);
+                      setRaw(m);
+                    }}
+                  >
+                    {MODES[m]}
+                  </button>
+                ))}
+              </div>
+            )}
             <button
               type='button'
               className={button}
@@ -267,7 +280,7 @@ function PlaygroundView({
           </div>
 
           <div
-            className={`grid gap-4 ${mode === 'nodes' ? 'xl:grid-cols-[minmax(0,8fr)_minmax(0,4fr)]' : 'xl:grid-cols-[minmax(0,6fr)_minmax(0,5fr)]'}`}
+            className={`grid ${nodes ? 'gap-4 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] lg:gap-0' : 'gap-4 xl:grid-cols-[minmax(0,6fr)_minmax(0,5fr)]'}`}
           >
             <div className='min-w-0 space-y-4'>
               {mode === 'cells' && (
@@ -292,8 +305,17 @@ function PlaygroundView({
               {mode === 'json' && <JsonEditor definition={definition} onChange={commit} />}
             </div>
 
-            <div className='min-w-0 space-y-4 xl:sticky xl:top-16 xl:self-start'>
-              <div className='relative isolate h-[60vh] min-h-[420px] w-full overflow-hidden border border-dg-border bg-[#0b0d12]'>
+            <div
+              className={`min-w-0 space-y-4 ${nodes ? 'lg:sticky lg:top-12 lg:self-start' : 'xl:sticky xl:top-16 xl:self-start'}`}
+            >
+              <div
+                className={
+                  nodes
+                    ? // Beside the node scene: as tall as it, square, no frame.
+                      'relative isolate h-[calc(100dvh-5.75rem)] min-h-[360px] w-full overflow-hidden bg-[#0b0d12] md:h-[calc(100dvh-3rem)]'
+                    : 'relative isolate h-[60vh] min-h-[420px] w-full overflow-hidden border border-dg-border bg-[#0b0d12]'
+                }
+              >
                 <PlaygroundCanvas
                   definition={preview?.definition ?? definition}
                   evaluation={preview?.evaluation ?? evaluation}

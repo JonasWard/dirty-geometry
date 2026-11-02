@@ -17,10 +17,26 @@ import {
 import { choosePresets, quantisationReport } from './presets';
 import { DEFAULT_FAVOURITES } from './operations';
 import { encodeAppState } from './url';
+import { toGraph } from './model/graph';
+import { encodeLayout, type Layout } from './model/layout';
 
 /** What undo restores. `auto`: the presets follow the definition (cheapest exact ones) until the user picks one. */
-export type Document = { definition: Definition; options: NumericOptions; presets: ActivePresets; auto: boolean };
-export type Encoding = { jsonBytes: number; hash?: string; error?: string; changes: readonly string[] };
+export type Document = {
+  definition: Definition;
+  options: NumericOptions;
+  presets: ActivePresets;
+  auto: boolean;
+  /** The node view's positions (never part of the definition); undone with the edits that move them. */
+  layout?: Layout;
+};
+/** `hash`: the app state; `layout`: the node view's positions, for their own part of the link. */
+export type Encoding = {
+  jsonBytes: number;
+  hash?: string;
+  layout?: string;
+  error?: string;
+  changes: readonly string[];
+};
 export type CommitOptions = { coalesce?: string };
 
 export type PlaygroundStore = Document & {
@@ -49,9 +65,13 @@ export function derive(document: Document): Pick<PlaygroundStore, 'active' | 'en
   const active = document.auto ? choosePresets(document.definition, {}, schema) : document.presets;
   const jsonBytes = new TextEncoder().encode(JSON.stringify(document.definition)).length;
   const changes = quantisationReport(document.definition, active, schema);
+  const layout =
+    document.layout && Object.keys(document.layout).length
+      ? encodeLayout(document.layout, toGraph(document.definition))
+      : undefined;
   try {
     const hash = encodeAppState({ definition: document.definition, options: document.options, presets: active });
-    return { active, encoding: { jsonBytes, hash, changes } };
+    return { active, encoding: { jsonBytes, hash, ...(layout && { layout }), changes } };
   } catch (error) {
     return { active, encoding: { jsonBytes, error: (error as Error).message, changes } };
   }
@@ -62,6 +82,7 @@ const documentOf = (s: Document): Document => ({
   options: s.options,
   presets: s.presets,
   auto: s.auto,
+  ...(s.layout && { layout: s.layout }),
 });
 const same = (a: Document, b: Document) => JSON.stringify(a) === JSON.stringify(b);
 

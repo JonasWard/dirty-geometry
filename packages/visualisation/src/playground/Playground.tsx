@@ -15,12 +15,16 @@ import { CellsPanel, FunctionsPanel, InputsPanel } from './panels';
 import { PLAYGROUND_COLORS, PlaygroundCanvas } from './PlaygroundCanvas';
 import { STARTERS } from './starters';
 import { initialDocument } from './location';
+import { toGraph } from './model/graph';
+import { decodeLayout } from './model/layout';
+import { NodeEditor } from './nodes/NodeEditor';
+import { usePreview } from './nodes/preview';
 import { createPlaygroundStore, StoreContext, useAnalysis, usePlayground, useStoreApi } from './store';
 import { decodeAppState, encodeViewState, formatHash, parseHash } from './url';
 import { changedInputs, readValues, ViewerPanel, type Values } from './Viewer';
 
-type Mode = 'cells' | 'code' | 'json';
-const MODES: Record<Mode, string> = { cells: 'Cells', code: 'Code', json: 'JSON' };
+type Mode = 'cells' | 'nodes' | 'code' | 'json';
+const MODES: Record<Mode, string> = { cells: 'Cells', nodes: 'Nodes', code: 'Code', json: 'JSON' };
 const button =
   'rounded border border-dg-border px-2 py-0.5 text-xs hover:border-dg-steel-600 hover:text-dg-steel-600 disabled:opacity-40';
 
@@ -33,7 +37,7 @@ const button =
 export function Playground() {
   const [initial] = useState(() => {
     const parsed = parseHash(typeof window === 'undefined' ? '' : window.location.hash);
-    const { document, error } = initialDocument(parsed.app);
+    const { document, error } = initialDocument(parsed.app, parsed.layout);
     // A link that cannot be read opens the starter in the editor; its view part means nothing then.
     const read = error ? { values: {} } : readValues(parsed.view, document.options, document.definition.inputs);
     // An unreadable view part (from an older link) opens the editor, with the notice.
@@ -70,6 +74,11 @@ function PlaygroundView({
   const [values, setValues] = useState<Values>(initialValues);
   const [notice, setNotice] = useState<string | undefined>(initialError);
   const { analysis, evaluation } = useAnalysis(definition);
+  const layout = usePlayground((s) => s.layout);
+  const graph = useMemo(() => toGraph(definition), [definition]);
+  // The node view's selection: any node; its value is drawn (a cell's own name selects the cell).
+  const [nodeKey, setNodeKey] = useState<string | null>(null);
+  const preview = usePreview(definition, evaluation, mode === 'nodes' ? nodeKey : null, graph);
   const schema = useMemo(() => createDefinitionSchema(options), [options]);
   // What this page last wrote to (or read from) the URL, and in which view.
   const lastHash = useRef(typeof window === 'undefined' ? '' : window.location.hash);
@@ -88,7 +97,7 @@ function PlaygroundView({
       return { error: (error as Error).message };
     }
   }, [view, definition, changed, options]);
-  const target = encoding.hash && !stored.error ? formatHash(encoding.hash, stored.text) : undefined;
+  const target = encoding.hash && !stored.error ? formatHash(encoding.hash, stored.text, encoding.layout) : undefined;
 
   // Keep the URL in step: switching the view adds a history entry (so Back switches back), edits replace it.
   useEffect(() => {
@@ -112,10 +121,12 @@ function PlaygroundView({
       lastHash.current = hash;
       const parsed = parseHash(hash);
       let loadedOptions = store.getState().options;
-      if (parsed.app && parsed.app !== store.getState().encoding.hash) {
+      const current = store.getState().encoding;
+      if (parsed.app && (parsed.app !== current.hash || parsed.layout !== current.layout)) {
         try {
           const read = decodeAppState(parsed.app);
-          store.getState().load({ ...read, auto: false }, 'push');
+          const layout = decodeLayout(parsed.layout, toGraph(read.definition));
+          store.getState().load({ ...read, auto: false, layout }, 'push');
           loadedOptions = read.options;
           setNotice(undefined);
         } catch (error) {
@@ -255,7 +266,9 @@ function PlaygroundView({
             </label>
           </div>
 
-          <div className='grid gap-4 xl:grid-cols-[minmax(0,6fr)_minmax(0,5fr)]'>
+          <div
+            className={`grid gap-4 ${mode === 'nodes' ? 'xl:grid-cols-[minmax(0,8fr)_minmax(0,4fr)]' : 'xl:grid-cols-[minmax(0,6fr)_minmax(0,5fr)]'}`}
+          >
             <div className='min-w-0 space-y-4'>
               {mode === 'cells' && (
                 <>
@@ -264,13 +277,28 @@ function PlaygroundView({
                   <CellsPanel analysis={analysis} evaluation={evaluation} />
                 </>
               )}
+              {mode === 'nodes' && (
+                <NodeEditor
+                  definition={definition}
+                  graph={graph}
+                  layout={layout ?? {}}
+                  analysis={analysis}
+                  evaluation={evaluation}
+                  selected={nodeKey}
+                  onSelect={setNodeKey}
+                />
+              )}
               {mode === 'code' && <CodeEditor definition={definition} onChange={commit} />}
               {mode === 'json' && <JsonEditor definition={definition} onChange={commit} />}
             </div>
 
             <div className='min-w-0 space-y-4 xl:sticky xl:top-16 xl:self-start'>
               <div className='relative isolate h-[60vh] min-h-[420px] w-full overflow-hidden border border-dg-border bg-[#0b0d12]'>
-                <PlaygroundCanvas definition={definition} evaluation={evaluation} selected={selected} />
+                <PlaygroundCanvas
+                  definition={preview?.definition ?? definition}
+                  evaluation={preview?.evaluation ?? evaluation}
+                  selected={preview?.selected ?? selected}
+                />
                 <VisualisationLegend
                   items={[
                     { color: PLAYGROUND_COLORS.intermediate, label: 'Cells', shape: 'line' },

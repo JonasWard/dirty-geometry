@@ -3,7 +3,7 @@
  * the cells after it still run (those that use it fail with "depends on …"), so the playground can show what works.
  */
 import { isSharedForm, runForm } from '@dirty-geometry/fn/forms';
-import { operationById, isRest } from '../../schema/schema';
+import { isOptional, isRest, operationById } from '../../schema/schema';
 import { defaultRegistry } from '../io/default-registry';
 import type { Definition, Expr, Fn } from './definition';
 import { DefinitionError } from './definition';
@@ -42,6 +42,8 @@ export function runOperation(id: string, self: unknown, args: Record<string, unk
   const positional: unknown[] = [];
   for (const [name, slot] of op.params) {
     if (isRest(slot)) positional.push(...((args[name] as unknown[] | undefined) ?? []));
+    // A required argument left out fails the cell, instead of making a value with a hole in it.
+    else if (args[name] === undefined && !isOptional(slot)) fail(`${id}: ${name} is missing`);
     else positional.push(args[name]);
   }
   while (positional.length && positional.at(-1) === undefined) positional.pop();

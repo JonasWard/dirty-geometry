@@ -336,6 +336,7 @@ export function toGraph(definition: Definition): Graph {
       key: outKey(fn.name),
       kind: 'out',
       canvas,
+      owner: { kind: 'function', name: fn.name },
       path: [],
       label: fn.name,
       detail: 'cluster output',

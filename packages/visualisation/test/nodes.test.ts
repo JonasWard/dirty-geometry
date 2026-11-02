@@ -4,6 +4,7 @@ import { evaluate } from '@dirty-geometry/vec2/recording/evaluate';
 import { checkDefinition } from '@dirty-geometry/vec2/schema/typing';
 import { arbitraryDefinition } from '../../vec2/test/recording/arbitrary';
 import { issuesByNode, nodeKey, outKey, toDefinition, toGraph } from '../src/playground/model/graph';
+import * as edits from '../src/playground/model/graph-edits';
 import { autoLayout, COLUMN, decodeLayout, encodeLayout, remapLayout } from '../src/playground/model/layout';
 import { previewOf } from '../src/playground/nodes/preview';
 import { STARTERS } from '../src/playground/starters';
@@ -161,5 +162,91 @@ describe('the preview of a node', () => {
     expect(previewOf(definition, evaluation, 'c:outline')!.selected).toBe('outline');
     expect(previewOf(definition, evaluation, 'i:points')!.value).toBe(48);
     expect(previewOf(definition, evaluation, 'f:onRing@')).toBeUndefined();
+  });
+});
+
+describe('editing in the node view', () => {
+  const doc = () => ({ definition: starter('line'), layout: {} as Record<string, { x: number; y: number }> });
+  const issues = (d: Definition) => checkDefinition(d).issues.map((i) => i.message);
+
+  test('a node added and wired into one port goes inside it, with its position', () => {
+    const added = edits.addNode(doc(), { op: 'Vec2.new', args: { x: 5, y: 5 } }, { x: 10, y: 20 });
+    expect(added.key).toBe('c:vec2');
+    const wired = edits.connect(added, added.key, 'c:line', 'args.to');
+    const line = wired.definition.cells.find((c) => c.name === 'line')!;
+    expect(line.expr).toMatchObject({ args: { to: { op: 'Vec2.new', args: { x: 5, y: 5 } } } });
+    expect(wired.layout).toMatchObject({ 'c:line@args.to': { x: 10, y: 20 } });
+    // What the port held before stays on the canvas, as a cell of its own.
+    expect(wired.definition.cells.map((c) => c.name)).toEqual(['vec2_2', 'line', 'point']);
+    expect(issues(wired.definition)).toEqual([]);
+  });
+
+  test('a node wired into a second port becomes a cell, before the cell that now uses it', () => {
+    const d = edits.addNode(doc(), { op: 'Circle2.new', args: { radius: 1 } }, { x: 0, y: 0 });
+    const wired = edits.connect(d, 'c:line@args.from', 'c:circle2', 'args.center');
+    expect(wired.definition.cells.map((c) => c.name)).toEqual(['vec2', 'line', 'point', 'circle2']);
+    expect(wired.definition.cells.find((c) => c.name === 'circle2')!.expr).toMatchObject({
+      args: { center: { ref: 'vec2' } },
+    });
+    expect(issues(wired.definition)).toEqual([]);
+  });
+
+  test('a later cell moves up when an earlier one starts to use it', () => {
+    const d = edits.addNode(doc(), { op: 'Vec2.new', args: { x: 1, y: 1 } }, { x: 0, y: 0 });
+    const named = edits.nameNode(d, 'c:vec2', 'corner');
+    const kept = edits.connect(
+      edits.connect(named, 'c:corner', 'c:line', 'args.to'),
+      'c:corner',
+      'c:line',
+      'args.from',
+    );
+    expect(kept.definition.cells.map((c) => c.name)).toEqual(['vec2', 'corner', 'vec2_2', 'line', 'point']);
+    expect(issues(kept.definition)).toEqual([]);
+  });
+
+  test('loops and types that do not fit are refused', () => {
+    expect(() => edits.connect(doc(), 'c:point', 'c:line', 'args.from')).toThrow('loop');
+    expect(() => edits.connect(doc(), 'c:line', 'c:line@args.from', 'args.x')).toThrow('loop');
+    expect(() => edits.connect(doc(), 'i:t', 'c:line', 'args.from')).toThrow('takes Vec2');
+  });
+
+  test('a wire removed: the port is empty, an anonymous node stays as a cell', () => {
+    const cut = edits.disconnect(doc(), 'c:line', 'args.from');
+    expect(cut.definition.cells.map((c) => c.name)).toEqual(['vec2', 'line', 'point']);
+    expect(issues(cut.definition)).toEqual(['Line2.new: from is missing']);
+  });
+
+  test('literals on ports, rest items, names and outputs', () => {
+    let d: edits.GraphDoc = doc();
+    d = edits.setPortLiteral(d, 'c:line@args.from', 'args.x', 7);
+    expect(d.definition.cells[0]!.expr).toMatchObject({ args: { from: { args: { x: 7 } } } });
+    d = edits.addNode(d, { op: 'Aabb2.fromPoints' }, { x: 0, y: 0 });
+    d = edits.addRestItem(d, 'c:fromPoints', 'points');
+    expect(
+      toGraph(d.definition)
+        .byKey.get('c:fromPoints')!
+        .inputs.map((p) => p.label),
+    ).toEqual(['points[0]']);
+    d = edits.nameNode(d, 'c:line@args.to', 'end');
+    expect(d.definition.cells.map((c) => c.name)).toEqual(['end', 'line', 'point', 'fromPoints']);
+    d = edits.setOutput(d, 'c:end', true);
+    expect(d.definition.cells[0]).toMatchObject({ name: 'end', output: true, type: 'Vec2' });
+  });
+
+  test('deleting: a cell leaves empty ports where it was used; an input leaves its value', () => {
+    const gone = edits.deleteNode(doc(), 'c:line');
+    expect(gone.definition.cells.map((c) => c.name)).toEqual(['point']);
+    expect(issues(gone.definition)).toEqual(['the Line2 is missing']);
+    const noInput = edits.deleteNode(doc(), 'i:t');
+    expect(noInput.definition.cells[1]!.expr).toMatchObject({ args: { t: 0.25 } });
+    expect(() => edits.deleteNode({ definition: starter('star'), layout: {} }, 'f:rim#circle')).toThrow('cluster');
+  });
+
+  test('every edit keeps the graph readable both ways', () => {
+    let d: edits.GraphDoc = { definition: starter('wobbly-ring'), layout: {} };
+    d = edits.disconnect(d, 'c:kept', 'items');
+    d = edits.connect(d, 'c:ring', 'c:kept', 'items');
+    expect(toDefinition(toGraph(d.definition))).toEqual(d.definition);
+    expect(issues(d.definition)).toEqual([]);
   });
 });

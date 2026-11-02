@@ -3,7 +3,8 @@
  * renaming rewrites every use, removing a cell writes its expression into the cells that used it, removing an input
  * writes its value there, and removing a function writes its body into the calls.
  */
-import type { Cell, Definition, Expr, Fn, Input } from '@dirty-geometry/vec2/recording/definition';
+import { isUnary, type UnaryOp } from '@dirty-geometry/fn/math';
+import type { Cell, Definition, Expr, Fn, Input, MathOp } from '@dirty-geometry/vec2/recording/definition';
 import { mapExpr, setAt, type ExprPath } from '@dirty-geometry/vec2/recording/expr';
 import {
   isKind,
@@ -18,6 +19,7 @@ import {
   assignable,
   checkDefinition,
   isClass,
+  isNumeric,
   members,
   nameProblem,
   nonNull,
@@ -419,8 +421,52 @@ export function callFunction(current: Expr | undefined, fn: Fn, scope: Scope, ty
 }
 
 /** Arithmetic around `current`: `current op 1`, or `-current`. */
-export const wrapMath = (current: Expr, op: '+' | '-' | '*' | '/' | 'neg'): Expr =>
-  op === 'neg' ? { math: 'neg', args: [current] } : { math: op, args: [current, op === '+' || op === '-' ? 0 : 1] };
+/** `current` as the first operand of `op`; the second starts where it changes nothing (`x + 0`, `x * 1`). */
+export const wrapMath = (current: Expr, op: MathOp | UnaryOp): Expr =>
+  isUnary(op)
+    ? { math: op, args: [current] }
+    : { math: op, args: [current, ['+', '-', 'min', 'max'].includes(op) ? 0 : 1] };
+
+/** A starting expression for each shared form that can stand in `slot`, by tab, with `current` as its first operand
+ * when it fits there. */
+export function formChoices(
+  current: Expr | undefined,
+  slot: Type,
+  fns: readonly Fn[],
+): { tab: 'logic' | 'list' | 'random'; label: string; expr: Expr }[] {
+  const any = slot === 'unknown';
+  const ms = members(slot);
+  const numeric = any || ms.some(isNumeric);
+  const boolean = any || ms.some((m) => m === 'boolean');
+  const list = any || ms.some((m) => Array.isArray(m) || isKind(m, 'tuple'));
+  const fn = fns[0]?.name ?? '';
+  const operand = (fallback: Expr) => current ?? fallback;
+  const items: Expr = current ?? [];
+  const out: ReturnType<typeof formChoices> = [];
+  const add = (ok: boolean, tab: 'logic' | 'list' | 'random', label: string, expr: Expr) =>
+    ok && out.push({ tab, label, expr });
+  add(true, 'logic', 'if … then … else', {
+    if: true,
+    then: operand(defaultLiteral(roleOf(slot) ?? 'Coordinate') ?? 0),
+    else: operand(null),
+  });
+  add(boolean, 'logic', 'a < b', { compare: '<', args: [0, 1] });
+  add(boolean, 'logic', 'a > b', { compare: '>', args: [0, 1] });
+  add(boolean, 'logic', 'a == b', { compare: '==', args: [0, 0] });
+  add(boolean, 'logic', 'and', { logic: 'and', args: [operand(true), true] });
+  add(boolean, 'logic', 'or', { logic: 'or', args: [operand(true), false] });
+  add(boolean, 'logic', 'not', { logic: 'not', args: [operand(true)] });
+  add(list && fn !== '', 'list', `generate(${fn})`, { list: 'generate', fn, count: 8 });
+  for (const op of ['map', 'filter', 'sort'] as const)
+    add(list && fn !== '', 'list', `${op}(${fn})`, { list: op, fn, items });
+  add(list, 'list', 'slice', { list: 'slice', items, start: 0 });
+  add(true, 'list', 'item at', { list: 'at', items, index: 0 });
+  add(numeric, 'list', 'length', { list: 'length', items });
+  add(numeric, 'random', 'white', { random: 'white', seed: 1, index: 0 });
+  add(numeric, 'random', 'jittered', { random: 'jittered', seed: 1, index: 0, count: 8 });
+  add(numeric, 'random', 'smooth', { random: 'smooth', seed: 1, t: operand(0) });
+  return out;
+}
 
 /** The types of the inputs and the cells before `cell` (all of them without `cell`), for pickers. */
 export function scopeOf(definition: Definition, cell?: string): Scope {

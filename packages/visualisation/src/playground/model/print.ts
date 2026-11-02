@@ -2,12 +2,16 @@
  * A definition as a TypeScript module: user functions, then `definition(inputs)` with one `const` per cell, returning
  * the output cells. The code runs as it is against vec2, and `parseDefinition` reads it back to the same definition.
  */
+import { toCall } from '@dirty-geometry/fn/calls';
+import { isSharedForm } from '@dirty-geometry/fn/forms';
 import type { Definition, Expr, Fn } from '@dirty-geometry/vec2/recording/definition';
 import { walk } from '@dirty-geometry/vec2/recording/expr';
 import { isRest, NUMBER_TYPES, operationById } from '@dirty-geometry/vec2/schema/schema';
 import { checkDefinition, members, typer } from '@dirty-geometry/vec2/schema/typing';
 
 export const BINDINGS = '@dirty-geometry/vec2/schema/bindings';
+/** The shared forms other than the operators print as calls on this module (`lib.max(a, b)`). */
+export const LIB = '@dirty-geometry/fn/lib';
 const WIDTH = 100;
 const IDENTIFIER = /^[A-Za-z_$][\w$]*$/;
 const quote = (text: string) => `'${text.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\n/g, '\\n')}'`;
@@ -114,7 +118,20 @@ export function expr(e: Expr, fns: Fns = new Map()): Doc {
     const params = fns.get(e.call)?.params ?? Object.keys(e.args ?? {}).map((name) => ({ name }));
     return prefixed(e.call, group('(', positional(params, e.args, fns), ')'));
   }
-  if ('math' in e) {
+  if (isSharedForm<Expr>(e)) {
+    const call = toCall(e);
+    if (call)
+      return prefixed(
+        `lib.${call.name}`,
+        group(
+          '(',
+          call.args.map((arg) =>
+            arg === undefined ? leaf('undefined') : 'fn' in arg ? leaf(arg.fn) : expr(arg.expr, fns),
+          ),
+          ')',
+        ),
+      );
+    if (!('math' in e)) throw new Error('Only math prints as operators');
     if (e.math === 'neg') {
       const operand = expr(e.args[0], fns);
       // `-(-x)` and `-(1)`: a bare minus would merge with the operand (`--x`, the literal `-1`).
@@ -153,9 +170,11 @@ export function expr(e: Expr, fns: Fns = new Map()): Doc {
 function imports(definition: Definition) {
   const values = new Set<string>();
   const typeNames = new Set<string>();
+  let lib = false;
   const visit = (e: Expr): void => {
     for (const { expr: x } of walk(e)) {
       if (!x || typeof x !== 'object' || Array.isArray(x)) continue;
+      if (isSharedForm<Expr>(x) && toCall(x)) lib = true;
       if ('value' in x) values.add('value');
       if (!('op' in x)) continue;
       const [owner, member] = x.op.split('.') as [string, string];
@@ -171,12 +190,12 @@ function imports(definition: Definition) {
   definition.inputs.forEach((input) => (annotate(input.type), visit(input.value)));
   definition.functions.forEach((fn) => (fn.params.forEach((p) => annotate(p.type)), visit(fn.body)));
   definition.cells.forEach((cell) => (cell.type && annotate(cell.type), visit(cell.expr)));
-  return { values: [...values].sort(), types: [...typeNames].sort() };
+  return { values: [...values].sort(), types: [...typeNames].sort(), lib };
 }
 
 export function printDefinition(definition: Definition): string {
   const fns = new Map(definition.functions.map((fn) => [fn.name, fn]));
-  const { values, types } = imports(definition);
+  const { values, types, lib } = imports(definition);
   const out: string[] = [
     '// A vec2 definition: inputs are the parameters of `definition`, each const is a cell, and the returned cells are',
     '// its outputs. Edit it and apply with Ctrl+Enter.',
@@ -192,6 +211,7 @@ export function printDefinition(definition: Definition): string {
     );
   if (values.length) out.push(`import ${names(values)} from '${BINDINGS}';`);
   if (types.length) out.push(`import type ${names(types)} from '${BINDINGS}';`);
+  if (lib) out.push(`import * as lib from '${LIB}';`);
   for (const fn of definition.functions) {
     const params = fn.params.map((p) => `${p.name}: ${p.type}`).join(', ');
     out.push('', `function ${fn.name}(${params}) {`, `  return ${fit(expr(fn.body, fns), '  ')};`, '}');

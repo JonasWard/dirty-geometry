@@ -1,7 +1,10 @@
 'use client';
 
 import { useCallback, useState } from 'react';
-import type { Expr } from '@dirty-geometry/vec2/recording/definition';
+import { toCall } from '@dirty-geometry/fn/calls';
+import { formFields, isSharedForm } from '@dirty-geometry/fn/forms';
+import { isArcOp, isLogOp, isTrigOp } from '@dirty-geometry/fn/math';
+import type { Expr, SharedExpr } from '@dirty-geometry/vec2/recording/definition';
 import type { ExprPath } from '@dirty-geometry/vec2/recording/expr';
 import { isOptional, isRest, operationById, slotType, type Type } from '@dirty-geometry/vec2/schema/schema';
 import { members, parseTypeName, roleOf } from '@dirty-geometry/vec2/schema/typing';
@@ -24,6 +27,68 @@ const KIND = {
 };
 const punct = 'font-mono text-[11px] text-dg-subtle';
 const MATH: Record<string, string> = { '+': '+', '-': '−', '*': '×', '/': '÷', neg: '−' };
+/** The slot of each named operand of a shared form; `slot` is where the form itself stands. */
+const FIELD_SLOTS = (slot: Type): Record<string, Type> => ({
+  if: 'boolean',
+  then: slot,
+  else: slot,
+  seed: 'Integer',
+  index: 'Index',
+  count: 'Index',
+  t: 'Coordinate',
+  scale: 'Length',
+  start: 'Integer',
+  end: 'Integer',
+  items: 'unknown',
+  initial: 'unknown',
+  data: 'unknown',
+});
+const OPTIONAL_FIELDS = new Set(['initial', 'data', 'end', 'scale', 'slack']);
+/** The operands of a shared form shown as `name(…)`, as child slots. */
+function formChildSlots(form: SharedExpr, slot: Type, at: (...keys: ExprPath) => ExprPath): Child[] {
+  if ('args' in form) {
+    const math = 'math' in form ? form.math : '';
+    // Trigonometry and logarithms type their operands: an angle into sin…cot, a number into the arc functions, the
+    // logarithms and atan2.
+    const operand: Type =
+      'logic' in form
+        ? 'boolean'
+        : 'compare' in form || isArcOp(math) || isLogOp(math)
+          ? 'number'
+          : isTrigOp(math)
+            ? 'Radians'
+            : math === 'atan2'
+              ? 'Coordinate'
+              : (roleOf(slot) ?? 'number');
+    const names = math === 'atan2' ? ['y', 'x'] : form.args.length === 1 ? ['x'] : ['a', 'b'];
+    const children: Child[] = form.args.map((e, i) => ({
+      key: String(i),
+      name: names[i],
+      expr: e,
+      slot: operand,
+      path: at('args', i),
+    }));
+    if ('compare' in form && form.compare === '==')
+      children.push({
+        key: 'slack',
+        name: 'slack',
+        expr: form.slack,
+        slot: 'Tolerance',
+        path: at('slack'),
+        optional: true,
+      });
+    return children;
+  }
+  const record = form as unknown as Record<string, Expr | undefined>;
+  return formFields(form).map((field) => ({
+    key: field,
+    name: field,
+    expr: record[field],
+    slot: FIELD_SLOTS(slot)[field] ?? 'unknown',
+    path: at(field),
+    optional: OPTIONAL_FIELDS.has(field),
+  }));
+}
 
 /** A child slot: an argument, a list item or an options field. */
 type Child = { key: string; expr: Expr | undefined; slot: Type; path: ExprPath; name?: string; optional?: boolean };
@@ -134,6 +199,29 @@ export function Operand({ expr, slot, path, ed, name, optional }: Omit<Child, 'k
       slot: safeType(p.type),
       path: at('args', p.name),
     }));
+  } else if (isSharedForm<Expr>(expr) && !('math' in expr && expr.math in MATH)) {
+    const form = expr;
+    body = (
+      <>
+        {head('op', toCall(form)?.name ?? '?', 'a lib function')}
+        {'fn' in form && (
+          <select
+            aria-label={`${label} function`}
+            className={`${token} ${KIND.ref}`}
+            value={form.fn}
+            onChange={(event) => ed.set(at('fn'), event.target.value)}
+          >
+            {!ed.fns.some((f) => f.name === form.fn) && <option value={form.fn}>{form.fn}?</option>}
+            {ed.fns.map((f) => (
+              <option key={f.name} value={f.name}>
+                {f.name}
+              </option>
+            ))}
+          </select>
+        )}
+      </>
+    );
+    children = formChildSlots(form, slot, at);
   } else if ('math' in expr) {
     const operand = roleOf(slot) ?? 'number';
     const [a, b] = expr.args.map((e, i) => <Operand key={i} expr={e} slot={operand} path={at('args', i)} ed={ed} />);

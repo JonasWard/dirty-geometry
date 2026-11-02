@@ -206,6 +206,37 @@ export function definition(
   return { gear, area };
 }`;
 
+const WOBBLY_RING = `
+import * as lib from '@dirty-geometry/fn/lib';
+
+function onRing(i: Index, previous: Vec2, n: Index, shape: Coordinate[]) {
+  return new Circle2(new Vec2(0, 0), shape[0] + shape[1] * (lib.smooth(shape[2], i * 0.4) - 0.5)).evaluate(
+    i * (6.283 / n),
+  );
+}
+
+function leftOf(point: Vec2, i: Index, cut: Coordinate) {
+  return lib.smallerThan(point.x, cut);
+}
+
+function byHeight(point: Vec2) {
+  return point.y;
+}
+
+export function definition(
+  points: Index = 48,
+  radius: Length = 2,
+  wobble: Length = 1.2,
+  seed: Integer = 7,
+  cut: Coordinate = 1,
+): { outline: Polygon2; kept: Vec2[]; count: Index } {
+  const ring = lib.generate(points, onRing, undefined, [radius, wobble, seed]);
+  const outline = new Polygon2(ring);
+  const kept = lib.sort(lib.filter(ring, leftOf, cut), byHeight);
+  const count = lib.length(kept);
+  return { outline, kept, count };
+}`;
+
 export const STARTERS: readonly { id: string; label: string; build: () => Definition }[] = [
   { id: 'plate', label: 'Plate with a hole', build: () => fromV3(recordPlate()) },
   { id: 'star', label: 'Star from a function', build: () => parseDefinition(STAR) },
@@ -223,4 +254,9 @@ export const STARTERS: readonly { id: string; label: string; build: () => Defini
   },
   { id: 'half-ring', label: 'Half ring: exact annulus cut by a line', build: () => parseDefinition(HALF_RING) },
   { id: 'gear', label: 'Gear: eight rotated teeth and a bore', build: () => parseDefinition(GEAR) },
+  {
+    id: 'wobbly-ring',
+    label: 'Wobbly ring: generated points, smooth noise, filter and sort',
+    build: () => parseDefinition(WOBBLY_RING),
+  },
 ];

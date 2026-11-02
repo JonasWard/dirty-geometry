@@ -9,7 +9,9 @@
  * `schemaFromJson` accepts it.
  */
 import * as d from 'densing';
-import type { Cell, Definition, Expr, Fn, Input } from '../../src/recording/definition';
+import { isSharedForm } from '@dirty-geometry/fn/forms';
+import { isArcOp, isLogOp, isTrigOp, isUnary } from '@dirty-geometry/fn/math';
+import type { Cell, Definition, Expr, Fn, Input, SharedExpr } from '../../src/recording/definition';
 import { DefinitionError, fail as raise } from '../../src/recording/definition';
 import { classJson, operationById, type Type } from '../schema';
 import { checkDefinition, members, parseTypeName, typeName, typer, widen, type FnType } from '../typing';
@@ -203,13 +205,7 @@ function pack(
       );
       return { type: 'fn', fn, args };
     }
-    if ('math' in e) {
-      if (e.math === 'neg')
-        return (variant('neg', 'arithmetic'), { type: 'neg', a: expr(e.args[0], key, names, scope, at) });
-      variant('math', 'arithmetic');
-      const [a, b] = e.args as [Expr, Expr];
-      return { type: 'math', op: e.math, a: expr(a, key, names, scope, at), b: expr(b, key, names, scope, at) };
-    }
+    if (isSharedForm<Expr>(e)) return form(e, key, variant, names, scope, at);
     if ('of' in e) {
       const of = typer([], 'cell', '').typeOf(e.of, { refs: scope, fns: fnTypes });
       const data = any(e.of, rootKey(of, at), names, scope, `${at}.of`);
@@ -244,6 +240,125 @@ function pack(
     type: key,
     value: expr(e, key, names, scope, at),
   });
+  /** `e` under its own type (`of`, a list form's items). */
+  const root = (e: Expr, names: Names, scope: Map<string, Type>, at: string) =>
+    any(e, rootKey(typer([], 'cell', '').typeOf(e, { refs: scope, fns: fnTypes }), at), names, scope, at);
+
+  /** The shared forms. Operands pack under the type their slot expects; `data` and `initial` under the callback's
+   * param for them (so its type must be packable, like any param), or their own type when it has no such param. */
+  function form(
+    e: SharedExpr,
+    key: string,
+    variant: (name: string, what?: string) => [F, ...F[]],
+    names: Names,
+    scope: Map<string, Type>,
+    at: string,
+  ): F {
+    const sub = (x: Expr, k: string, where: string) => expr(x, k, names, scope, `${at}.${where}`);
+    const opt = (x: Expr | undefined, k: string, where: string) => (x === undefined ? null : sub(x, k, where));
+    const fnIndex = (name: string) => {
+      const i = names.fns.findIndex((f) => f.name === name);
+      return i >= 0 ? i : fail(`${at}: ${name} is not a function defined before here`);
+    };
+    /** Packs `x` (if given) under param `param` of the callback, or under its own type. */
+    const arg = (x: Expr | undefined, fn: string, param: number, where: string) => {
+      if (x === undefined) return null;
+      const declared = names.fns.find((f) => f.name === fn)?.params[param];
+      return declared
+        ? any(x, canonicalType(declared.type), names, scope, `${at}.${where}`)
+        : root(x, names, scope, `${at}.${where}`);
+    };
+    if ('math' in e) {
+      if (isTrigOp(e.math))
+        return (variant('trig', 'a number'), { type: 'trig', op: e.math, a: sub(e.args[0], 'Radians', 'a') });
+      if (isArcOp(e.math) || isLogOp(e.math))
+        return (variant('arc', 'a number'), { type: 'arc', op: e.math, a: sub(e.args[0], 'number', 'a') });
+      if (e.math === 'atan2') {
+        variant('atan2', 'a number');
+        const [y, x] = e.args as [Expr, Expr];
+        return { type: 'atan2', y: sub(y, 'Coordinate', 'y'), x: sub(x, 'Coordinate', 'x') };
+      }
+      if (isUnary(e.math))
+        return (variant('unary', 'arithmetic'), { type: 'unary', op: e.math, a: sub(e.args[0], key, 'a') });
+      variant('math', 'arithmetic');
+      const [a, b] = e.args as [Expr, Expr];
+      return { type: 'math', op: e.math, a: sub(a, key, 'a'), b: sub(b, key, 'b') };
+    }
+    if ('compare' in e) {
+      variant('compare', 'a comparison');
+      const [a, b] = e.args;
+      return {
+        type: 'compare',
+        op: e.compare,
+        a: sub(a, 'number', 'a'),
+        b: sub(b, 'number', 'b'),
+        slack: opt(e.slack, 'Tolerance', 'slack'),
+      };
+    }
+    if ('logic' in e) {
+      if (e.logic === 'not')
+        return (variant('not', 'true or false'), { type: 'not', a: sub(e.args[0], 'boolean', 'a') });
+      variant('logic', 'true or false');
+      return { type: 'logic', op: e.logic, a: sub(e.args[0], 'boolean', 'a'), b: sub(e.args[1], 'boolean', 'b') };
+    }
+    if ('if' in e) {
+      variant('if');
+      return {
+        type: 'if',
+        if: sub(e.if, 'boolean', 'if'),
+        then: sub(e.then, key, 'then'),
+        else: sub(e.else, key, 'else'),
+      };
+    }
+    if ('random' in e) {
+      variant(e.random, 'a random number');
+      const seed = sub(e.seed, 'Integer', 'seed');
+      if (e.random === 'white') return { type: 'white', seed, index: sub(e.index, 'Index', 'index') };
+      if (e.random === 'jittered')
+        return { type: 'jittered', seed, index: sub(e.index, 'Index', 'index'), count: sub(e.count, 'Index', 'count') };
+      return { type: 'smooth', seed, t: sub(e.t, 'Coordinate', 't'), scale: opt(e.scale, 'Length', 'scale') };
+    }
+    switch (e.list) {
+      case 'generate':
+        variant('generate', 'a list');
+        return {
+          type: 'generate',
+          fn: fnIndex(e.fn),
+          count: sub(e.count, 'Index', 'count'),
+          initial: arg(e.initial, e.fn, 1, 'initial'),
+          data: arg(e.data, e.fn, 3, 'data'),
+        };
+      case 'map':
+      case 'filter':
+      case 'sort':
+        variant('each', 'a list');
+        return {
+          type: 'each',
+          op: e.list,
+          fn: fnIndex(e.fn),
+          items: root(e.items, names, scope, `${at}.items`),
+          data: arg(e.data, e.fn, 2, 'data'),
+        };
+      case 'slice':
+        variant('slice', 'a list');
+        return {
+          type: 'slice',
+          items: root(e.items, names, scope, `${at}.items`),
+          start: sub(e.start, 'Integer', 'start'),
+          end: opt(e.end, 'Integer', 'end'),
+        };
+      case 'length':
+        variant('length', 'a number');
+        return { type: 'length', items: root(e.items, names, scope, `${at}.items`) };
+      case 'at':
+        variant('at');
+        return {
+          type: 'at',
+          items: root(e.items, names, scope, `${at}.items`),
+          index: sub(e.index, 'Integer', 'index'),
+        };
+    }
+  }
 
   const fns = def.functions.map((fn, i) => {
     const params = fn.params.map((p) => ({ name: p.name, type: parseTypeName(p.type) }));
@@ -310,8 +425,68 @@ export function decodeDefinition(encoded: string, dense = createDefinitionSchema
         return { number: o.value };
       case 'math':
         return { math: o.op, args: [expr(o.a, key, names), expr(o.b, key, names)] };
-      case 'neg':
-        return { math: 'neg', args: [expr(o.a, key, names)] };
+      case 'unary':
+        return { math: o.op, args: [expr(o.a, key, names)] };
+      case 'trig':
+        return { math: o.op, args: [expr(o.a, 'Radians', names)] };
+      case 'arc':
+        return { math: o.op, args: [expr(o.a, 'number', names)] };
+      case 'atan2':
+        return { math: 'atan2', args: [expr(o.y, 'Coordinate', names), expr(o.x, 'Coordinate', names)] };
+      case 'compare':
+        return {
+          compare: o.op,
+          args: [expr(o.a, 'number', names), expr(o.b, 'number', names)],
+          ...(o.slack != null && { slack: expr(o.slack, 'Tolerance', names) }),
+        };
+      case 'logic':
+        return { logic: o.op, args: [expr(o.a, 'boolean', names), expr(o.b, 'boolean', names)] };
+      case 'not':
+        return { logic: 'not', args: [expr(o.a, 'boolean', names)] };
+      case 'if':
+        return { if: expr(o.if, 'boolean', names), then: expr(o.then, key, names), else: expr(o.else, key, names) };
+      case 'white':
+        return { random: 'white', seed: expr(o.seed, 'Integer', names), index: expr(o.index, 'Index', names) };
+      case 'jittered':
+        return {
+          random: 'jittered',
+          seed: expr(o.seed, 'Integer', names),
+          index: expr(o.index, 'Index', names),
+          count: expr(o.count, 'Index', names),
+        };
+      case 'smooth':
+        return {
+          random: 'smooth',
+          seed: expr(o.seed, 'Integer', names),
+          t: expr(o.t, 'Coordinate', names),
+          ...(o.scale != null && { scale: expr(o.scale, 'Length', names) }),
+        };
+      case 'generate':
+        return {
+          list: 'generate',
+          fn: at(names.fns, o.fn, 'function').name,
+          count: expr(o.count, 'Index', names),
+          ...(o.initial != null && { initial: anyOut(o.initial, names) }),
+          ...(o.data != null && { data: anyOut(o.data, names) }),
+        };
+      case 'each':
+        return {
+          list: o.op,
+          fn: at(names.fns, o.fn, 'function').name,
+          items: anyOut(o.items, names),
+          ...(o.data != null && { data: anyOut(o.data, names) }),
+        };
+      case 'slice':
+        return {
+          list: 'slice',
+          items: anyOut(o.items, names),
+          start: expr(o.start, 'Integer', names),
+          ...(o.end != null && { end: expr(o.end, 'Integer', names) }),
+        };
+      case 'length':
+        return { list: 'length', items: anyOut(o.items, names) };
+      case 'at':
+        return { list: 'at', items: anyOut(o.items, names), index: expr(o.index, 'Integer', names) };
       case 'number':
       case 'boolean':
         return o.value;

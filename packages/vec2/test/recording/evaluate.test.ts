@@ -112,3 +112,18 @@ describe('evaluate', () => {
     expect(outputs.polygons).toHaveLength(1);
   });
 });
+
+describe('missing arguments', () => {
+  test('a required argument left out fails its cell (no value with a hole in it); optional ones may be left out', () => {
+    const { cells } = evaluate(
+      def({
+        cells: [
+          { name: 'line', expr: { op: 'Line2.new', args: { from: { op: 'Vec2.new', args: { x: 1 } } } } },
+          { name: 'point', expr: { op: 'Vec2.new', args: { x: 1 } } },
+        ],
+      }),
+    );
+    expect(cells.get('line')).toEqual({ error: 'Line2.new: to is missing' });
+    expect(cells.get('point')).toMatchObject({ value: { x: 1, y: 0 } });
+  });
+});

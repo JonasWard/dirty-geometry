@@ -1,0 +1,14 @@
+{
+  "name": "@dirty-geometry/fn",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Pure math, list and seeded random functions, and the expression forms definitions share.",
+  "exports": {
+    "./*": "./src/*.ts"
+  },
+  "scripts": {
+    "test": "bun test",
+    "typecheck": "tsc --noEmit -p ."
+  }
+}

@@ -10,8 +10,10 @@
     "./playground": "./src/playground/index.ts"
   },
   "dependencies": {
+    "@dirty-geometry/fn": "workspace:*",
     "@dirty-geometry/graph": "workspace:*",
     "@dirty-geometry/vec2": "workspace:*",
+    "@xyflow/react": "12.12.0",
     "densing": "0.5.0",
     "zustand": "5.0.15"
   },

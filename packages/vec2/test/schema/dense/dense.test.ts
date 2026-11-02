@@ -93,7 +93,9 @@ describe('definition schema', () => {
     expect(calls).toContain('Vec2.add');
     expect(calls.filter((id) => !assignable(operationById.get(id)!.returns, 'Vec2'))).toEqual([]);
     const coordinate = templates.find((t) => t.name === 'Coordinate');
-    expect(Object.keys(coordinate.variants)).toEqual(expect.arrayContaining(['number', 'math', 'neg', 'Vec2.length']));
+    expect(Object.keys(coordinate.variants)).toEqual(
+      expect.arrayContaining(['number', 'math', 'unary', 'trig', 'arc', 'atan2', 'white', 'if', 'Vec2.length']),
+    );
   });
 
   test('names are densing names: no markers, no joined paths', () => {

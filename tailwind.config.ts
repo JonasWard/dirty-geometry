@@ -1,4 +1,5 @@
 import type { Config } from "tailwindcss";
+import plugin from "tailwindcss/plugin";
 
 const config: Config = {
   content: [
@@ -40,6 +41,9 @@ const config: Config = {
       },
     },
   },
-  plugins: [],
+  plugins: [
+    // `coarse:` styles for touch screens (a finger needs bigger targets than a mouse).
+    plugin(({ addVariant }) => addVariant("coarse", "@media (pointer: coarse)")),
+  ],
 };
 export default config;

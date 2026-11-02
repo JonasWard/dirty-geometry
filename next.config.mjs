@@ -24,6 +24,7 @@ const nextConfig = {
   env: { NEXT_PUBLIC_BASE_URL: baseUrl },
   // Workspace packages ship TypeScript source; let Next compile them.
   transpilePackages: [
+    "@dirty-geometry/fn",
     "@dirty-geometry/vec2",
     "@dirty-geometry/graph",
     "@dirty-geometry/visualisation",

@@ -132,10 +132,14 @@ export function decodeViewState(
 
 // ---- the page's hash ----
 
-/** `#/<app>` opens the editor, `#/<app>/<view>` the View tab with those input values. */
-export function parseHash(hash: string): { app: string; view?: string } {
-  const [app = '', view] = hash.replace(/^#?\/?/, '').split('/');
-  return view ? { app, view } : { app };
+/**
+ * `#/<app>` opens the editor, `#/<app>/<view>` the View tab with those input values; either may end with
+ * `/<layout>`, the node view's positions (`#/<app>//<layout>` for the editor). Links without a layout read as before.
+ */
+export function parseHash(hash: string): { app: string; view?: string; layout?: string } {
+  const [app = '', view, layout] = hash.replace(/^#?\/?/, '').split('/');
+  return { app, ...(view && { view }), ...(layout && { layout }) };
 }
 
-export const formatHash = (app: string, view?: string) => `#/${app}${view ? `/${view}` : ''}`;
+export const formatHash = (app: string, view?: string, layout?: string) =>
+  `#/${app}${layout ? `/${view ?? ''}/${layout}` : view ? `/${view}` : ''}`;

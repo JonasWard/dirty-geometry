@@ -8,13 +8,23 @@
  *   - `MathJson` and the JSON types it uses (the stored vec2 values), then `Any` and `Text`;
  *   - one **expression union per type**, named like the TypeScript type (`Vec2`, `Coordinate`, `Vec2[]`,
  *     `Aabb2 | Vec2`): a reference (`input`, `cell`, `param`), a function call (`fn`), an item or field of another
- *     value (`index`, `field`), a stored value (`value`), arithmetic (`math`, `neg`, numbers only), the literal shapes
- *     the type allows, and every operation whose result fits, keyed by its id (`Vec2.add`);
+ *     value (`index`, `field`), a stored value (`value`), the shared forms of `@dirty-geometry/fn/forms` that fit
+ *     (`math`, `unary`, `trig`, `arc` (also the logarithms), `atan2`, `white`, `jittered`, `smooth`, `length` for numbers; `compare`, `logic`, `not` for booleans;
+ *     `generate`, `each`, `slice` for lists; `if` and `at` everywhere), the literal shapes the type allows, and every
+ *     operation whose result fits, keyed by its id (`Vec2.add`);
  *   - one **object template per operation signature** (`(self: Vec2, other: Vec2)`): `self` (instance members), then
  *     one field per parameter, typed by that parameter's expression union;
  *   - `Any`: an expression of any type, keyed by the type's name (cell roots, function bodies, `of`, function args).
  * - `fields`: stamp, inputs, functions and cells. Every union's discriminator is `type`.
  */
+import {
+  ARC_OPS,
+  ARITHMETIC_BINARY_OPS,
+  ARITHMETIC_UNARY_OPS,
+  COMPARE_OPS,
+  LOG_OPS,
+  TRIG_OPS,
+} from '../packages/fn/src/math';
 import { typeName, typeSystem, type Type } from '../packages/vec2/schema/typing';
 import { SKIP_MEMBERS } from '../packages/vec2/schema/policy';
 
@@ -28,7 +38,7 @@ const isKind = (type: unknown, kind: string): type is Record<string, any> =>
   !!type && typeof type === 'object' && !Array.isArray(type) && Object.keys(type).length === 1 && kind in type;
 const flagged = (slot: any) => !!slot && typeof slot === 'object' && ('optional' in slot || 'rest' in slot);
 const slotType = (slot: any) => (flagged(slot) ? slot.type : slot);
-const enumeration = (name: string, options: unknown[]) => ({
+const enumeration = (name: string, options: readonly unknown[]) => ({
   type: 'enum',
   name,
   options: [...options.map(String), ''].slice(0, Math.max(2, options.length)),
@@ -278,7 +288,17 @@ export function renderDenseSchema({ numbers, types, modules }: Schema): string {
   const expr = (name: string, type: Type): Field =>
     ref(name, typeName(type), () => {
       const numeric = members(type).some(isNumeric);
+      const boolean = members(type).some(
+        (m) => m === 'boolean' || (isKind(m, 'enum') && (m as any).enum.some((v: unknown) => typeof v === 'boolean')),
+      );
+      const list = members(type).some((m) => Array.isArray(m) || isKind(m, 'tuple'));
       const self = () => expr('a', type);
+      const optional = (name: string, field: Field) => ({
+        type: 'optional',
+        name,
+        field,
+      });
+      const fn = () => int('fn', LIMITS.functions);
       const fitting = [...groups.values()].filter((g) => assignable(g.type, type)).flatMap((g) => g.ops);
       exprs.add(typeName(type));
       return union(typeName(type), {
@@ -288,14 +308,57 @@ export function renderDenseSchema({ numbers, types, modules }: Schema): string {
         fn: variant('fn', [int('fn', LIMITS.functions), array('args', any('arg'), LIMITS.params)]),
         index: variant('index', [any('of'), int('at', LIMITS.items)]),
         field: variant('field', [any('of'), text('at')]),
-        ...(members(type).some(isValueClass) && { value: variant('value', [mathJson('value')]) }),
+        ...(members(type).some(isValueClass) && {
+          value: variant('value', [mathJson('value')]),
+        }),
         ...(numeric && {
           nonFinite: variant('nonFinite', nonFinite()),
           ...variants(type, {
-            math: [enumeration('op', ['+', '-', '*', '/']), self(), expr('b', type)],
-            neg: [self()],
+            math: [enumeration('op', ARITHMETIC_BINARY_OPS), self(), expr('b', type)],
+            unary: [enumeration('op', ARITHMETIC_UNARY_OPS), self()],
           }),
+          // Trigonometry types its operands itself: an angle in, or a ratio or point in.
+          trig: variant('trig', [enumeration('op', TRIG_OPS), expr('a', 'Radians')]),
+          arc: variant('arc', [enumeration('op', [...ARC_OPS, ...LOG_OPS]), expr('a', 'number')]),
+          atan2: variant('atan2', [expr('y', 'Coordinate'), expr('x', 'Coordinate')]),
+          white: variant('white', [expr('seed', 'Integer'), expr('index', 'Index')]),
+          jittered: variant('jittered', [expr('seed', 'Integer'), expr('index', 'Index'), expr('count', 'Index')]),
+          smooth: variant('smooth', [
+            expr('seed', 'Integer'),
+            expr('t', 'Coordinate'),
+            optional('scale', expr('scale', 'Length')),
+          ]),
+          length: variant('length', [any('items')]),
         }),
+        ...(boolean && {
+          compare: variant('compare', [
+            enumeration('op', COMPARE_OPS),
+            expr('a', 'number'),
+            expr('b', 'number'),
+            optional('slack', expr('slack', 'Tolerance')),
+          ]),
+          logic: variant('logic', [enumeration('op', ['and', 'or']), expr('a', 'boolean'), expr('b', 'boolean')]),
+          not: variant('not', [expr('a', 'boolean')]),
+        }),
+        ...(list && {
+          generate: variant('generate', [
+            fn(),
+            expr('count', 'Index'),
+            optional('initial', any('initial')),
+            optional('data', any('data')),
+          ]),
+          each: variant('each', [
+            enumeration('op', ['map', 'filter', 'sort']),
+            fn(),
+            any('items'),
+            optional('data', any('data')),
+          ]),
+          slice: variant('slice', [any('items'), expr('start', 'Integer'), optional('end', expr('end', 'Integer'))]),
+        }),
+        ...variants(type, {
+          if: [expr('if', 'boolean'), expr('then', type), expr('else', type)],
+        }),
+        at: variant('at', [any('items'), expr('index', 'Integer')]),
         ...variants(type, shapes(type)),
         ...Object.fromEntries(fitting.map((op) => [op.id, call(op)])),
       });

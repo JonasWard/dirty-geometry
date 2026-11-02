@@ -193,19 +193,110 @@ function PlaygroundView({
   }, [store]);
 
   const commit = (next: typeof definition) => store.getState().commit(next);
+  const packing = (
+    <EncodingPanel
+      schema={schema}
+      options={options}
+      presets={active}
+      auto={auto}
+      stats={encoding}
+      onPresets={(next) => store.getState().update({ presets: next, auto: false })}
+      onOptions={(next) => store.getState().update({ options: next })}
+      onAuto={(next) => store.getState().update({ auto: next, presets: next ? store.getState().presets : active })}
+      onSnap={() => {
+        try {
+          commit(decodeDefinition(encodeDefinition(definition, active, schema), schema).definition);
+        } catch {
+          // the encoding panel already shows why it cannot encode
+        }
+      }}
+    />
+  );
+  const loadStarter = (id: string) => {
+    const chosen = STARTERS.find((candidate) => candidate.id === id);
+    if (chosen) store.getState().load({ definition: chosen.build(), options: {}, presets: {}, auto: true });
+  };
+  const nodeEditor = (
+    <NodeEditor
+      definition={definition}
+      graph={graph}
+      layout={layout ?? {}}
+      analysis={analysis}
+      evaluation={evaluation}
+      selected={nodeKey}
+      onSelect={setNodeKey}
+      {...(narrow && {
+        fill: true,
+        packing,
+        starters: STARTERS.map(({ id, label }) => ({ id, label })),
+        onStarter: loadStarter,
+        viewer: {
+          canvas: drawing,
+          inputs: (
+            <InputSliders
+              inputs={definition.inputs}
+              range={(type) => rangeOf(options, active, type)}
+              onChange={(name, value) =>
+                store.getState().commit(ops.setInput(store.getState().definition, name, { value }), {
+                  coalesce: `input:${name}`,
+                })
+              }
+            />
+          ),
+        },
+      })}
+    />
+  );
+  const noticeBox = notice && (
+    <div className='rounded border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800'>
+      {notice}{' '}
+      <button type='button' className='underline' onClick={() => setNotice(undefined)}>
+        dismiss
+      </button>
+    </div>
+  );
+
+  // Nodes on a phone or tablet: one screen below the site header, nothing to scroll. The Densing panel and the
+  // starters live in the scene (a drawer and a panel), the toolbar is one row.
+  if (view === 'edit' && nodes && narrow)
+    return (
+      <div className='fixed inset-x-0 top-[85px] bottom-0 z-10 flex flex-col bg-dg-canvas md:top-12'>
+        {about && <div className='sr-only'>{about.title}</div>}
+        {noticeBox}
+        <div className='flex h-10 shrink-0 items-center gap-1 overflow-x-auto px-2 whitespace-nowrap'>
+          <ModeSwitch view={view} nodes onChange={switchTo} />
+          <span aria-hidden='true' className='mx-1 h-5 w-px bg-dg-border' />
+          <button
+            type='button'
+            aria-label='undo'
+            title='undo'
+            className={button}
+            disabled={!canUndo}
+            onClick={() => store.getState().undo()}
+          >
+            ↶
+          </button>
+          <button
+            type='button'
+            aria-label='redo'
+            title='redo'
+            className={button}
+            disabled={!canRedo}
+            onClick={() => store.getState().redo()}
+          >
+            ↷
+          </button>
+        </div>
+        <div className='min-h-0 flex-1'>{nodeEditor}</div>
+      </div>
+    );
+
   return (
     // On phones the page has no padding of its own: the View tab fills the screen, the Edit tab keeps some room.
     <div className={`space-y-3 ${view === 'edit' ? 'max-md:py-3' : ''}`}>
       {/* No help above the editor: the tool speaks for itself (the View tab's drawer keeps it on phones). */}
       {about && view === 'edit' && <div className='sr-only'>{about.title}</div>}
-      {notice && (
-        <div className='rounded border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800'>
-          {notice}{' '}
-          <button type='button' className='underline' onClick={() => setNotice(undefined)}>
-            dismiss
-          </button>
-        </div>
-      )}
+      {noticeBox}
       {view === 'view' && (
         <ViewerPanel
           definition={definition}
@@ -267,11 +358,7 @@ function PlaygroundView({
                 aria-label='starter'
                 className='min-w-0 max-w-full rounded border border-dg-border bg-white px-1.5 py-0.5 text-xs text-dg-ink'
                 value=''
-                onChange={(event) => {
-                  const chosen = STARTERS.find((candidate) => candidate.id === event.target.value);
-                  if (chosen)
-                    store.getState().load({ definition: chosen.build(), options: {}, presets: {}, auto: true });
-                }}
+                onChange={(event) => loadStarter(event.target.value)}
               >
                 <option value=''>choose…</option>
                 {STARTERS.map((s) => (
@@ -294,35 +381,7 @@ function PlaygroundView({
                   <CellsPanel analysis={analysis} evaluation={evaluation} />
                 </>
               )}
-              {nodes && (
-                <div className={narrow ? 'md:-mx-8' : ''}>
-                  <NodeEditor
-                    definition={definition}
-                    graph={graph}
-                    layout={layout ?? {}}
-                    analysis={analysis}
-                    evaluation={evaluation}
-                    selected={nodeKey}
-                    onSelect={setNodeKey}
-                    {...(narrow && {
-                      viewer: {
-                        canvas: drawing,
-                        inputs: (
-                          <InputSliders
-                            inputs={definition.inputs}
-                            range={(type) => rangeOf(options, active, type)}
-                            onChange={(name, value) =>
-                              store.getState().commit(ops.setInput(store.getState().definition, name, { value }), {
-                                coalesce: `input:${name}`,
-                              })
-                            }
-                          />
-                        ),
-                      },
-                    })}
-                  />
-                </div>
-              )}
+              {nodes && nodeEditor}
               {mode === 'code' && <CodeEditor definition={definition} onChange={commit} />}
               {mode === 'json' && <JsonEditor definition={definition} onChange={commit} />}
             </div>
@@ -330,7 +389,7 @@ function PlaygroundView({
             <div
               className={`min-w-0 space-y-4 ${nodes ? 'lg:sticky lg:top-12 lg:self-start' : 'xl:sticky xl:top-16 xl:self-start'}`}
             >
-              {!(nodes && narrow) && (
+              {
                 <div
                   className={
                     nodes
@@ -348,26 +407,8 @@ function PlaygroundView({
                     ]}
                   />
                 </div>
-              )}
-              <EncodingPanel
-                schema={schema}
-                options={options}
-                presets={active}
-                auto={auto}
-                stats={encoding}
-                onPresets={(next) => store.getState().update({ presets: next, auto: false })}
-                onOptions={(next) => store.getState().update({ options: next })}
-                onAuto={(next) =>
-                  store.getState().update({ auto: next, presets: next ? store.getState().presets : active })
-                }
-                onSnap={() => {
-                  try {
-                    commit(decodeDefinition(encodeDefinition(definition, active, schema), schema).definition);
-                  } catch {
-                    // the encoding panel already shows why it cannot encode
-                  }
-                }}
-              />
+              }
+              {packing}
             </div>
           </div>
         </>

@@ -7,7 +7,7 @@ import { issuesByNode, nodeKey, outKey, toDefinition, toGraph } from '../src/pla
 import * as edits from '../src/playground/model/graph-edits';
 import { isDoubleTap, selectionActions } from '../src/playground/model/selection';
 import { autoLayout, COLUMN, decodeLayout, encodeLayout, remapLayout } from '../src/playground/model/layout';
-import { freshOp, paletteEntries, searchPalette } from '../src/playground/nodes/Palette';
+import { browsePalette, freshOp, paletteEntries, searchPalette } from '../src/playground/nodes/Palette';
 import { previewOf } from '../src/playground/nodes/preview';
 import { STARTERS } from '../src/playground/starters';
 import { formatHash, parseHash } from '../src/playground/url';
@@ -398,5 +398,38 @@ describe('starting clusters', () => {
       body: { ref: 'x' },
     });
     expect(edits.newCluster(made).name).toBe('cluster2');
+  });
+});
+
+describe('browsing the node search without typing', () => {
+  const all = paletteEntries(starter('wobbly-ring'), []);
+  const favourites = ['Vec2.new', 'Circle2.new'];
+  const groupsOf = (list: { group: string }[]) => [...new Set(list.map((e) => e.group))];
+
+  test('an empty search shows every small group, and only the favourite operations', () => {
+    const { entries, moreOperations } = browsePalette(all, '', null, favourites);
+    expect(groupsOf(entries)).toEqual([
+      'Clusters',
+      'Math',
+      'Lists',
+      'Logic',
+      'Random',
+      'Values',
+      'Inputs',
+      'Operations',
+    ]);
+    expect(entries.filter((e) => e.group === 'Operations').map((e) => e.label)).toEqual(['new Circle2', 'new Vec2']);
+    expect(moreOperations).toBeGreaterThan(400);
+  });
+
+  test('a group shows in full; a query narrows within it', () => {
+    const math = browsePalette(all, '', 'Math', favourites).entries;
+    expect(math.every((e) => e.group === 'Math')).toBe(true);
+    expect(math.map((e) => e.label)).toEqual(expect.arrayContaining(['sin(x)', 'atan2(y, x)', 'log10(x)', 'x + y']));
+    expect(math.length).toBe(all.filter((e) => e.group === 'Math').length);
+    expect(browsePalette(all, 'log', 'Math', favourites).entries.map((e) => e.label)).toEqual(['log2(x)', 'log10(x)']);
+    expect(browsePalette(all, '', 'Operations', favourites).entries.length).toBe(
+      all.filter((e) => e.group === 'Operations').length,
+    );
   });
 });

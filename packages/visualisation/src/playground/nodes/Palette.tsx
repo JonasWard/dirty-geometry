@@ -88,6 +88,41 @@ export function searchPalette(entries: readonly PaletteEntry[], query: string, l
     .slice(0, limit);
 }
 
+/** The groups, in the order the search lists them when nothing is typed. */
+export const PALETTE_GROUPS = [
+  'Clusters',
+  'Math',
+  'Lists',
+  'Logic',
+  'Random',
+  'Values',
+  'Inputs',
+  'Operations',
+] as const;
+export type PaletteGroup = (typeof PALETTE_GROUPS)[number];
+const opId = (e: PaletteEntry) =>
+  'expr' in e && e.expr && typeof e.expr === 'object' && 'op' in e.expr ? e.expr.op : '';
+
+/**
+ * What the search shows: with a query, the matches (in `group` if one is picked); with none, a whole picked group, or
+ * by default every small group in full and only the favourite operations (the other 490 are a tap away).
+ */
+export function browsePalette(
+  entries: readonly PaletteEntry[],
+  query: string,
+  group: PaletteGroup | null,
+  favourites: readonly string[],
+): { entries: PaletteEntry[]; moreOperations: number } {
+  const pool = group ? entries.filter((e) => e.group === group) : entries;
+  if (query.trim()) return { entries: searchPalette(pool, query, group ? Infinity : 80), moreOperations: 0 };
+  if (group) return { entries: [...pool], moreOperations: 0 };
+  const ordered = PALETTE_GROUPS.flatMap((g) => entries.filter((e) => e.group === g));
+  const shown = ordered.filter((e) => e.group !== 'Operations' || favourites.includes(opId(e)));
+  return { entries: shown, moreOperations: entries.filter((e) => e.group === 'Operations').length };
+}
+
+const chip =
+  'rounded-full border border-dg-border px-2 py-0.5 text-[10px] tracking-wide text-dg-subtle hover:border-dg-steel-600 coarse:px-3 coarse:py-1 coarse:text-xs';
 const choice =
   'block w-full truncate rounded px-1.5 py-0.5 coarse:py-1.5 text-left font-mono text-[11px] hover:bg-dg-sky-100 focus:bg-dg-sky-100 focus:outline-none';
 
@@ -107,8 +142,12 @@ export function Palette({
   const [query, setQuery] = useState('');
   const favourites = useFavourites();
   const all = useMemo(() => paletteEntries(definition, favourites.ids), [definition, favourites.ids]);
-  const found = searchPalette(all, query);
+  const [group, setGroup] = useState<PaletteGroup | null>(null);
+  const { entries: found, moreOperations } = browsePalette(all, query, group, favourites.ids);
   const groups = [...new Set(found.map((e) => e.group))];
+  const present = PALETTE_GROUPS.filter((g) => all.some((e) => e.group === g));
+  // A finger browses first: on a touch screen the field does not take focus (and the keyboard stays down).
+  const touch = useMemo(() => typeof window !== 'undefined' && !!window.matchMedia?.('(pointer: coarse)').matches, []);
   useEffect(() => {
     const outside = (event: MouseEvent) => ref.current && !ref.current.contains(event.target as Node) && onClose();
     document.addEventListener('mousedown', outside);
@@ -123,7 +162,7 @@ export function Palette({
       style={{ left: at.x, top: at.y }}
     >
       <input
-        autoFocus
+        autoFocus={!touch}
         aria-label='search nodes'
         placeholder='search, e.g. circle, add, map'
         className='mb-1 w-full rounded border border-dg-border px-1.5 py-0.5 font-mono text-[11px]'
@@ -134,6 +173,19 @@ export function Palette({
           if (event.key === 'Enter' && found[0]) onPick(found[0]);
         }}
       />
+      <div className='mb-1 flex flex-wrap gap-1' role='group' aria-label='node groups'>
+        {present.map((g) => (
+          <button
+            key={g}
+            type='button'
+            aria-pressed={group === g}
+            className={`${chip} ${group === g ? '!border-dg-navy-900 bg-dg-navy-900 !text-dg-sky-200' : ''}`}
+            onClick={() => setGroup(group === g ? null : g)}
+          >
+            {g}
+          </button>
+        ))}
+      </div>
       <div className='max-h-56 overflow-y-auto sm:max-h-72'>
         {groups.map((group) => (
           <div key={group}>
@@ -147,6 +199,11 @@ export function Palette({
               ))}
           </div>
         ))}
+        {moreOperations > 0 && (
+          <button type='button' className={`${choice} text-dg-steel-600`} onClick={() => setGroup('Operations')}>
+            all {moreOperations} operations →
+          </button>
+        )}
         {!found.length && <p className='px-1 text-dg-subtle'>Nothing matches.</p>}
       </div>
     </div>

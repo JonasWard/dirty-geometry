@@ -5,6 +5,7 @@ import { checkDefinition } from '@dirty-geometry/vec2/schema/typing';
 import { arbitraryDefinition } from '../../vec2/test/recording/arbitrary';
 import { issuesByNode, nodeKey, outKey, toDefinition, toGraph } from '../src/playground/model/graph';
 import * as edits from '../src/playground/model/graph-edits';
+import { isDoubleTap, selectionActions } from '../src/playground/model/selection';
 import { autoLayout, COLUMN, decodeLayout, encodeLayout, remapLayout } from '../src/playground/model/layout';
 import { freshOp, paletteEntries, searchPalette } from '../src/playground/nodes/Palette';
 import { previewOf } from '../src/playground/nodes/preview';
@@ -343,5 +344,41 @@ describe('the node search', () => {
   });
   test('a new operation node starts with its number arguments set', () => {
     expect(freshOp('Circle2.new')).toEqual({ op: 'Circle2.new', args: { radius: 1 } });
+  });
+});
+
+describe('touch: what the toolbar offers, and double taps', () => {
+  const graph = toGraph(starter('wobbly-ring'));
+
+  test('one node: delete, name, output, and open when it calls a cluster', () => {
+    expect(selectionActions(graph, ['c:ring'], null)).toMatchObject({
+      kind: 'node',
+      canDelete: true,
+      canName: true,
+      canOutput: true,
+      open: 'onRing',
+    });
+    expect(selectionActions(graph, ['i:points'], null)).toMatchObject({ canName: true, canOutput: false });
+    // A cluster's own params and output are changed in the cluster's tools, not deleted.
+    expect(selectionActions(graph, ['f:onRing#i'], null)).toMatchObject({ canDelete: false, canName: true });
+    expect(selectionActions(graph, [outKey('onRing')], null)).toMatchObject({ canDelete: false, canName: false });
+  });
+
+  test('several nodes: make a cluster (main canvas only); a wire: remove it; nothing: nothing', () => {
+    expect(selectionActions(graph, ['c:kept', 'c:kept@items'], null)).toMatchObject({
+      kind: 'nodes',
+      canCluster: true,
+    });
+    expect(selectionActions(graph, ['f:onRing@', 'f:onRing@self'], null).canCluster).toBe(false);
+    expect(selectionActions(graph, [], 'c:outline:args.vertices')).toMatchObject({ kind: 'edge', canDelete: true });
+    expect(selectionActions(graph, [], null).kind).toBe('none');
+  });
+
+  test('a double tap: close in time and place, measured by the events themselves', () => {
+    const first = { time: 1000, x: 10, y: 10 };
+    expect(isDoubleTap(first, { time: 1250, x: 14, y: 12 })).toBe(true);
+    expect(isDoubleTap(first, { time: 1500, x: 10, y: 10 })).toBe(false);
+    expect(isDoubleTap(first, { time: 1100, x: 80, y: 10 })).toBe(false);
+    expect(isDoubleTap(null, first)).toBe(false);
   });
 });

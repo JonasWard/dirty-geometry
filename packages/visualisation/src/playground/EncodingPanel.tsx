@@ -10,7 +10,7 @@ import { presetBits } from './presets';
 const panel = 'rounded-md border border-dg-border bg-white/60 p-3 text-xs';
 const button = 'rounded border border-dg-border px-2 py-0.5 text-xs hover:border-dg-steel-600 hover:text-dg-steel-600';
 const input =
-  'rounded border border-dg-border bg-white px-1.5 py-0.5 font-mono text-xs text-dg-ink focus:border-dg-steel-600 focus:outline-none';
+  'min-w-0 max-w-full rounded border border-dg-border bg-white px-1.5 py-0.5 font-mono text-xs text-dg-ink focus:border-dg-steel-600 focus:outline-none';
 
 export type EncodingStats = {
   jsonBytes: number;
@@ -112,7 +112,7 @@ export function EncodingPanel({
         </button>
       </div>
 
-      <div className='grid grid-cols-[auto_1fr] items-center gap-x-2 gap-y-1'>
+      <div className='grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-2 gap-y-1'>
         {NUMBER_TYPES.map((numericRole) => {
           const definition = definitions.find((candidate) => candidate.name === numericRole);
           const active = presets[numericRole] ?? definition?.defaultPreset ?? '';

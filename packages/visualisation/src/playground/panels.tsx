@@ -475,7 +475,7 @@ function CellRow({
       data-reorder-row
       {...drop}
     >
-      <div className='flex items-center gap-2'>
+      <div className='flex flex-wrap items-center gap-2'>
         {reorder.controls(cell.name, index)}
         <NameField name={cell.name} onRename={(to) => edit((d) => ops.rename(d, cell.name, to))} />
         <label

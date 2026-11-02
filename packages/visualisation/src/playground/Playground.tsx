@@ -244,11 +244,11 @@ function PlaygroundView({
             >
               ↷ redo
             </button>
-            <label className='ml-auto flex items-center gap-1 text-xs text-dg-subtle'>
+            <label className='ml-auto flex max-w-full min-w-0 items-center gap-1 text-xs text-dg-subtle'>
               start from
               <select
                 aria-label='starter'
-                className='rounded border border-dg-border bg-white px-1.5 py-0.5 text-xs text-dg-ink'
+                className='min-w-0 max-w-full rounded border border-dg-border bg-white px-1.5 py-0.5 text-xs text-dg-ink'
                 value=''
                 onChange={(event) => {
                   const chosen = STARTERS.find((candidate) => candidate.id === event.target.value);

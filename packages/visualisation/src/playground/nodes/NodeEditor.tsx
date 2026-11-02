@@ -30,6 +30,7 @@ import { describeValue } from '../describe';
 import { issuesByNode, type Canvas, type Graph } from '../model/graph';
 import * as edits from '../model/graph-edits';
 import { autoLayout, type Layout } from '../model/layout';
+import { isDoubleTap, selectionActions, type Tap } from '../model/selection';
 import { useStoreApi, type CommitOptions } from '../store';
 import { ComponentNode, type ComponentNodeType, type NodeActions } from './ComponentNode';
 import { Palette, type PaletteEntry } from './Palette';
@@ -72,13 +73,19 @@ function Canvas({ definition, graph, layout, analysis, evaluation, selected, onS
     flow: { x: number; y: number };
     into?: { node: string; port: string };
   } | null>(null);
-  const [chosen, setChosen] = useState<string[]>([]);
+  /** The nodes selected together (a box, Shift or Ctrl), and the selected wire. */
+  const [picked, setPicked] = useState<string[]>([]);
+  const [edge, setEdge] = useState<string | null>(null);
+  /** Dragging on the canvas draws a selection box instead of panning (for a finger: no Shift key). */
+  const [boxSelect, setBoxSelect] = useState(false);
+  const lastTap = useRef<Tap | null>(null);
   const openPalette = (clientX: number, clientY: number, into?: { node: string; port: string }) => {
     const rect = box.current!.getBoundingClientRect();
     setPalette({
+      // Kept inside the canvas, also on a narrow phone.
       screen: {
-        x: Math.min(clientX - rect.left, rect.width - 300),
-        y: Math.min(clientY - rect.top, rect.height - 320),
+        x: Math.max(4, Math.min(clientX - rect.left, rect.width - 296)),
+        y: Math.max(4, Math.min(clientY - rect.top, rect.height - 300)),
       },
       flow: flow.screenToFlowPosition({ x: clientX, y: clientY }),
       ...(into && { into }),
@@ -186,11 +193,16 @@ function Canvas({ definition, graph, layout, analysis, evaluation, selected, onS
     });
   };
 
+  // On a touch screen a whole graph squeezed onto a phone cannot be read or tapped: fit no further out than 0.6, and pan.
+  const fitMinZoom = useMemo(
+    () => (typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches ? 0.6 : 0.2),
+    [],
+  );
   // Fit the view when another canvas opens (only then: the React Flow instance is a new object on every render).
   const fit = useRef(flow.fitView);
   fit.current = flow.fitView;
   useEffect(() => {
-    const timer = setTimeout(() => fit.current({ padding: 0.15, duration: 200 }), 30);
+    const timer = setTimeout(() => fit.current({ padding: 0.15, duration: 200, minZoom: fitMinZoom }), 30);
     return () => clearTimeout(timer);
   }, [canvas]);
 
@@ -203,6 +215,32 @@ function Canvas({ definition, graph, layout, analysis, evaluation, selected, onS
     onSelect(key);
   };
   const issues = useMemo(() => issuesByNode(graph, analysis), [graph, analysis]);
+  /** The selection the toolbar acts on: several picked nodes, else the selected node, else a wire. */
+  const keys = picked.length > 1 ? picked : selected ? [selected] : picked;
+  const selection = selectionActions(graph, keys, edge);
+  const deleteSelection = () => {
+    if (selection.kind === 'edge') {
+      const e = graph.edges.find((x) => x.id === edge);
+      if (e) edit((doc) => edits.disconnect(doc, e.target, e.port));
+      setEdge(null);
+      return;
+    }
+    onDelete({ nodes: keys.map((id) => ({ id })), edges: [] });
+    setPicked([]);
+    onSelect(null);
+  };
+  /** + add: in the middle of the canvas; in a cluster, into the selected node's first empty input. */
+  const addFromToolbar = () => {
+    const rect = box.current!.getBoundingClientRect();
+    const x = rect.left + rect.width / 2 - 140;
+    const y = rect.top + 24;
+    if (canvas === 'main') return openPalette(x, y);
+    const node = selection.node;
+    const port = node?.inputs.find((p) => !p.filled) ?? node?.inputs.find((p) => p.literal !== undefined);
+    if (!node || !port)
+      return setError('In a cluster a node goes into an input: select a node with an empty input, or drag from one');
+    openPalette(x, y, { node: node.key, port: port.key });
+  };
   const paramTypes = useMemo(() => inputTypes(), []);
   const positions = useMemo(() => autoLayout(graph, layout, canvas), [graph, layout, canvas]);
   const derived = useMemo((): ComponentNodeType[] => {
@@ -274,7 +312,7 @@ function Canvas({ definition, graph, layout, analysis, evaluation, selected, onS
   }, [graph, derived, issues]);
 
   return (
-    <div className='flex h-[70vh] min-h-[480px] flex-col border border-dg-border bg-white'>
+    <div className='flex h-[60vh] min-h-[420px] flex-col border border-dg-border bg-white sm:h-[70vh] sm:min-h-[480px]'>
       <div className='flex flex-wrap items-center gap-1 border-b border-dg-border px-2 py-1 text-xs'>
         <nav aria-label='cluster path' className='flex items-center gap-1'>
           <button
@@ -291,33 +329,29 @@ function Canvas({ definition, graph, layout, analysis, evaluation, selected, onS
             </>
           )}
         </nav>
-        {canvas === 'main' ? (
-          chosen.length > 0 ? (
-            <button
-              type='button'
-              className={tool}
-              title='Put the selected nodes in a cluster: wires coming in become its params'
-              onClick={() =>
-                edit((doc) => {
-                  const made = edits.makeCluster(doc, chosen);
-                  setChosen([]);
-                  return made;
-                })
-              }
-            >
-              make cluster ({chosen.length})
-            </button>
-          ) : (
-            <span className='text-dg-subtle'>
-              double-click to add · drag a result onto an input · drag from an input into space to add into it ·
-              shift-drag to select · Delete removes
-            </span>
-          )
-        ) : (
+        <button
+          type='button'
+          className={tool}
+          aria-label='add a node'
+          title='Search for a node to add (or double-click / double-tap the canvas)'
+          onClick={addFromToolbar}
+        >
+          + add
+        </button>
+        <button
+          type='button'
+          aria-pressed={boxSelect}
+          className={`${tool} ${boxSelect ? '!border-dg-navy-900 bg-dg-navy-900 text-dg-sky-200' : ''}`}
+          title='Drag to select several nodes (instead of moving the canvas); Shift-drag does the same'
+          onClick={() => setBoxSelect((on) => !on)}
+        >
+          select
+        </button>
+        {canvas !== 'main' && (
           <ClusterTools fn={canvas.slice(3)} edit={edit} onLeave={() => setCanvas('main')} onRenamed={enter} />
         )}
         {functions.length > 0 && (
-          <label className='ml-auto flex items-center gap-1 text-dg-subtle'>
+          <label className='ml-auto flex min-w-0 items-center gap-1 text-dg-subtle'>
             clusters
             <select
               aria-label='open cluster'
@@ -335,15 +369,32 @@ function Canvas({ definition, graph, layout, analysis, evaluation, selected, onS
           </label>
         )}
       </div>
-      {error && (
-        <div className='flex items-center gap-2 border-b border-red-200 bg-red-50 px-2 py-1 text-xs text-red-700'>
-          {error}
-          <button type='button' className='ml-auto underline' onClick={() => setError(null)}>
-            dismiss
-          </button>
-        </div>
-      )}
+      <SelectionBar
+        actions={selection}
+        value={selection.node?.cell ? valueText(evaluation, selection.node.cell.name) : undefined}
+        issues={selection.node ? issueList(issues.get(selection.node.key)) : []}
+        count={keys.length}
+        onDelete={deleteSelection}
+        onName={(name) => actions.name(selection.node!.key, name)}
+        onOutput={() => actions.output(selection.node!.key, !selection.node!.cell?.output)}
+        onOpen={() => enter(selection.open!)}
+        onCluster={() =>
+          edit((doc) => {
+            const made = edits.makeCluster(doc, keys);
+            setPicked([]);
+            return made;
+          })
+        }
+      />
       <div ref={box} className='relative min-h-0 flex-1'>
+        {error && (
+          <div className='absolute inset-x-0 top-0 z-10 flex items-center gap-2 border-b border-red-200 bg-red-50 px-2 py-1 text-xs text-red-700'>
+            {error}
+            <button type='button' className='ml-auto underline' onClick={() => setError(null)}>
+              dismiss
+            </button>
+          </div>
+        )}
         {palette && (
           <Palette definition={definition} at={palette.screen} onPick={pick} onClose={() => setPalette(null)} />
         )}
@@ -357,7 +408,10 @@ function Canvas({ definition, graph, layout, analysis, evaluation, selected, onS
           onPaneClick={(event) => {
             onSelect(null);
             // A double click on the canvas opens the search (in a cluster, nodes grow from its ports).
-            if (event.detail >= 2) {
+            const tap = { time: event.timeStamp, x: event.clientX, y: event.clientY };
+            const twice = event.detail >= 2 || isDoubleTap(lastTap.current, tap);
+            lastTap.current = twice ? null : tap;
+            if (twice) {
               if (canvas === 'main') openPalette(event.clientX, event.clientY);
               else setError('A cluster is one expression: drag a wire from an input into space to add a node there');
             }
@@ -369,20 +423,29 @@ function Canvas({ definition, graph, layout, analysis, evaluation, selected, onS
             const point = 'changedTouches' in event ? event.changedTouches[0]! : (event as MouseEvent);
             openPalette(point.clientX, point.clientY, { node: state.fromNode.id, port: state.fromHandle.id ?? '' });
           }}
-          onSelectionChange={({ nodes: picked }) => {
-            const keys = picked.map((n) => n.id);
-            setChosen((current) => (current.join() === keys.join() ? current : keys.length > 1 ? keys : []));
+          onSelectionChange={({ nodes: now, edges: wires }) => {
+            const next = now.map((n) => n.id);
+            setPicked((current) => (current.join() === next.join() ? current : next));
+            setEdge(wires.length === 1 && !now.length ? wires[0]!.id : null);
           }}
+          onEdgeClick={(_, e) => {
+            onSelect(null);
+            setEdge(e.id);
+          }}
+          selectionOnDrag={boxSelect}
+          panOnDrag={!boxSelect}
+          connectionRadius={30}
           isValidConnection={isValidConnection}
           onDelete={onDelete}
           deleteKeyCode={['Delete', 'Backspace']}
           zoomOnDoubleClick={false}
           minZoom={0.2}
           fitView
+          fitViewOptions={{ padding: 0.15, minZoom: fitMinZoom }}
           proOptions={{ hideAttribution: true }}
         >
           <Background variant={BackgroundVariant.Lines} gap={20} color='#eef1f5' />
-          <MiniMap pannable zoomable className='!bg-dg-sky-100' />
+          <MiniMap pannable zoomable className='!hidden !bg-dg-sky-100 sm:!block' />
           <Controls showInteractive={false} />
         </ReactFlow>
       </div>
@@ -390,7 +453,114 @@ function Canvas({ definition, graph, layout, analysis, evaluation, selected, onS
   );
 }
 
-const tool = 'rounded border border-dg-border px-1.5 py-0.5 text-xs hover:border-dg-steel-600 hover:text-dg-steel-600';
+const issueList = (issues?: { node: string[]; ports: Map<string, string[]> }) =>
+  issues ? [...issues.node, ...[...issues.ports.values()].flat()] : [];
+
+/** What can be done with the selection, as buttons (a finger has no Delete key and no hover). */
+function SelectionBar({
+  actions,
+  value,
+  issues,
+  count,
+  onDelete,
+  onName,
+  onOutput,
+  onOpen,
+  onCluster,
+}: {
+  actions: ReturnType<typeof selectionActions>;
+  value?: string;
+  issues: string[];
+  count: number;
+  onDelete: () => void;
+  onName: (name: string) => void;
+  onOutput: () => void;
+  onOpen: () => void;
+  onCluster: () => void;
+}) {
+  const [naming, setNaming] = useState<string | null>(null);
+  const node = actions.node;
+  const key = node?.key;
+  const [prev, setPrev] = useState(key);
+  if (prev !== key) {
+    setPrev(key);
+    setNaming(null);
+  }
+  // One height whatever it shows, so selecting something never moves the canvas under the finger.
+  const strip =
+    'flex h-9 shrink-0 items-center gap-1 overflow-x-auto border-b border-dg-border px-2 text-xs whitespace-nowrap';
+  if (actions.kind === 'none')
+    return (
+      <p className={`${strip} text-[11px] text-dg-subtle`}>
+        <span className='coarse:hidden'>
+          double-click to add · drag a result onto an input · drag from an input into space to add into it · Shift-drag
+          or <span className='font-semibold'>select</span> to pick several · Delete removes
+        </span>
+        <span className='hidden coarse:inline'>
+          tap a node to act on it · tap a dot, then another, to wire · double-tap or + add to add
+        </span>
+      </p>
+    );
+  const current = node?.cell?.name ?? (node?.kind === 'input' || node?.kind === 'param' ? node.name : '');
+  return (
+    <div className={`${strip} bg-dg-sky-100/40`}>
+      <span className='font-mono text-dg-ink'>
+        {actions.kind === 'edge' ? 'wire' : actions.kind === 'nodes' ? `${count} nodes` : current || node?.label}
+      </span>
+      {value && <span className='max-w-[12rem] truncate font-mono text-[11px] text-dg-subtle'>→ {value}</span>}
+      {actions.open && (
+        <button type='button' className={tool} onClick={onOpen}>
+          open {actions.open}
+        </button>
+      )}
+      {actions.canName &&
+        (naming === null ? (
+          <button type='button' className={tool} onClick={() => setNaming(current ?? '')}>
+            {current ? 'rename' : 'name'}
+          </button>
+        ) : (
+          <input
+            autoFocus
+            aria-label='node name'
+            className='w-28 rounded border border-dg-border px-1 py-0.5 font-mono text-xs'
+            value={naming}
+            onChange={(event) => setNaming(event.target.value)}
+            onBlur={() => setNaming(null)}
+            onKeyDown={(event) => {
+              if (event.key === 'Escape') setNaming(null);
+              if (event.key === 'Enter') {
+                if (naming && naming !== current) onName(naming);
+                setNaming(null);
+              }
+            }}
+          />
+        ))}
+      {actions.canOutput && (
+        <button type='button' aria-pressed={!!node?.cell?.output} className={tool} onClick={onOutput}>
+          {node?.cell?.output ? 'output ✓' : 'output'}
+        </button>
+      )}
+      {actions.canCluster && (
+        <button type='button' className={tool} onClick={onCluster} title='Wires coming in become its params'>
+          make cluster
+        </button>
+      )}
+      {actions.canDelete && (
+        <button type='button' className={`${tool} hover:!border-red-400 hover:!text-red-600`} onClick={onDelete}>
+          {actions.kind === 'edge' ? 'remove wire' : 'delete'}
+        </button>
+      )}
+      {issues.length > 0 && (
+        <span className='text-[11px] text-red-600' title={issues.join('\n')}>
+          {issues.join(' · ')}
+        </span>
+      )}
+    </div>
+  );
+}
+
+const tool =
+  'rounded border border-dg-border bg-white px-1.5 py-0.5 text-xs hover:border-dg-steel-600 hover:text-dg-steel-600 coarse:px-2.5 coarse:py-1.5';
 
 /** A cluster's own tools: rename it, add a param, dissolve it back into its callers. */
 function ClusterTools({

@@ -89,7 +89,7 @@ export function searchPalette(entries: readonly PaletteEntry[], query: string, l
 }
 
 const choice =
-  'block w-full truncate rounded px-1.5 py-0.5 text-left font-mono text-[11px] hover:bg-dg-sky-100 focus:bg-dg-sky-100 focus:outline-none';
+  'block w-full truncate rounded px-1.5 py-0.5 coarse:py-1.5 text-left font-mono text-[11px] hover:bg-dg-sky-100 focus:bg-dg-sky-100 focus:outline-none';
 
 export function Palette({
   definition,
@@ -119,7 +119,7 @@ export function Palette({
       ref={ref}
       role='dialog'
       aria-label='add a node'
-      className='absolute z-20 w-72 rounded-md border border-dg-border bg-white p-2 text-xs shadow-lg'
+      className='absolute z-20 w-[min(18rem,calc(100%-0.5rem))] rounded-md border border-dg-border bg-white p-2 text-xs shadow-lg'
       style={{ left: at.x, top: at.y }}
     >
       <input
@@ -134,7 +134,7 @@ export function Palette({
           if (event.key === 'Enter' && found[0]) onPick(found[0]);
         }}
       />
-      <div className='max-h-72 overflow-y-auto'>
+      <div className='max-h-56 overflow-y-auto sm:max-h-72'>
         {groups.map((group) => (
           <div key={group}>
             <div className='mt-1 px-1 text-[10px] tracking-widest text-dg-subtle uppercase'>{group}</div>

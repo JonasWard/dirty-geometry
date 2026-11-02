@@ -48,8 +48,10 @@ const KIND_STYLE: Record<string, string> = {
   literal: 'border-amber-300 bg-amber-50',
   value: 'border-dg-border bg-white',
 };
-const handle = '!h-2.5 !w-2.5 !border-white !bg-dg-steel-600';
-const chip = 'nodrag rounded border px-1 font-mono text-[10px]';
+// On a touch screen the dots are bigger, and an invisible margin around them takes a finger that is close.
+const handle =
+  "!h-2.5 !w-2.5 !border-white !bg-dg-steel-600 coarse:!h-5 coarse:!w-5 coarse:before:absolute coarse:before:-inset-3 coarse:before:content-['']";
+const chip = 'nodrag rounded border px-1 font-mono text-[10px] coarse:px-1.5 coarse:py-0.5 coarse:text-xs';
 
 const literalText = (v: PortLiteral | undefined): string => {
   if (v === undefined) return '';
@@ -119,7 +121,7 @@ function PortRow({
   const label = `${node.label} ${port.label}`;
   return (
     <div
-      className='relative flex items-center gap-1.5 py-0.5 pr-2 pl-3'
+      className='relative flex items-center gap-1.5 py-0.5 pr-2 pl-3 coarse:py-1.5 coarse:pl-4'
       title={issues?.join('\n') ?? typeName(port.slot)}
     >
       <Handle
@@ -214,7 +216,7 @@ export const ComponentNode = memo(function ComponentNode({ data, selected }: Nod
     >
       {(named || (nameable && actions)) && (
         <div
-          className={`flex items-center gap-1 rounded-t-md px-2 py-0.5 font-mono text-[10px] ${named ? 'bg-dg-navy-900 text-dg-sky-200' : 'text-dg-subtle invisible group-hover:visible'}`}
+          className={`flex items-center gap-1 rounded-t-md px-2 py-0.5 font-mono text-[10px] ${named ? 'bg-dg-navy-900 text-dg-sky-200' : selected ? 'text-dg-subtle' : 'text-dg-subtle invisible group-hover:visible'}`}
         >
           {actions && nameable ? (
             <NameEditor node={node} actions={actions} />

@@ -17,3 +17,10 @@ p a {
 p a:hover {
   @apply text-dg-navy-900 decoration-dg-navy-900/35;
 }
+
+/* iOS zooms into a focused field whose text is under 16px: in the playground, on touch screens, none is. */
+@media (pointer: coarse) {
+  html.dg-playground :is(input, select, textarea) {
+    font-size: 16px !important;
+  }
+}

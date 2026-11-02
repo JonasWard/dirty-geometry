@@ -185,10 +185,14 @@ function PlaygroundView({
     const root = document.documentElement;
     const before = root.style.touchAction;
     root.style.touchAction = 'pan-x pan-y';
+    // Marks the page for the rule (app/globals.css) that gives fields 16px text on touch screens: iOS zooms into a
+    // focused field whose text is smaller.
+    root.classList.add('dg-playground');
     const block = (event: Event) => event.preventDefault();
     for (const name of ['gesturestart', 'gesturechange']) document.addEventListener(name, block, { passive: false });
     return () => {
       root.style.touchAction = before;
+      root.classList.remove('dg-playground');
       for (const name of ['gesturestart', 'gesturechange']) document.removeEventListener(name, block);
     };
   }, []);

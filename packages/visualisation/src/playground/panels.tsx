@@ -58,7 +58,7 @@ function NameField({ name, onRename }: { name: string; onRename: (to: string) =>
   return (
     <input
       aria-label={`${name} name`}
-      className={`${inputClass} w-24 font-semibold`}
+      className={`${inputClass} w-24 font-semibold coarse:w-36`}
       value={text}
       spellCheck={false}
       onFocus={() => store.getState().select(name)}

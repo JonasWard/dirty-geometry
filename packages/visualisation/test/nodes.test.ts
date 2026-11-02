@@ -6,6 +6,7 @@ import { arbitraryDefinition } from '../../vec2/test/recording/arbitrary';
 import { issuesByNode, nodeKey, outKey, toDefinition, toGraph } from '../src/playground/model/graph';
 import * as edits from '../src/playground/model/graph-edits';
 import { autoLayout, COLUMN, decodeLayout, encodeLayout, remapLayout } from '../src/playground/model/layout';
+import { freshOp, paletteEntries, searchPalette } from '../src/playground/nodes/Palette';
 import { previewOf } from '../src/playground/nodes/preview';
 import { STARTERS } from '../src/playground/starters';
 import { formatHash, parseHash } from '../src/playground/url';
@@ -248,5 +249,99 @@ describe('editing in the node view', () => {
     d = edits.connect(d, 'c:ring', 'c:kept', 'items');
     expect(toDefinition(toGraph(d.definition))).toEqual(d.definition);
     expect(issues(d.definition)).toEqual([]);
+  });
+});
+
+describe('clusters', () => {
+  const same = (a: Definition, b: Definition) => expect(evaluate(a).outputs).toEqual(evaluate(b).outputs);
+
+  test('selected nodes become a function; wires coming in become its params; the outputs stay the same', () => {
+    const before = starter('line');
+    const made = edits.makeCluster({ definition: before, layout: {} }, ['i:t', 'c:line', 'c:line@args.from']);
+    expect(made.definition.functions).toEqual([
+      {
+        name: 'cluster',
+        params: [{ name: 'to', type: 'Vec2' }],
+        body: { op: 'Line2.new', args: { from: { op: 'Vec2.new', args: { x: -2, y: -1 } }, to: { ref: 'to' } } },
+      },
+    ]);
+    expect(made.definition.cells[0]!.expr).toEqual({
+      call: 'cluster',
+      args: { to: { op: 'Vec2.new', args: { x: 3, y: 2 } } },
+    });
+    expect(checkDefinition(made.definition).issues).toEqual([]);
+    same(made.definition, before);
+  });
+
+  test('selected cells are folded in; inputs and other cells become params', () => {
+    const before = starter('wobbly-ring');
+    const made = edits.makeCluster({ definition: before, layout: {} }, ['c:kept', 'c:kept@items']);
+    expect(made.definition.functions.at(-1)!.params).toEqual([
+      { name: 'ring', type: 'Vec2[]' },
+      { name: 'cut', type: 'Coordinate' },
+    ]);
+    same(made.definition, before);
+    const star = starter('star');
+    // The star cell with every node inside it, and the outer circle it uses.
+    const keys = toGraph(star)
+      .nodes.map((n) => n.key)
+      .filter((k) => k === 'c:outer' || k.startsWith('c:star'));
+    const two = edits.makeCluster({ definition: star, layout: {} }, keys);
+    expect(two.definition.cells.map((c) => c.name)).toEqual(['inner', 'star', 'area']);
+    same(two.definition, star);
+  });
+
+  test('a selection with more than one result, or a cell used elsewhere, is refused', () => {
+    expect(() => edits.makeCluster({ definition: starter('star'), layout: {} }, ['c:outer', 'c:inner'])).toThrow(
+      'one result',
+    );
+    expect(() =>
+      edits.makeCluster({ definition: starter('line'), layout: {} }, ['c:line@args.from', 'c:point']),
+    ).toThrow('one result');
+  });
+
+  test('dissolving puts the body back; params can be added, renamed, retyped and removed', () => {
+    const before = starter('line');
+    let d: edits.GraphDoc = edits.makeCluster({ definition: before, layout: {} }, ['c:line', 'c:line@args.from']);
+    d = edits.renameClusterParam(d, 'cluster', 'to', 'end');
+    expect(d.definition.cells[0]!.expr).toMatchObject({ call: 'cluster', args: { end: {} } });
+    d = edits.addClusterParam(d, 'cluster', 'Length');
+    expect(d.definition.functions[0]!.params.map((p) => p.name)).toEqual(['end', 'x']);
+    d = edits.setClusterParamType(d, 'cluster', 'x', 'Coordinate');
+    d = edits.removeClusterParam(d, 'cluster', 'x');
+    d = edits.renameCluster(d, 'cluster', 'segment');
+    expect(d.definition.cells[0]!.expr).toMatchObject({ call: 'segment' });
+    const back = edits.dissolveCluster(d, 'segment');
+    expect(back.definition).toEqual(before);
+  });
+
+  test('a node dragged out of an input goes into it, also inside a cluster', () => {
+    const d = edits.insertNode(
+      { definition: starter('wobbly-ring'), layout: {} },
+      'f:onRing@args.theta',
+      'args.0',
+      { math: 'sin', args: [0] },
+      { x: 5, y: 5 },
+    );
+    const onRing = d.definition.functions[0]!;
+    expect((onRing.body as unknown as { args: { theta: { args: unknown[] } } }).args.theta.args[0]).toEqual({
+      math: 'sin',
+      args: [0],
+    });
+    expect(d.layout).toEqual({ 'f:onRing@args.theta.args.0': { x: 5, y: 5 } });
+  });
+});
+
+describe('the node search', () => {
+  const all = paletteEntries(starter('wobbly-ring'), []);
+  test('a name that is the query comes first; every word must match', () => {
+    expect(searchPalette(all, 'sin', 1)[0]!.label).toBe('sin(x)');
+    expect(searchPalette(all, 'circle2 new', 1)[0]!.label).toBe('new Circle2');
+    expect(searchPalette(all, 'onRing')[0]).toMatchObject({ group: 'Clusters', expr: { call: 'onRing' } });
+    expect(searchPalette(all, 'map').some((e) => e.group === 'Lists')).toBe(true);
+    expect(searchPalette(all, 'zzzz')).toEqual([]);
+  });
+  test('a new operation node starts with its number arguments set', () => {
+    expect(freshOp('Circle2.new')).toEqual({ op: 'Circle2.new', args: { radius: 1 } });
   });
 });

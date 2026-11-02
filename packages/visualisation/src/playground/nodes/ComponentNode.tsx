@@ -21,6 +21,8 @@ export type NodeActions = {
   name: (key: string, name: string) => void;
   output: (key: string, output: boolean) => void;
   enter: (fn: string) => void;
+  paramType: (key: string, type: string) => void;
+  removeParam: (key: string) => void;
 };
 export type ComponentData = {
   node: GraphNode;
@@ -32,6 +34,8 @@ export type ComponentData = {
   wired: ReadonlySet<string>;
   /** Whether the node can be named and made an output (it is in a cell, not in a cluster). */
   nameable: boolean;
+  /** The types a cluster param can have. */
+  types?: readonly string[];
   actions?: NodeActions;
 };
 export type ComponentNodeType = Node<ComponentData, 'component'>;
@@ -163,7 +167,7 @@ function PortRow({
 
 /** The node's name: a cell's, renamed in place; an anonymous node gets one (and becomes a cell). */
 function NameEditor({ node, actions }: { node: GraphNode; actions: NodeActions }) {
-  const current = node.cell?.name ?? (node.kind === 'input' ? node.name! : '');
+  const current = node.cell?.name ?? (node.kind === 'input' || node.kind === 'param' ? node.name! : '');
   const [editing, setEditing] = useState<string | null>(null);
   if (editing !== null)
     return (
@@ -234,9 +238,38 @@ export const ComponentNode = memo(function ComponentNode({ data, selected }: Nod
         </div>
       )}
       <div className='flex items-center gap-1 border-b border-dg-border/60 px-2 py-1' title={node.detail}>
-        <span className='font-mono font-semibold text-dg-ink'>{node.label}</span>
-        {(node.kind === 'input' || node.kind === 'param') && (
-          <span className='font-mono text-[10px] text-dg-subtle'>: {node.type}</span>
+        {node.kind === 'param' && actions ? (
+          <>
+            <span className='font-mono text-dg-ink'>
+              <NameEditor node={node} actions={actions} />
+            </span>
+            <select
+              aria-label={`type of ${node.name}`}
+              className='nodrag rounded border border-dg-border bg-white px-0.5 font-mono text-[10px]'
+              value={node.type}
+              onChange={(event) => actions.paramType(node.key, event.target.value)}
+            >
+              {[...new Set([node.type!, ...(data.types ?? [])])].map((t) => (
+                <option key={t}>{t}</option>
+              ))}
+            </select>
+            <button
+              type='button'
+              aria-label={`remove param ${node.name}`}
+              title='remove this param (its uses get a default value)'
+              className='nodrag ml-auto text-[10px] text-dg-subtle hover:text-red-600'
+              onClick={() => actions.removeParam(node.key)}
+            >
+              ×
+            </button>
+          </>
+        ) : (
+          <>
+            <span className='font-mono font-semibold text-dg-ink'>{node.label}</span>
+            {(node.kind === 'input' || node.kind === 'param') && (
+              <span className='font-mono text-[10px] text-dg-subtle'>: {node.type}</span>
+            )}
+          </>
         )}
         {node.fn && <span className='font-mono text-[10px] text-violet-700'>({node.fn})</span>}
         {enter && actions && (

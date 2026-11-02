@@ -25,7 +25,7 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Definition } from '@dirty-geometry/vec2/recording/definition';
 import type { Evaluation } from '@dirty-geometry/vec2/recording/evaluate';
-import type { Analysis } from '@dirty-geometry/vec2/schema/typing';
+import { inputTypes, type Analysis } from '@dirty-geometry/vec2/schema/typing';
 import { describeValue } from '../describe';
 import { issuesByNode, type Canvas, type Graph } from '../model/graph';
 import * as edits from '../model/graph-edits';
@@ -66,9 +66,24 @@ function Canvas({ definition, graph, layout, analysis, evaluation, selected, onS
   const flow = useReactFlow();
   const [canvas, setCanvas] = useState<Canvas>('main');
   const [error, setError] = useState<string | null>(null);
-  const [palette, setPalette] = useState<{ screen: { x: number; y: number }; flow: { x: number; y: number } } | null>(
-    null,
-  );
+  /** The search: where it opened, and the input a new node goes into (a wire dragged onto the empty canvas). */
+  const [palette, setPalette] = useState<{
+    screen: { x: number; y: number };
+    flow: { x: number; y: number };
+    into?: { node: string; port: string };
+  } | null>(null);
+  const [chosen, setChosen] = useState<string[]>([]);
+  const openPalette = (clientX: number, clientY: number, into?: { node: string; port: string }) => {
+    const rect = box.current!.getBoundingClientRect();
+    setPalette({
+      screen: {
+        x: Math.min(clientX - rect.left, rect.width - 300),
+        y: Math.min(clientY - rect.top, rect.height - 320),
+      },
+      flow: flow.screenToFlowPosition({ x: clientX, y: clientY }),
+      ...(into && { into }),
+    });
+  };
   const box = useRef<HTMLDivElement>(null);
   /** Applies an edit of the definition and the layout; a refused one shows why. */
   const edit = useCallback(
@@ -102,7 +117,19 @@ function Canvas({ definition, graph, layout, analysis, evaluation, selected, onS
         edit((doc) => edits.setPortLiteral(doc, key, port, value), coalesce ? { coalesce: `${key}:${port}` } : {}),
       setValue: (key, value) => edit((doc) => edits.setNodeLiteral(doc, key, value), { coalesce: `${key}:value` }),
       addItem: (key, rest) => edit((doc) => edits.addRestItem(doc, key, rest)),
-      name: (key, name) => edit((doc) => edits.nameNode(doc, key, name)),
+      name: (key, name) =>
+        edit((doc) => {
+          const param = /^f:(.+)#(.+)$/.exec(key);
+          return param ? edits.renameClusterParam(doc, param[1]!, param[2]!, name) : edits.nameNode(doc, key, name);
+        }),
+      paramType: (key, type) => {
+        const [, fn, param] = /^f:(.+)#(.+)$/.exec(key)!;
+        edit((doc) => edits.setClusterParamType(doc, fn!, param!, type));
+      },
+      removeParam: (key) => {
+        const [, fn, param] = /^f:(.+)#(.+)$/.exec(key)!;
+        edit((doc) => edits.removeClusterParam(doc, fn!, param!));
+      },
       output: (key, output) => edit((doc) => edits.setOutput(doc, key, output)),
       enter,
     }),
@@ -141,9 +168,18 @@ function Canvas({ definition, graph, layout, analysis, evaluation, selected, onS
   const pick = (entry: PaletteEntry) => {
     const at = palette!.flow;
     setPalette(null);
+    if ('input' in entry && canvas !== 'main') return setError('A cluster sees only its params: add one with + param');
     edit((doc) => {
       // The nodes stay where they are drawn: placing one fixes the others too.
       doc = { ...doc, layout: { ...positions, ...doc.layout } };
+      if (palette!.into) {
+        const { node, port } = palette!.into;
+        if ('input' in entry) {
+          const added = edits.addInputNode(doc, entry.input, at);
+          return edits.connect(added, added.key, node, port);
+        }
+        return edits.insertNode(doc, node, port, entry.expr, at);
+      }
       const added = 'input' in entry ? edits.addInputNode(doc, entry.input, at) : edits.addNode(doc, entry.expr, at);
       onSelect(added.key);
       return added;
@@ -167,6 +203,7 @@ function Canvas({ definition, graph, layout, analysis, evaluation, selected, onS
     onSelect(key);
   };
   const issues = useMemo(() => issuesByNode(graph, analysis), [graph, analysis]);
+  const paramTypes = useMemo(() => inputTypes(), []);
   const positions = useMemo(() => autoLayout(graph, layout, canvas), [graph, layout, canvas]);
   const derived = useMemo((): ComponentNodeType[] => {
     const wired = new Map<string, Set<string>>();
@@ -186,6 +223,7 @@ function Canvas({ definition, graph, layout, analysis, evaluation, selected, onS
             value: name === undefined ? undefined : valueText(evaluation, name),
             wired: wired.get(node.key) ?? new Set(),
             nameable: canvas === 'main' && node.kind !== 'input',
+            types: paramTypes,
             actions,
           },
         };
@@ -253,11 +291,31 @@ function Canvas({ definition, graph, layout, analysis, evaluation, selected, onS
             </>
           )}
         </nav>
-        <span className='text-dg-subtle'>
-          {canvas === 'main'
-            ? 'double-click the canvas to add · drag a result onto an input to wire · Delete removes'
-            : 'a cluster: its params on the left, its result on the right'}
-        </span>
+        {canvas === 'main' ? (
+          chosen.length > 0 ? (
+            <button
+              type='button'
+              className={tool}
+              title='Put the selected nodes in a cluster: wires coming in become its params'
+              onClick={() =>
+                edit((doc) => {
+                  const made = edits.makeCluster(doc, chosen);
+                  setChosen([]);
+                  return made;
+                })
+              }
+            >
+              make cluster ({chosen.length})
+            </button>
+          ) : (
+            <span className='text-dg-subtle'>
+              double-click to add · drag a result onto an input · drag from an input into space to add into it ·
+              shift-drag to select · Delete removes
+            </span>
+          )
+        ) : (
+          <ClusterTools fn={canvas.slice(3)} edit={edit} onLeave={() => setCanvas('main')} onRenamed={enter} />
+        )}
         {functions.length > 0 && (
           <label className='ml-auto flex items-center gap-1 text-dg-subtle'>
             clusters
@@ -298,16 +356,23 @@ function Canvas({ definition, graph, layout, analysis, evaluation, selected, onS
           onNodeClick={(event, node) => click(event, node.id)}
           onPaneClick={(event) => {
             onSelect(null);
-            // A double click on the canvas opens the search (main canvas: a cluster's body grows from its ports).
-            if (event.detail >= 2 && canvas === 'main') {
-              const rect = box.current!.getBoundingClientRect();
-              setPalette({
-                screen: { x: event.clientX - rect.left, y: event.clientY - rect.top },
-                flow: flow.screenToFlowPosition({ x: event.clientX, y: event.clientY }),
-              });
+            // A double click on the canvas opens the search (in a cluster, nodes grow from its ports).
+            if (event.detail >= 2) {
+              if (canvas === 'main') openPalette(event.clientX, event.clientY);
+              else setError('A cluster is one expression: drag a wire from an input into space to add a node there');
             }
           }}
           onConnect={onConnect}
+          onConnectEnd={(event, state) => {
+            // A wire dragged from an input onto the empty canvas: search for the node to put there.
+            if (state.isValid || state.toHandle || state.fromHandle?.type !== 'target' || !state.fromNode) return;
+            const point = 'changedTouches' in event ? event.changedTouches[0]! : (event as MouseEvent);
+            openPalette(point.clientX, point.clientY, { node: state.fromNode.id, port: state.fromHandle.id ?? '' });
+          }}
+          onSelectionChange={({ nodes: picked }) => {
+            const keys = picked.map((n) => n.id);
+            setChosen((current) => (current.join() === keys.join() ? current : keys.length > 1 ? keys : []));
+          }}
           isValidConnection={isValidConnection}
           onDelete={onDelete}
           deleteKeyCode={['Delete', 'Backspace']}
@@ -322,6 +387,69 @@ function Canvas({ definition, graph, layout, analysis, evaluation, selected, onS
         </ReactFlow>
       </div>
     </div>
+  );
+}
+
+const tool = 'rounded border border-dg-border px-1.5 py-0.5 text-xs hover:border-dg-steel-600 hover:text-dg-steel-600';
+
+/** A cluster's own tools: rename it, add a param, dissolve it back into its callers. */
+function ClusterTools({
+  fn,
+  edit,
+  onLeave,
+  onRenamed,
+}: {
+  fn: string;
+  edit: (f: (doc: edits.GraphDoc) => edits.GraphDoc) => void;
+  onLeave: () => void;
+  onRenamed: (fn: string) => void;
+}) {
+  const [name, setName] = useState(fn);
+  const [type, setType] = useState('Coordinate');
+  const [prev, setPrev] = useState(fn);
+  if (prev !== fn) {
+    setPrev(fn);
+    setName(fn);
+  }
+  const types = useMemo(() => inputTypes(), []);
+  return (
+    <span className='flex items-center gap-1'>
+      <input
+        aria-label='cluster name'
+        className='w-24 rounded border border-dg-border px-1 py-0.5 font-mono text-xs'
+        value={name}
+        onChange={(event) => setName(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key !== 'Enter' || name === fn) return;
+          edit((doc) => edits.renameCluster(doc, fn, name));
+          onRenamed(name);
+        }}
+      />
+      <select
+        aria-label='new param type'
+        className='rounded border border-dg-border bg-white px-1 py-0.5 text-xs'
+        value={type}
+        onChange={(event) => setType(event.target.value)}
+      >
+        {types.map((t) => (
+          <option key={t}>{t}</option>
+        ))}
+      </select>
+      <button type='button' className={tool} onClick={() => edit((doc) => edits.addClusterParam(doc, fn, type))}>
+        + param
+      </button>
+      <button
+        type='button'
+        className={tool}
+        title='Put the body back where the cluster is called, and remove the cluster'
+        onClick={() => {
+          edit((doc) => edits.dissolveCluster(doc, fn));
+          onLeave();
+        }}
+      >
+        dissolve
+      </button>
+    </span>
   );
 }
 

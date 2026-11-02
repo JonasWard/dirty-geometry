@@ -72,6 +72,22 @@ export function paletteEntries(definition: Definition, favourites: readonly stri
   return entries;
 }
 
+/** The entries matching every word of `query`, best first: a name that is the query, then one starting with it. */
+export function searchPalette(entries: readonly PaletteEntry[], query: string, limit = 80): PaletteEntry[] {
+  const words = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  const q = words.join(' ');
+  const rank = (e: PaletteEntry) => {
+    const names = (e.label.match(/[\w$]+/g) ?? []).map((w) => w.toLowerCase());
+    return names.includes(q) ? 0 : names.some((n) => n.startsWith(q)) ? 1 : 2;
+  };
+  return entries
+    .filter((e) => words.every((w) => `${e.group} ${e.search}`.toLowerCase().includes(w)))
+    .map((e, i) => ({ e, i, r: q ? rank(e) : 0 }))
+    .sort((a, b) => a.r - b.r || a.i - b.i)
+    .map(({ e }) => e)
+    .slice(0, limit);
+}
+
 const choice =
   'block w-full truncate rounded px-1.5 py-0.5 text-left font-mono text-[11px] hover:bg-dg-sky-100 focus:bg-dg-sky-100 focus:outline-none';
 
@@ -91,8 +107,7 @@ export function Palette({
   const [query, setQuery] = useState('');
   const favourites = useFavourites();
   const all = useMemo(() => paletteEntries(definition, favourites.ids), [definition, favourites.ids]);
-  const words = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
-  const found = all.filter((e) => words.every((w) => `${e.group} ${e.search}`.toLowerCase().includes(w))).slice(0, 80);
+  const found = searchPalette(all, query);
   const groups = [...new Set(found.map((e) => e.group))];
   useEffect(() => {
     const outside = (event: MouseEvent) => ref.current && !ref.current.contains(event.target as Node) && onClose();

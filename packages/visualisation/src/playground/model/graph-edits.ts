@@ -8,10 +8,11 @@
  * port goes back inside that port: the rule the migration from version 3 uses, applied when a wire is drawn.
  */
 import type { Cell, Definition, Expr } from '@dirty-geometry/vec2/recording/definition';
-import { setAt, walk, type ExprPath } from '@dirty-geometry/vec2/recording/expr';
+import { mapExpr, setAt, walk, type ExprPath } from '@dirty-geometry/vec2/recording/expr';
 import {
   assignable,
   checkDefinition,
+  nameProblem,
   parseTypeName,
   typeName,
   typer,
@@ -330,3 +331,185 @@ export function setOutput(doc: GraphDoc, key: string, output: boolean): GraphDoc
 }
 
 export { canvasOf };
+
+// ---- clusters ----
+
+/**
+ * Makes the selected nodes (on the main canvas) a cluster: a new function whose body is what they compute, called
+ * where their result was used. Wires coming in from outside become its params (one per input or cell, one per
+ * unselected node feeding in); the selection must flow into one result.
+ */
+export function makeCluster(doc: GraphDoc, keys: readonly string[], name?: string): GraphDoc & { name: string } {
+  const definition = doc.definition;
+  const graph = toGraph(definition);
+  const analysis = checkDefinition(definition);
+  // Inputs stay outside (they become params), whether selected or not.
+  keys = keys.filter((k) => nodeOf(graph, k).kind !== 'input');
+  const selected = new Set(keys);
+  const nodes = keys.map((k) => nodeOf(graph, k));
+  if (nodes.length < 1) fail('Select the nodes to put in the cluster');
+  if (nodes.some((n) => n.canvas !== 'main')) fail('A cluster is made from nodes on the main canvas');
+  // The result: the one selected node whose value is used outside the selection (or used nowhere).
+  const consumers = (key: string) => graph.edges.filter((e) => e.source === key).map((e) => e.target);
+  const results = nodes.filter((n) => {
+    const out = consumers(n.key);
+    return out.length === 0 || out.some((t) => !selected.has(t));
+  });
+  if (results.length !== 1)
+    fail(
+      `Select nodes that flow into one result (${results.length ? results.map((n) => n.cell?.name ?? n.label).join(', ') : 'none'} give one each)`,
+    );
+  const result = results[0]!;
+
+  const params: { name: string; type: string; arg: Expr; ref?: string }[] = [];
+  const visited = new Set<string>();
+  const used = new Set(definition.functions.map((f) => f.name));
+  const paramName = (base: string) => {
+    const clean = base.replace(/[^\w$]/g, '_').replace(/^(\d)/, '_$1') || 'x';
+    let n = clean;
+    for (let i = 2; params.some((p) => p.name === n); i++) n = `${clean}${i}`;
+    return n;
+  };
+  const typeOfExpr = (e: Expr): string => {
+    const type = typer([], 'cell', '').typeOf(e, { refs: analysis.refs, fns: analysis.fns });
+    const text = typeName(nonNullType(type));
+    if (type === 'unknown' || /unknown/.test(text)) fail('A value coming into the cluster has no known type');
+    return text;
+  };
+  /** A param for a value from outside: the same name or expression shares one. */
+  const param = (arg: Expr, base: string): Expr => {
+    const key = JSON.stringify(arg);
+    const existing = params.find((p) => JSON.stringify(p.arg) === key);
+    if (existing) return { ref: existing.name };
+    const p = { name: paramName(base), type: typeOfExpr(arg), arg };
+    params.push(p);
+    return { ref: p.name };
+  };
+  const cellOf = (n: string) => definition.cells.find((c) => c.name === n);
+  function build(e: Expr, owner: Owner, path: ExprPath, label: string): Expr {
+    if (isInline(e)) return e;
+    if (typeof e === 'object' && e !== null && !Array.isArray(e) && 'ref' in e) {
+      const cell = cellOf(e.ref);
+      if (cell && selected.has(`c:${cell.name}`)) {
+        visited.add(`c:${cell.name}`);
+        return build(cell.expr, { kind: 'cell', name: cell.name }, [], cell.name);
+      }
+      return param(e, e.ref);
+    }
+    const key = nodeKey(owner, path);
+    if (!selected.has(key)) return param(e, label);
+    visited.add(key);
+    const node = graph.byKey.get(key)!;
+    let out: Expr = e;
+    for (const port of node.inputs) {
+      if (!port.filled) continue;
+      const value = port.path.reduce<any>((x, k) => x?.[k], e);
+      if (value === undefined) continue;
+      out = setAt(out, port.path, build(value, owner, [...path, ...port.path], port.label));
+    }
+    return out;
+  }
+  const body = build(result.expr!, result.owner!, result.path, result.label);
+  const missed = keys.filter((k) => !visited.has(k));
+  if (missed.length)
+    fail(`Select nodes that flow into one result (${missed.map((k) => nodeOf(graph, k).label).join(', ')} do not)`);
+
+  const fnName = name ?? ops.freeName(definition, 'cluster');
+  if (used.has(fnName)) fail(`${fnName} is already a cluster`);
+  const call: Expr = params.length
+    ? { call: fnName, args: Object.fromEntries(params.map((p) => [p.name, p.arg])) }
+    : { call: fnName };
+  let next: Definition = {
+    ...definition,
+    functions: [
+      ...definition.functions,
+      { name: fnName, params: params.map(({ name: n, type }) => ({ name: n, type })), body },
+    ],
+  };
+  next = setIn(next, result.owner!, result.path, call);
+  // The selected cells (other than the result's) are inside the cluster now.
+  const inlined = nodes.filter((n) => n.cell && n.key !== result.key).map((n) => n.cell!.name);
+  for (const cell of inlined) {
+    if (usesOf(next, cell) > 0) fail(`${cell} is also used outside the selection`);
+    next = { ...next, cells: next.cells.filter((c) => c.name !== cell) };
+  }
+  const layout = Object.fromEntries(
+    Object.entries(doc.layout).filter(([k]) => k === result.key || !keys.some((s) => k === s || k.startsWith(`${s}@`))),
+  );
+  return { definition: next, layout, name: fnName };
+}
+const nonNullType = (type: Type): Type =>
+  typeof type === 'object' && type !== null && !Array.isArray(type) && 'or' in type
+    ? (() => {
+        const rest = (type as { or: Type[] }).or.filter((t) => t !== 'null');
+        return rest.length === 1 ? rest[0]! : { or: rest };
+      })()
+    : type;
+
+/** Dissolves a cluster: each call gets its body back, with the arguments in place of the params. */
+export function dissolveCluster(doc: GraphDoc, fn: string): GraphDoc {
+  const layout = Object.fromEntries(
+    Object.entries(doc.layout).filter(([k]) => !k.startsWith(`f:${fn}@`) && !k.startsWith(`f:${fn}#`)),
+  );
+  return { definition: ops.removeFunction(doc.definition, fn), layout };
+}
+
+/** Renames a cluster (and every call of it). */
+export function renameCluster(doc: GraphDoc, from: string, to: string): GraphDoc {
+  const definition = ops.rename(doc.definition, from, to);
+  let layout = remapLayout(doc.layout, `f:${from}#`, `f:${to}#`);
+  layout = remapLayout(layout, `f:${from}@`, `f:${to}@`);
+  return { definition, layout };
+}
+
+/** A new param for a cluster (calls pass its type's default). */
+export function addClusterParam(doc: GraphDoc, fn: string, type = 'Coordinate'): GraphDoc {
+  return { ...doc, definition: ops.addParam(doc.definition, fn, type) };
+}
+/** Removes a param: its uses in the body become its type's default; calls drop the argument. */
+export function removeClusterParam(doc: GraphDoc, fn: string, param: string): GraphDoc {
+  return { ...doc, definition: ops.removeParam(doc.definition, fn, param) };
+}
+export function setClusterParamType(doc: GraphDoc, fn: string, param: string, type: string): GraphDoc {
+  return { ...doc, definition: ops.setParamType(doc.definition, fn, param, type) };
+}
+/** Renames a param: in the body and in every call's arguments. */
+export function renameClusterParam(doc: GraphDoc, fn: string, from: string, to: string): GraphDoc {
+  if (from === to) return doc;
+  const problem = nameProblem(to);
+  if (problem) fail(problem);
+  const f = doc.definition.functions.find((x) => x.name === fn) ?? fail(`No cluster ${fn}`);
+  if (f.params.some((p) => p.name === to)) fail(`${fn} already has a param ${to}`);
+  const swap = (e: Expr) =>
+    mapExpr(e, (x) => (x && typeof x === 'object' && 'ref' in x && x.ref === from ? { ref: to } : x));
+  const renameArgs = (e: Expr) =>
+    mapExpr(e, (x) =>
+      x && typeof x === 'object' && 'call' in x && x.call === fn && x.args && from in x.args
+        ? { ...x, args: Object.fromEntries(Object.entries(x.args).map(([k, v]) => [k === from ? to : k, v])) }
+        : x,
+    );
+  const definition: Definition = {
+    ...doc.definition,
+    functions: doc.definition.functions.map((x) =>
+      x.name === fn
+        ? {
+            ...x,
+            params: x.params.map((p) => (p.name === from ? { ...p, name: to } : p)),
+            body: renameArgs(swap(x.body)),
+          }
+        : { ...x, body: renameArgs(x.body) },
+    ),
+    cells: doc.definition.cells.map((c) => ({ ...c, expr: renameArgs(c.expr) })),
+  };
+  return { definition, layout: remapLayout(doc.layout, `f:${fn}#${from}`, `f:${fn}#${to}`) };
+}
+
+/** Puts a new node into `port` of `target` (a wire dragged from an input onto the empty canvas). */
+export function insertNode(doc: GraphDoc, targetKey: string, portKey: string, expr: Expr, position: Point): GraphDoc {
+  const target = nodeOf(toGraph(doc.definition), targetKey);
+  const port = portOf(target, portKey);
+  if (!target.owner) fail('That input cannot be wired');
+  const path = [...target.path, ...port.path];
+  const definition = setIn(doc.definition, target.owner!, path, expr);
+  return { definition, layout: { ...doc.layout, [nodeKey(target.owner!, path)]: position } };
+}

@@ -385,7 +385,7 @@ function FunctionRow({
           ✕
         </button>
       </div>
-      <div className='mt-1 flex items-start gap-1 pl-4'>
+      <div className='mt-1 flex min-w-0 items-start gap-1 overflow-x-auto pl-4'>
         <span className='font-mono text-dg-subtle'>return</span>
         <Operand expr={fn.body} slot='unknown' path={[]} ed={ed} />
       </div>
@@ -485,7 +485,7 @@ function CellRow({
           output
           <select
             aria-label={`${cell.name} output type`}
-            className={selectClass}
+            className={`${selectClass} min-w-0`}
             value={cell.output ? (cell.type ?? '') : ''}
             onChange={(e) =>
               edit((d) =>
@@ -513,7 +513,7 @@ function CellRow({
           ✕
         </button>
       </div>
-      <div className='mt-1 flex items-start gap-1'>
+      <div className='mt-1 flex min-w-0 items-start gap-1 overflow-x-auto'>
         <span className='font-mono text-dg-subtle'>=</span>
         <Operand expr={cell.expr} slot={cell.type ? safeType(cell.type) : 'unknown'} path={[]} ed={ed} />
       </div>

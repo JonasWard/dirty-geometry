@@ -1,1 +1,1 @@
-export { Playground } from './Playground';
+export { Playground, type PlaygroundAbout } from './Playground';

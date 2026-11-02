@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   createDefinitionSchema,
   decodeDefinition,
@@ -37,7 +37,10 @@ const button =
  * Its View tab leaves only the inputs' values to change. The link is `#/<app>` for the editor and `#/<app>/<view>`
  * for the View tab: the app state is the definition (with the editor's values), the view state the input values.
  */
-export function Playground() {
+/** The playground's help: a title (the page's heading) and a short description. */
+export type PlaygroundAbout = { title: ReactNode; body: ReactNode };
+
+export function Playground({ about }: { about?: PlaygroundAbout } = {}) {
   const [initial] = useState(() => {
     const parsed = parseHash(typeof window === 'undefined' ? '' : window.location.hash);
     const { document, error } = initialDocument(parsed.app, parsed.layout);
@@ -49,7 +52,12 @@ export function Playground() {
   });
   return (
     <StoreContext.Provider value={initial.store}>
-      <PlaygroundView initialError={initial.error} initialView={initial.view} initialValues={initial.values} />
+      <PlaygroundView
+        initialError={initial.error}
+        initialView={initial.view}
+        initialValues={initial.values}
+        about={about}
+      />
     </StoreContext.Provider>
   );
 }
@@ -58,10 +66,12 @@ function PlaygroundView({
   initialError,
   initialView,
   initialValues,
+  about,
 }: {
   initialError?: string;
   initialView: View;
   initialValues: Values;
+  about?: PlaygroundAbout;
 }) {
   const store = useStoreApi();
   const definition = usePlayground((s) => s.definition);
@@ -184,36 +194,16 @@ function PlaygroundView({
 
   const commit = (next: typeof definition) => store.getState().commit(next);
   return (
-    <div className='space-y-3'>
+    // On phones the page has no padding of its own: the View tab fills the screen, the Edit tab keeps some room.
+    <div className={`space-y-3 ${view === 'edit' ? 'max-md:py-3' : ''}`}>
+      {/* No help above the editor: the tool speaks for itself (the View tab's drawer keeps it on phones). */}
+      {about && view === 'edit' && <div className='sr-only'>{about.title}</div>}
       {notice && (
         <div className='rounded border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800'>
           {notice}{' '}
           <button type='button' className='underline' onClick={() => setNotice(undefined)}>
             dismiss
           </button>
-        </div>
-      )}
-      {view === 'view' && (
-        <div className='flex flex-wrap items-center gap-2'>
-          <ModeSwitch view={view} nodes={mode === 'nodes'} onChange={switchTo} />
-          <span aria-hidden='true' className='mx-1 h-5 w-px bg-dg-border' />
-          <button
-            type='button'
-            className={button}
-            disabled={changed.length === 0}
-            onClick={() => setValues({})}
-            title='Back to the editor’s values'
-          >
-            ↺ reset values
-          </button>
-          <span className='text-xs text-dg-subtle'>
-            {changed.length === 0 ? 'the editor’s values' : `${changed.length} changed · kept in the link`}
-          </span>
-          {stored.error && (
-            <span className='text-xs text-amber-700' title={stored.error}>
-              a value is out of range; the link keeps the last one that fit
-            </span>
-          )}
         </div>
       )}
       {view === 'view' && (
@@ -224,6 +214,9 @@ function PlaygroundView({
           changed={changed}
           onValue={(input, value) => setValues((current) => ({ ...current, [input.name]: { ...input, value } }))}
           onReset={(name) => setValues(({ [name]: _, ...rest }) => rest)}
+          onResetAll={() => setValues({})}
+          linkError={stored.error}
+          modeSwitch={<ModeSwitch view={view} nodes={mode === 'nodes'} onChange={switchTo} />}
         />
       )}
       {view === 'edit' && (
@@ -302,7 +295,7 @@ function PlaygroundView({
                 </>
               )}
               {nodes && (
-                <div className={narrow ? '-mx-4 md:-mx-8' : ''}>
+                <div className={narrow ? 'md:-mx-8' : ''}>
                   <NodeEditor
                     definition={definition}
                     graph={graph}

@@ -38,6 +38,7 @@ import { autoLayout, type Layout } from '../model/layout';
 import { isDoubleTap, selectionActions, type Tap } from '../model/selection';
 import { useStoreApi, type CommitOptions } from '../store';
 import { ComponentNode, type ComponentNodeType, type NodeActions } from './ComponentNode';
+import { MiniViewer, type ViewerState } from './MiniViewer';
 import { Palette, type PaletteEntry } from './Palette';
 import { ICON_DEFAULTS, ICON_LABELS, useNodePrefs, type IconName, type Icons } from './prefs';
 
@@ -52,6 +53,8 @@ export type NodeEditorProps = {
   /** The selected node's key (its value is drawn). */
   selected: string | null;
   onSelect: (key: string | null) => void;
+  /** On a narrow screen: the drawing (and its inputs' sliders), shown in a small window in the scene. */
+  viewer?: { canvas: React.ReactNode; inputs: React.ReactNode };
 };
 
 export function NodeEditor(props: NodeEditorProps) {
@@ -68,7 +71,8 @@ function valueText(evaluation: Evaluation, name: string): string | undefined {
   return evaluation.inputs.has(name) ? describeValue(evaluation.inputs.get(name)) : undefined;
 }
 
-function Canvas({ definition, graph, layout, analysis, evaluation, selected, onSelect }: NodeEditorProps) {
+function Canvas({ definition, graph, layout, analysis, evaluation, selected, onSelect, viewer }: NodeEditorProps) {
+  const [viewerState, setViewerState] = useState<ViewerState>('small');
   const store = useStoreApi();
   const flow = useReactFlow();
   const [canvas, setCanvas] = useState<Canvas>('main');
@@ -508,41 +512,47 @@ function Canvas({ definition, graph, layout, analysis, evaluation, selected, onS
         </div>
       )}
 
-      {/* On a touch screen the selection's bar sits at the bottom of the scene, where it always fits. */}
+      {/* On a touch screen the selection's bar sits at the top of the scene, where it always fits. */}
       {touch && menuOpen && selection.kind !== 'edge' && (
-        <div className='absolute bottom-3 left-3 right-20 z-10 flex'>{selectionMenu}</div>
+        <div className='absolute top-14 right-2 left-2 z-10 flex'>{selectionMenu}</div>
       )}
 
       {/* The floating buttons: + (add) and the small ones above it. */}
-      <div className='absolute right-3 bottom-3 z-10 flex flex-col items-center gap-2'>
-        {panel && (
-          <div className={`${card} absolute right-12 bottom-0 w-64 flex-col items-stretch !p-2`}>
-            {panel === 'help' ? (
-              <Help />
-            ) : (
-              <IconSettings icons={icons} onChange={(next) => setPrefs({ icons: next })} />
-            )}
-          </div>
+      <div className='absolute right-3 bottom-3 z-10 flex flex-col items-end gap-2'>
+        <div className='relative flex flex-col items-center gap-2'>
+          {panel && (
+            <div className={`${card} absolute right-12 bottom-0 w-64 flex-col items-stretch !p-2`}>
+              {panel === 'help' ? (
+                <Help />
+              ) : (
+                <IconSettings icons={icons} onChange={(next) => setPrefs({ icons: next })} />
+              )}
+            </div>
+          )}
+          {(more || !touch) && (
+            <>
+              {fab('help', () => setPanel(panel === 'help' ? null : 'help'), panel === 'help')}
+              {fab('settings', () => setPanel(panel === 'settings' ? null : 'settings'), panel === 'settings')}
+              {fab('values', () => setPrefs({ showValues: !prefs.showValues }), prefs.showValues)}
+              {fab('newCluster', newCluster)}
+            </>
+          )}
+          {touch && fab('more', () => setMore((on) => !on), more)}
+          {fab('select', () => setBoxSelect((on) => !on), boxSelect)}
+          <button
+            type='button'
+            aria-label='add a node'
+            title='add a node (or double-click the scene)'
+            className='flex h-12 w-12 items-center justify-center rounded-full bg-dg-navy-900 text-2xl text-dg-sky-200 shadow-lg hover:bg-dg-steel-700'
+            onClick={addFromButton}
+          >
+            {icons.add}
+          </button>
+        </div>
+        {viewer && viewerState === 'hidden' && fab('drawing', () => setViewerState('small'))}
+        {viewer && (
+          <MiniViewer state={viewerState} onState={setViewerState} canvas={viewer.canvas} inputs={viewer.inputs} />
         )}
-        {(more || !touch) && (
-          <>
-            {fab('help', () => setPanel(panel === 'help' ? null : 'help'), panel === 'help')}
-            {fab('settings', () => setPanel(panel === 'settings' ? null : 'settings'), panel === 'settings')}
-            {fab('values', () => setPrefs({ showValues: !prefs.showValues }), prefs.showValues)}
-            {fab('newCluster', newCluster)}
-          </>
-        )}
-        {touch && fab('more', () => setMore((on) => !on), more)}
-        {fab('select', () => setBoxSelect((on) => !on), boxSelect)}
-        <button
-          type='button'
-          aria-label='add a node'
-          title='add a node (or double-click the scene)'
-          className='flex h-12 w-12 items-center justify-center rounded-full bg-dg-navy-900 text-2xl text-dg-sky-200 shadow-lg hover:bg-dg-steel-700'
-          onClick={addFromButton}
-        >
-          {icons.add}
-        </button>
       </div>
 
       {palette && (

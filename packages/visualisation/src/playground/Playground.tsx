@@ -11,7 +11,9 @@ import { CodeEditor } from './CodeEditor';
 import { EncodingPanel } from './EncodingPanel';
 import { JsonEditor } from './JsonEditor';
 import { ModeSwitch, tab, type View } from './ModeSwitch';
-import { CellsPanel, FunctionsPanel, InputsPanel } from './panels';
+import { CellsPanel, FunctionsPanel, InputsPanel, InputValueEditor } from './panels';
+import { rangeOf } from './presets';
+import * as ops from './model/ops';
 import { PLAYGROUND_COLORS, PlaygroundCanvas } from './PlaygroundCanvas';
 import { STARTERS } from './starters';
 import { initialDocument } from './location';
@@ -86,7 +88,16 @@ function PlaygroundView({
   // The node view's selection: any node; its value is drawn (a cell's own name selects the cell).
   const [nodeKey, setNodeKey] = useState<string | null>(null);
   const nodes = mode === 'nodes';
+  // Below lg the node scene goes edge to edge and holds the drawing in a small window of its own.
+  const narrow = useNarrow();
   const preview = usePreview(definition, evaluation, nodes ? nodeKey : null, graph);
+  const drawing = (
+    <PlaygroundCanvas
+      definition={preview?.definition ?? definition}
+      evaluation={preview?.evaluation ?? evaluation}
+      selected={preview?.selected ?? selected}
+    />
+  );
   const schema = useMemo(() => createDefinitionSchema(options), [options]);
   // What this page last wrote to (or read from) the URL, and in which view.
   const lastHash = useRef(typeof window === 'undefined' ? '' : window.location.hash);
@@ -290,16 +301,34 @@ function PlaygroundView({
                   <CellsPanel analysis={analysis} evaluation={evaluation} />
                 </>
               )}
-              {mode === 'nodes' && (
-                <NodeEditor
-                  definition={definition}
-                  graph={graph}
-                  layout={layout ?? {}}
-                  analysis={analysis}
-                  evaluation={evaluation}
-                  selected={nodeKey}
-                  onSelect={setNodeKey}
-                />
+              {nodes && (
+                <div className={narrow ? '-mx-4 md:-mx-8' : ''}>
+                  <NodeEditor
+                    definition={definition}
+                    graph={graph}
+                    layout={layout ?? {}}
+                    analysis={analysis}
+                    evaluation={evaluation}
+                    selected={nodeKey}
+                    onSelect={setNodeKey}
+                    {...(narrow && {
+                      viewer: {
+                        canvas: drawing,
+                        inputs: (
+                          <InputSliders
+                            inputs={definition.inputs}
+                            range={(type) => rangeOf(options, active, type)}
+                            onChange={(name, value) =>
+                              store.getState().commit(ops.setInput(store.getState().definition, name, { value }), {
+                                coalesce: `input:${name}`,
+                              })
+                            }
+                          />
+                        ),
+                      },
+                    })}
+                  />
+                </div>
               )}
               {mode === 'code' && <CodeEditor definition={definition} onChange={commit} />}
               {mode === 'json' && <JsonEditor definition={definition} onChange={commit} />}
@@ -308,27 +337,25 @@ function PlaygroundView({
             <div
               className={`min-w-0 space-y-4 ${nodes ? 'lg:sticky lg:top-12 lg:self-start' : 'xl:sticky xl:top-16 xl:self-start'}`}
             >
-              <div
-                className={
-                  nodes
-                    ? // Beside the node scene: as tall as it, square, no frame.
-                      'relative isolate h-[calc(100dvh-5.75rem)] min-h-[360px] w-full overflow-hidden bg-[#0b0d12] md:h-[calc(100dvh-3rem)]'
-                    : 'relative isolate h-[60vh] min-h-[420px] w-full overflow-hidden border border-dg-border bg-[#0b0d12]'
-                }
-              >
-                <PlaygroundCanvas
-                  definition={preview?.definition ?? definition}
-                  evaluation={preview?.evaluation ?? evaluation}
-                  selected={preview?.selected ?? selected}
-                />
-                <VisualisationLegend
-                  items={[
-                    { color: PLAYGROUND_COLORS.intermediate, label: 'Cells', shape: 'line' },
-                    { color: PLAYGROUND_COLORS.outputs[0], label: 'Outputs (one colour each)', shape: 'line' },
-                    { color: PLAYGROUND_COLORS.selected, label: 'Selected (click a name)', shape: 'line' },
-                  ]}
-                />
-              </div>
+              {!(nodes && narrow) && (
+                <div
+                  className={
+                    nodes
+                      ? // Beside the node scene: as tall as it, square, no frame.
+                        'relative isolate h-[calc(100dvh-5.75rem)] min-h-[360px] w-full overflow-hidden bg-[#0b0d12] md:h-[calc(100dvh-3rem)]'
+                      : 'relative isolate h-[60vh] min-h-[420px] w-full overflow-hidden border border-dg-border bg-[#0b0d12]'
+                  }
+                >
+                  {drawing}
+                  <VisualisationLegend
+                    items={[
+                      { color: PLAYGROUND_COLORS.intermediate, label: 'Cells', shape: 'line' },
+                      { color: PLAYGROUND_COLORS.outputs[0], label: 'Outputs (one colour each)', shape: 'line' },
+                      { color: PLAYGROUND_COLORS.selected, label: 'Selected (click a name)', shape: 'line' },
+                    ]}
+                  />
+                </div>
+              )}
               <EncodingPanel
                 schema={schema}
                 options={options}
@@ -357,3 +384,43 @@ function PlaygroundView({
 }
 
 export default Playground;
+
+/** Whether the screen is narrower than the two-column layout (below Tailwind's lg). */
+function useNarrow() {
+  const query = '(max-width: 1023.98px)';
+  const [narrow, setNarrow] = useState(() => typeof window !== 'undefined' && window.matchMedia?.(query).matches);
+  useEffect(() => {
+    const media = window.matchMedia?.(query);
+    if (!media) return;
+    const update = () => setNarrow(media.matches);
+    update();
+    media.addEventListener('change', update);
+    return () => media.removeEventListener('change', update);
+  }, []);
+  return !!narrow;
+}
+
+/** The inputs' values as sliders (a range from the number types' packing ranges), for the full-screen drawing. */
+function InputSliders({
+  inputs,
+  range,
+  onChange,
+}: {
+  inputs: readonly import('@dirty-geometry/vec2/recording/definition').Input[];
+  range: (type: string) => ReturnType<typeof rangeOf>;
+  onChange: (name: string, value: import('@dirty-geometry/vec2/recording/definition').Input['value']) => void;
+}) {
+  if (!inputs.length) return <p className='text-dg-subtle'>No inputs to change.</p>;
+  return (
+    <div className='grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3 gap-y-2'>
+      {inputs.map((input) => (
+        <label key={input.name} className='contents'>
+          <span className='font-mono text-dg-ink'>{input.name}</span>
+          <span className='min-w-0'>
+            <InputValueEditor input={input} range={range} onChange={(value) => onChange(input.name, value)} />
+          </span>
+        </label>
+      ))}
+    </div>
+  );
+}

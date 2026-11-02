@@ -7,7 +7,7 @@
  * second time makes it a cell, and a cell the viewer added (its name still automatic) that ends up feeding exactly one
  * port goes back inside that port: the rule the migration from version 3 uses, applied when a wire is drawn.
  */
-import type { Cell, Definition, Expr } from '@dirty-geometry/vec2/recording/definition';
+import type { Cell, Definition, Expr, Fn } from '@dirty-geometry/vec2/recording/definition';
 import { mapExpr, setAt, walk, type ExprPath } from '@dirty-geometry/vec2/recording/expr';
 import {
   assignable,
@@ -519,4 +519,63 @@ export function newCluster(doc: GraphDoc): GraphDoc & { name: string } {
   const name = ops.freeName(doc.definition, 'cluster');
   const fn = { name, params: [{ name: 'x', type: 'Coordinate' }], body: { ref: 'x' } };
   return { ...doc, definition: { ...doc.definition, functions: [...doc.definition.functions, fn] }, name };
+}
+
+export type CallbackOp = 'generate' | 'map' | 'filter' | 'sort';
+export const CALLBACK_OPS: readonly CallbackOp[] = ['generate', 'map', 'filter', 'sort'];
+const ref = (name: string): Expr => ({ ref: name });
+/** A cluster each list form can call as it is, with a result that already draws something. */
+const CALLBACK_STARTERS: Record<CallbackOp, { name: string; params: Fn['params']; body: Expr }> = {
+  generate: {
+    name: 'point',
+    params: [
+      { name: 'index', type: 'Index' },
+      { name: 'previous', type: 'Vec2' },
+      { name: 'count', type: 'Index' },
+    ],
+    body: { op: 'Vec2.new', args: { x: ref('index'), y: 0 } },
+  },
+  map: {
+    name: 'each',
+    params: [
+      { name: 'item', type: 'Vec2' },
+      { name: 'index', type: 'Index' },
+    ],
+    body: ref('item'),
+  },
+  filter: {
+    name: 'keep',
+    params: [
+      { name: 'item', type: 'Vec2' },
+      { name: 'index', type: 'Index' },
+    ],
+    body: { compare: '<', args: [ref('index'), 4] },
+  },
+  sort: { name: 'sortKey', params: [{ name: 'item', type: 'Vec2' }], body: { op: 'Vec2.y', self: ref('item') } },
+};
+
+/**
+ * A list form that calls a cluster, with the cluster it calls: an existing one whose params are the starter's types,
+ * or else a new starter (`point(index, previous, count)` for generate, `each(item, index)` for map, …).
+ */
+export function withCallback(doc: GraphDoc, op: CallbackOp): GraphDoc & { expr: Expr; fn: string } {
+  const starter = CALLBACK_STARTERS[op];
+  const types = starter.params.map((p) => p.type).join();
+  const existing = doc.definition.functions.find((f) => f.params.map((p) => p.type).join() === types);
+  let definition = doc.definition;
+  let fn = existing?.name;
+  if (!fn) {
+    fn = ops.freeName(definition, starter.name);
+    definition = { ...definition, functions: [...definition.functions, { ...starter, name: fn }] };
+  }
+  const expr: Expr = op === 'generate' ? { list: 'generate', fn, count: 8 } : { list: op, fn, items: [] };
+  return { definition, layout: doc.layout, expr, fn };
+}
+
+/** Which cluster a list node (generate, map, filter, sort) calls. */
+export function setNodeFn(doc: GraphDoc, key: string, fn: string): GraphDoc {
+  const node = nodeOf(toGraph(doc.definition), key);
+  if (!node.fn || !node.owner) fail(`${node.label} calls no cluster`);
+  if (!doc.definition.functions.some((f) => f.name === fn)) fail(`No cluster ${fn}`);
+  return { ...doc, definition: setIn(doc.definition, node.owner!, [...node.path, 'fn'], fn) };
 }

@@ -11,13 +11,16 @@ import type { Definition, Expr } from '@dirty-geometry/vec2/recording/definition
 import { isOptional, isRest, operations, slotType } from '@dirty-geometry/vec2/schema/schema';
 import { roleOf } from '@dirty-geometry/vec2/schema/typing';
 import { defaultLiteral } from '../defaults';
+import { CALLBACK_OPS, type CallbackOp } from '../model/graph-edits';
 import { formChoices } from '../model/ops';
 import { operationLabel } from '../operations';
 import { useFavourites } from '../store';
 
 export type PaletteEntry =
   | { group: string; label: string; search: string; expr: Expr }
-  | { group: string; label: string; search: string; input: string };
+  | { group: string; label: string; search: string; input: string }
+  /** A list form that calls a cluster: picking it also makes a cluster to call when none fits. */
+  | { group: string; label: string; search: string; callback: CallbackOp };
 
 /** An operation as a new node: number arguments start at their default, the others are left to wire. */
 export function freshOp(id: string): Expr {
@@ -57,7 +60,23 @@ export function paletteEntries(definition: Definition, favourites: readonly stri
     search: 'math atan2 angle',
     expr: { math: 'atan2', args: [0, 1] },
   });
-  for (const choice of formChoices(undefined, 'unknown', fns))
+  const callbackWords: Record<CallbackOp, string> = {
+    generate: 'generator range sequence repeat count',
+    map: 'each transform',
+    filter: 'keep where select',
+    sort: 'order by',
+  };
+  for (const op of CALLBACK_OPS)
+    entries.push({
+      group: 'Lists',
+      label: op === 'generate' ? 'generate(index, previous, count)' : `${op}(item, index)`,
+      search: `list ${op} ${callbackWords[op]} cluster`,
+      callback: op,
+    });
+  // The callback forms are listed above, whether or not a cluster exists yet.
+  for (const choice of formChoices(undefined, 'unknown', fns).filter(
+    (c) => !(c.expr && typeof c.expr === 'object' && 'fn' in c.expr),
+  ))
     entries.push({
       group: choice.tab === 'logic' ? 'Logic' : choice.tab === 'list' ? 'Lists' : 'Random',
       label: choice.label,

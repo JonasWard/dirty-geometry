@@ -433,3 +433,41 @@ describe('browsing the node search without typing', () => {
     );
   });
 });
+
+describe('list nodes that call a cluster', () => {
+  const empty = def({});
+  const doc = { definition: empty, layout: {} };
+
+  test('the search offers generate, map, filter and sort with no cluster yet', () => {
+    const callbacks = paletteEntries(empty, [])
+      .filter((e) => 'callback' in e)
+      .map((e) => ('callback' in e ? e.callback : ''));
+    expect(callbacks).toEqual(['generate', 'map', 'filter', 'sort']);
+    expect(searchPalette(paletteEntries(empty, []), 'generator')[0]).toMatchObject({ callback: 'generate' });
+  });
+
+  test('picking generate with no cluster makes one it can call, and the result draws 8 points', () => {
+    const made = edits.withCallback(doc, 'generate');
+    expect(made.fn).toBe('point');
+    const added = edits.addNode(made, made.expr, { x: 0, y: 0 });
+    expect(checkDefinition(added.definition).issues).toEqual([]);
+    const name = added.definition.cells[0]!.name;
+    expect(evaluate(added.definition).cells.get(name)).toMatchObject({ value: { length: 8 } });
+  });
+
+  test('an existing cluster of the right shape is reused', () => {
+    const once = edits.withCallback(doc, 'map');
+    const twice = edits.withCallback(once, 'map');
+    expect(twice.fn).toBe(once.fn);
+    expect(twice.definition.functions).toHaveLength(1);
+    expect(edits.withCallback(twice, 'sort').definition.functions).toHaveLength(2);
+  });
+
+  test('a list node can call another cluster', () => {
+    const made = edits.withCallback(doc, 'generate');
+    const d = edits.newCluster(edits.addNode(made, made.expr, { x: 0, y: 0 }));
+    const next = edits.setNodeFn(d, 'c:generate', 'cluster');
+    expect(next.definition.cells[0]!.expr).toMatchObject({ list: 'generate', fn: 'cluster' });
+    expect(toDefinition(toGraph(next.definition))).toEqual(next.definition);
+  });
+});

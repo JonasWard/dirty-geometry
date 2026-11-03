@@ -62,6 +62,8 @@ export type NodeEditorProps = {
   /** Definitions to start from, in a panel of the scene. */
   starters?: readonly { id: string; label: string }[];
   onStarter?: (id: string) => void;
+  /** Buttons of the page (the view switch, undo), floating at the top left of the scene. */
+  toolbar?: React.ReactNode;
 };
 
 export function NodeEditor(props: NodeEditorProps) {
@@ -91,9 +93,28 @@ function Canvas({
   packing,
   starters,
   onStarter,
+  toolbar,
 }: NodeEditorProps) {
   /** The packing drawer at the bottom of the scene. */
   const [drawer, setDrawer] = useState(false);
+  const popover = useRef<HTMLDivElement>(null);
+  // The popover closes on Esc, or on a press outside it (but not on its own ⇄ button, which toggles it).
+  useEffect(() => {
+    if (!drawer) return;
+    const onKey = (event: KeyboardEvent) => event.key === 'Escape' && setDrawer(false);
+    const onDown = (event: PointerEvent) => {
+      const target = event.target as HTMLElement;
+      if (!popover.current || popover.current.contains(target)) return;
+      if (target.closest?.(`[aria-label="${ICON_LABELS.link}"]`)) return;
+      setDrawer(false);
+    };
+    document.addEventListener('keydown', onKey);
+    document.addEventListener('pointerdown', onDown);
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      document.removeEventListener('pointerdown', onDown);
+    };
+  }, [drawer]);
   const [viewerState, setViewerState] = useState<ViewerState>('small');
   const store = useStoreApi();
   const flow = useReactFlow();
@@ -260,6 +281,8 @@ function Canvas({
     const n = graph.byKey.get(key);
     const fn = n?.kind === 'call' ? n.label : n?.fn;
     if (event.detail >= 2 && fn && functions.includes(fn)) return enter(fn);
+    // Shift/⌘/Ctrl-click adds to the selection (React Flow keeps it): the drawn node stays the one picked first.
+    if ((event.shiftKey || event.metaKey || event.ctrlKey) && selected) return;
     onSelect(key);
   };
   const issues = useMemo(() => issuesByNode(graph, analysis), [graph, analysis]);
@@ -380,6 +403,26 @@ function Canvas({
       });
   }, [graph, derived, issues]);
 
+  const makeClusterOfSelection = () =>
+    edit((doc) => {
+      const made = edits.makeCluster(doc, keys);
+      setPicked([]);
+      return made;
+    });
+  // Ctrl/⌘+G makes a cluster of the selection, as ⧉ does (not while a field is being typed in).
+  const clusterKey = useRef(() => {});
+  clusterKey.current = () => selection.canCluster && makeClusterOfSelection();
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key.toLowerCase() !== 'g' || !(event.ctrlKey || event.metaKey) || event.shiftKey || event.altKey)
+        return;
+      if ((event.target as HTMLElement | null)?.closest?.('input, textarea, select, [contenteditable]')) return;
+      event.preventDefault();
+      clusterKey.current();
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, []);
   const selectionMenu = (
     <SelectionMenu
       actions={selection}
@@ -391,13 +434,7 @@ function Canvas({
       onName={(name) => actions.name(selection.node!.key, name)}
       onOutput={() => actions.output(selection.node!.key, !selection.node!.cell?.output)}
       onOpen={() => enter(selection.open!)}
-      onCluster={() =>
-        edit((doc) => {
-          const made = edits.makeCluster(doc, keys);
-          setPicked([]);
-          return made;
-        })
-      }
+      onCluster={makeClusterOfSelection}
     />
   );
   const fab = (name: IconName, onClick: () => void, pressed?: boolean) => (
@@ -452,6 +489,8 @@ function Canvas({
           onSelect(null);
           setEdge(e.id);
         }}
+        // Shift-click adds a node to the selection (or takes it out), as ⌘/Ctrl-click does; Shift-drag draws a box.
+        multiSelectionKeyCode={['Shift', 'Meta', 'Control']}
         selectionOnDrag={boxSelect}
         panOnDrag={!boxSelect}
         connectionRadius={30}
@@ -477,6 +516,7 @@ function Canvas({
 
       {/* Where we are: the main canvas, or a cluster (with its own tools). */}
       <div className='pointer-events-none absolute top-2 left-2 z-10 flex max-w-[calc(100%-1rem)] flex-wrap items-center gap-1'>
+        {toolbar && <div className={`${card} pointer-events-auto`}>{toolbar}</div>}
         {canvas !== 'main' && (
           <div className={`${card} pointer-events-auto`}>
             <button
@@ -601,8 +641,31 @@ function Canvas({
         )}
       </div>
 
-      {/* The link and its packing: a drawer over the bottom of the scene (above the floating buttons). */}
-      {packing && drawer && (
+      {/* With a mouse the link and its packing open in a popover beside the floating buttons. */}
+      {packing && drawer && !touch && (
+        <div
+          ref={popover}
+          role='dialog'
+          aria-label='link and packing'
+          className='absolute right-16 bottom-3 z-30 flex max-h-[calc(100%-1.5rem)] w-[26rem] max-w-[calc(100%-5rem)] flex-col rounded-md border border-dg-border bg-dg-canvas/95 shadow-lg backdrop-blur-sm'
+        >
+          <div className='flex shrink-0 items-center gap-2 px-3 py-2 text-xs'>
+            <span className='font-semibold tracking-widest text-dg-subtle uppercase'>link &amp; packing</span>
+            <button
+              type='button'
+              aria-label='close link and packing'
+              className='ml-auto rounded px-1 text-dg-subtle hover:text-dg-ink'
+              onClick={() => setDrawer(false)}
+            >
+              ✕
+            </button>
+          </div>
+          <div className='min-h-0 overflow-y-auto px-2 pb-2'>{packing}</div>
+        </div>
+      )}
+
+      {/* On a touch screen: a drawer over the bottom of the scene (above the floating buttons). */}
+      {packing && drawer && touch && (
         <div
           role='dialog'
           aria-label='link and packing'
@@ -717,12 +780,14 @@ function Help() {
       <p className='font-semibold text-dg-ink'>With a mouse</p>
       <p>
         Double-click the scene to add · drag a result onto an input · drag from an input into space to add into it ·
-        Shift-drag to select several · Delete removes · double-click a cluster to open it.
+        Shift-click or Shift-drag to select several · {ICON_DEFAULTS.makeCluster} or Ctrl/⌘+G makes them a cluster ·
+        Delete removes · double-click a cluster to open it · Esc closes the search.
       </p>
       <p className='font-semibold text-dg-ink'>By touch</p>
       <p>
         Tap to select (its value is drawn) · press and hold for its actions · tap a dot, then another, to wire ·
-        double-tap or + to add · {ICON_DEFAULTS.select} to select several.
+        double-tap or + to add · {ICON_DEFAULTS.select} to select several, then {ICON_DEFAULTS.makeCluster} to make them
+        a cluster.
       </p>
       <p>The buttons&apos; characters can be changed under {ICON_DEFAULTS.settings}.</p>
     </div>

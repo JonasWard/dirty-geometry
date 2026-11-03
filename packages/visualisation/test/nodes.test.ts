@@ -408,10 +408,11 @@ describe('browsing the node search without typing', () => {
 
   test('an empty search shows every small group, and only the favourite operations', () => {
     const { entries, moreOperations } = browsePalette(all, '', null, favourites);
+    // Lists come right after the clusters, so generate is in view as the search opens.
     expect(groupsOf(entries)).toEqual([
       'Clusters',
-      'Math',
       'Lists',
+      'Math',
       'Logic',
       'Random',
       'Values',

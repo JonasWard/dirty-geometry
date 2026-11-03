@@ -110,8 +110,8 @@ export function searchPalette(entries: readonly PaletteEntry[], query: string, l
 /** The groups, in the order the search lists them when nothing is typed. */
 export const PALETTE_GROUPS = [
   'Clusters',
-  'Math',
   'Lists',
+  'Math',
   'Logic',
   'Random',
   'Values',
@@ -169,8 +169,14 @@ export function Palette({
   const touch = useMemo(() => typeof window !== 'undefined' && !!window.matchMedia?.('(pointer: coarse)').matches, []);
   useEffect(() => {
     const outside = (event: MouseEvent) => ref.current && !ref.current.contains(event.target as Node) && onClose();
+    // Esc closes it wherever the focus is (on a touch screen the search field is never focused).
+    const escape = (event: KeyboardEvent) => event.key === 'Escape' && onClose();
     document.addEventListener('mousedown', outside);
-    return () => document.removeEventListener('mousedown', outside);
+    document.addEventListener('keydown', escape);
+    return () => {
+      document.removeEventListener('mousedown', outside);
+      document.removeEventListener('keydown', escape);
+    };
   }, [onClose]);
   return (
     <div
@@ -188,7 +194,6 @@ export function Palette({
         value={query}
         onChange={(event) => setQuery(event.target.value)}
         onKeyDown={(event) => {
-          if (event.key === 'Escape') onClose();
           if (event.key === 'Enter' && found[0]) onPick(found[0]);
         }}
       />

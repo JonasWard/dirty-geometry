@@ -260,6 +260,8 @@ function Canvas({
     const n = graph.byKey.get(key);
     const fn = n?.kind === 'call' ? n.label : n?.fn;
     if (event.detail >= 2 && fn && functions.includes(fn)) return enter(fn);
+    // Shift/⌘/Ctrl-click adds to the selection (React Flow keeps it): the drawn node stays the one picked first.
+    if ((event.shiftKey || event.metaKey || event.ctrlKey) && selected) return;
     onSelect(key);
   };
   const issues = useMemo(() => issuesByNode(graph, analysis), [graph, analysis]);
@@ -380,6 +382,26 @@ function Canvas({
       });
   }, [graph, derived, issues]);
 
+  const makeClusterOfSelection = () =>
+    edit((doc) => {
+      const made = edits.makeCluster(doc, keys);
+      setPicked([]);
+      return made;
+    });
+  // Ctrl/⌘+G makes a cluster of the selection, as ⧉ does (not while a field is being typed in).
+  const clusterKey = useRef(() => {});
+  clusterKey.current = () => selection.canCluster && makeClusterOfSelection();
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key.toLowerCase() !== 'g' || !(event.ctrlKey || event.metaKey) || event.shiftKey || event.altKey)
+        return;
+      if ((event.target as HTMLElement | null)?.closest?.('input, textarea, select, [contenteditable]')) return;
+      event.preventDefault();
+      clusterKey.current();
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, []);
   const selectionMenu = (
     <SelectionMenu
       actions={selection}
@@ -391,13 +413,7 @@ function Canvas({
       onName={(name) => actions.name(selection.node!.key, name)}
       onOutput={() => actions.output(selection.node!.key, !selection.node!.cell?.output)}
       onOpen={() => enter(selection.open!)}
-      onCluster={() =>
-        edit((doc) => {
-          const made = edits.makeCluster(doc, keys);
-          setPicked([]);
-          return made;
-        })
-      }
+      onCluster={makeClusterOfSelection}
     />
   );
   const fab = (name: IconName, onClick: () => void, pressed?: boolean) => (
@@ -452,6 +468,8 @@ function Canvas({
           onSelect(null);
           setEdge(e.id);
         }}
+        // Shift-click adds a node to the selection (or takes it out), as ⌘/Ctrl-click does; Shift-drag draws a box.
+        multiSelectionKeyCode={['Shift', 'Meta', 'Control']}
         selectionOnDrag={boxSelect}
         panOnDrag={!boxSelect}
         connectionRadius={30}
@@ -717,12 +735,14 @@ function Help() {
       <p className='font-semibold text-dg-ink'>With a mouse</p>
       <p>
         Double-click the scene to add · drag a result onto an input · drag from an input into space to add into it ·
-        Shift-drag to select several · Delete removes · double-click a cluster to open it.
+        Shift-click or Shift-drag to select several · {ICON_DEFAULTS.makeCluster} or Ctrl/⌘+G makes them a cluster ·
+        Delete removes · double-click a cluster to open it · Esc closes the search.
       </p>
       <p className='font-semibold text-dg-ink'>By touch</p>
       <p>
         Tap to select (its value is drawn) · press and hold for its actions · tap a dot, then another, to wire ·
-        double-tap or + to add · {ICON_DEFAULTS.select} to select several.
+        double-tap or + to add · {ICON_DEFAULTS.select} to select several, then {ICON_DEFAULTS.makeCluster} to make them
+        a cluster.
       </p>
       <p>The buttons&apos; characters can be changed under {ICON_DEFAULTS.settings}.</p>
     </div>

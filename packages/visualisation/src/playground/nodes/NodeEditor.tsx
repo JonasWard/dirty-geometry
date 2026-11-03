@@ -62,6 +62,8 @@ export type NodeEditorProps = {
   /** Definitions to start from, in a panel of the scene. */
   starters?: readonly { id: string; label: string }[];
   onStarter?: (id: string) => void;
+  /** Buttons of the page (the view switch, undo), floating at the top left of the scene. */
+  toolbar?: React.ReactNode;
 };
 
 export function NodeEditor(props: NodeEditorProps) {
@@ -91,9 +93,28 @@ function Canvas({
   packing,
   starters,
   onStarter,
+  toolbar,
 }: NodeEditorProps) {
   /** The packing drawer at the bottom of the scene. */
   const [drawer, setDrawer] = useState(false);
+  const popover = useRef<HTMLDivElement>(null);
+  // The popover closes on Esc, or on a press outside it (but not on its own ⇄ button, which toggles it).
+  useEffect(() => {
+    if (!drawer) return;
+    const onKey = (event: KeyboardEvent) => event.key === 'Escape' && setDrawer(false);
+    const onDown = (event: PointerEvent) => {
+      const target = event.target as HTMLElement;
+      if (!popover.current || popover.current.contains(target)) return;
+      if (target.closest?.(`[aria-label="${ICON_LABELS.link}"]`)) return;
+      setDrawer(false);
+    };
+    document.addEventListener('keydown', onKey);
+    document.addEventListener('pointerdown', onDown);
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      document.removeEventListener('pointerdown', onDown);
+    };
+  }, [drawer]);
   const [viewerState, setViewerState] = useState<ViewerState>('small');
   const store = useStoreApi();
   const flow = useReactFlow();
@@ -495,6 +516,7 @@ function Canvas({
 
       {/* Where we are: the main canvas, or a cluster (with its own tools). */}
       <div className='pointer-events-none absolute top-2 left-2 z-10 flex max-w-[calc(100%-1rem)] flex-wrap items-center gap-1'>
+        {toolbar && <div className={`${card} pointer-events-auto`}>{toolbar}</div>}
         {canvas !== 'main' && (
           <div className={`${card} pointer-events-auto`}>
             <button
@@ -619,8 +641,31 @@ function Canvas({
         )}
       </div>
 
-      {/* The link and its packing: a drawer over the bottom of the scene (above the floating buttons). */}
-      {packing && drawer && (
+      {/* With a mouse the link and its packing open in a popover beside the floating buttons. */}
+      {packing && drawer && !touch && (
+        <div
+          ref={popover}
+          role='dialog'
+          aria-label='link and packing'
+          className='absolute right-16 bottom-3 z-30 flex max-h-[calc(100%-1.5rem)] w-[26rem] max-w-[calc(100%-5rem)] flex-col rounded-md border border-dg-border bg-dg-canvas/95 shadow-lg backdrop-blur-sm'
+        >
+          <div className='flex shrink-0 items-center gap-2 px-3 py-2 text-xs'>
+            <span className='font-semibold tracking-widest text-dg-subtle uppercase'>link &amp; packing</span>
+            <button
+              type='button'
+              aria-label='close link and packing'
+              className='ml-auto rounded px-1 text-dg-subtle hover:text-dg-ink'
+              onClick={() => setDrawer(false)}
+            >
+              ✕
+            </button>
+          </div>
+          <div className='min-h-0 overflow-y-auto px-2 pb-2'>{packing}</div>
+        </div>
+      )}
+
+      {/* On a touch screen: a drawer over the bottom of the scene (above the floating buttons). */}
+      {packing && drawer && touch && (
         <div
           role='dialog'
           aria-label='link and packing'

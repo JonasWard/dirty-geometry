@@ -15,6 +15,7 @@ import { CellsPanel, FunctionsPanel, InputsPanel, InputValueEditor } from './pan
 import { rangeOf } from './presets';
 import * as ops from './model/ops';
 import { PLAYGROUND_COLORS, PlaygroundCanvas } from './PlaygroundCanvas';
+import { Splitter, useSplit } from './Splitter';
 import { STARTERS } from './starters';
 import { initialDocument } from './location';
 import { toGraph } from './model/graph';
@@ -235,6 +236,44 @@ function PlaygroundView({
     const chosen = STARTERS.find((candidate) => candidate.id === id);
     if (chosen) store.getState().load({ definition: chosen.build(), options: {}, presets: {}, auto: true });
   };
+  // Desktop Nodes: the view switch and undo float over the node scene (narrow screens have a row of their own).
+  const floatingToolbar = (
+    <div className='flex items-center gap-1'>
+      <ModeSwitch view={view} nodes onChange={switchTo} />
+      <span aria-hidden='true' className='mx-0.5 h-5 w-px bg-dg-border' />
+      <button
+        type='button'
+        aria-label='undo'
+        title='undo (Ctrl+Z)'
+        className={button}
+        disabled={!canUndo}
+        onClick={() => store.getState().undo()}
+      >
+        ↶
+      </button>
+      <button
+        type='button'
+        aria-label='redo'
+        title='redo (Ctrl+Shift+Z)'
+        className={button}
+        disabled={!canRedo}
+        onClick={() => store.getState().redo()}
+      >
+        ↷
+      </button>
+    </div>
+  );
+  const [split, setSplit] = useSplit();
+  const panes = useRef<HTMLDivElement>(null);
+  const legend = (
+    <VisualisationLegend
+      items={[
+        { color: PLAYGROUND_COLORS.intermediate, label: 'Cells', shape: 'line' },
+        { color: PLAYGROUND_COLORS.outputs[0], label: 'Outputs (one colour each)', shape: 'line' },
+        { color: PLAYGROUND_COLORS.selected, label: 'Selected (click a name)', shape: 'line' },
+      ]}
+    />
+  );
   const nodeEditor = (
     <NodeEditor
       definition={definition}
@@ -244,11 +283,12 @@ function PlaygroundView({
       evaluation={evaluation}
       selected={nodeKey}
       onSelect={setNodeKey}
+      fill
+      packing={packing}
+      starters={STARTERS.map(({ id, label }) => ({ id, label }))}
+      onStarter={loadStarter}
+      {...(!narrow && { toolbar: floatingToolbar })}
       {...(narrow && {
-        fill: true,
-        packing,
-        starters: STARTERS.map(({ id, label }) => ({ id, label })),
-        onStarter: loadStarter,
         viewer: {
           canvas: drawing,
           inputs: (
@@ -307,6 +347,24 @@ function PlaygroundView({
           </button>
         </div>
         <div className='min-h-0 flex-1'>{nodeEditor}</div>
+      </div>
+    );
+
+  // Nodes on a desktop: the node scene and the drawing side by side, one screen below the site header, no padding.
+  // The bar between them shares the width; the page's buttons, the starters and the packing float over the scene.
+  if (view === 'edit' && nodes)
+    return (
+      <div ref={panes} className='fixed inset-x-0 top-12 bottom-0 z-10 flex bg-dg-canvas'>
+        {about && <div className='sr-only'>{about.title}</div>}
+        {notice && <div className='absolute top-2 left-1/2 z-30 -translate-x-1/2'>{noticeBox}</div>}
+        <div className='h-full min-w-0' style={{ width: `${split}%` }}>
+          {nodeEditor}
+        </div>
+        <Splitter split={split} onSplit={setSplit} container={panes} />
+        <div className='relative isolate h-full min-w-0 flex-1 overflow-hidden bg-[#0b0d12]'>
+          {drawing}
+          {legend}
+        </div>
       </div>
     );
 
@@ -389,9 +447,7 @@ function PlaygroundView({
             </label>
           </div>
 
-          <div
-            className={`grid ${nodes ? 'gap-4 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] lg:gap-0' : 'gap-4 xl:grid-cols-[minmax(0,6fr)_minmax(0,5fr)]'}`}
-          >
+          <div className='grid gap-4 xl:grid-cols-[minmax(0,6fr)_minmax(0,5fr)]'>
             <div className='min-w-0 space-y-4'>
               {mode === 'cells' && (
                 <>
@@ -400,31 +456,15 @@ function PlaygroundView({
                   <CellsPanel analysis={analysis} evaluation={evaluation} />
                 </>
               )}
-              {nodes && nodeEditor}
               {mode === 'code' && <CodeEditor definition={definition} onChange={commit} />}
               {mode === 'json' && <JsonEditor definition={definition} onChange={commit} />}
             </div>
 
-            <div
-              className={`min-w-0 space-y-4 ${nodes ? 'lg:sticky lg:top-12 lg:self-start' : 'xl:sticky xl:top-16 xl:self-start'}`}
-            >
+            <div className='min-w-0 space-y-4 xl:sticky xl:top-16 xl:self-start'>
               {
-                <div
-                  className={
-                    nodes
-                      ? // Beside the node scene: as tall as it, square, no frame.
-                        'relative isolate h-[calc(100dvh-5.75rem)] min-h-[360px] w-full overflow-hidden bg-[#0b0d12] md:h-[calc(100dvh-3rem)]'
-                      : 'relative isolate h-[60vh] min-h-[420px] w-full overflow-hidden border border-dg-border bg-[#0b0d12]'
-                  }
-                >
+                <div className='relative isolate h-[60vh] min-h-[420px] w-full overflow-hidden border border-dg-border bg-[#0b0d12]'>
                   {drawing}
-                  <VisualisationLegend
-                    items={[
-                      { color: PLAYGROUND_COLORS.intermediate, label: 'Cells', shape: 'line' },
-                      { color: PLAYGROUND_COLORS.outputs[0], label: 'Outputs (one colour each)', shape: 'line' },
-                      { color: PLAYGROUND_COLORS.selected, label: 'Selected (click a name)', shape: 'line' },
-                    ]}
-                  />
+                  {legend}
                 </div>
               }
               {packing}

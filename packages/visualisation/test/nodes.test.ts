@@ -7,7 +7,7 @@ import { issuesByNode, nodeKey, outKey, toDefinition, toGraph } from '../src/pla
 import * as edits from '../src/playground/model/graph-edits';
 import { isDoubleTap, selectionActions } from '../src/playground/model/selection';
 import { autoLayout, COLUMN, decodeLayout, encodeLayout, remapLayout } from '../src/playground/model/layout';
-import { freshOp, paletteEntries, searchPalette } from '../src/playground/nodes/Palette';
+import { browsePalette, freshOp, paletteEntries, searchPalette } from '../src/playground/nodes/Palette';
 import { previewOf } from '../src/playground/nodes/preview';
 import { STARTERS } from '../src/playground/starters';
 import { formatHash, parseHash } from '../src/playground/url';
@@ -398,5 +398,76 @@ describe('starting clusters', () => {
       body: { ref: 'x' },
     });
     expect(edits.newCluster(made).name).toBe('cluster2');
+  });
+});
+
+describe('browsing the node search without typing', () => {
+  const all = paletteEntries(starter('wobbly-ring'), []);
+  const favourites = ['Vec2.new', 'Circle2.new'];
+  const groupsOf = (list: { group: string }[]) => [...new Set(list.map((e) => e.group))];
+
+  test('an empty search shows every small group, and only the favourite operations', () => {
+    const { entries, moreOperations } = browsePalette(all, '', null, favourites);
+    expect(groupsOf(entries)).toEqual([
+      'Clusters',
+      'Math',
+      'Lists',
+      'Logic',
+      'Random',
+      'Values',
+      'Inputs',
+      'Operations',
+    ]);
+    expect(entries.filter((e) => e.group === 'Operations').map((e) => e.label)).toEqual(['new Circle2', 'new Vec2']);
+    expect(moreOperations).toBeGreaterThan(400);
+  });
+
+  test('a group shows in full; a query narrows within it', () => {
+    const math = browsePalette(all, '', 'Math', favourites).entries;
+    expect(math.every((e) => e.group === 'Math')).toBe(true);
+    expect(math.map((e) => e.label)).toEqual(expect.arrayContaining(['sin(x)', 'atan2(y, x)', 'log10(x)', 'x + y']));
+    expect(math.length).toBe(all.filter((e) => e.group === 'Math').length);
+    expect(browsePalette(all, 'log', 'Math', favourites).entries.map((e) => e.label)).toEqual(['log2(x)', 'log10(x)']);
+    expect(browsePalette(all, '', 'Operations', favourites).entries.length).toBe(
+      all.filter((e) => e.group === 'Operations').length,
+    );
+  });
+});
+
+describe('list nodes that call a cluster', () => {
+  const empty = def({});
+  const doc = { definition: empty, layout: {} };
+
+  test('the search offers generate, map, filter and sort with no cluster yet', () => {
+    const callbacks = paletteEntries(empty, [])
+      .filter((e) => 'callback' in e)
+      .map((e) => ('callback' in e ? e.callback : ''));
+    expect(callbacks).toEqual(['generate', 'map', 'filter', 'sort']);
+    expect(searchPalette(paletteEntries(empty, []), 'generator')[0]).toMatchObject({ callback: 'generate' });
+  });
+
+  test('picking generate with no cluster makes one it can call, and the result draws 8 points', () => {
+    const made = edits.withCallback(doc, 'generate');
+    expect(made.fn).toBe('point');
+    const added = edits.addNode(made, made.expr, { x: 0, y: 0 });
+    expect(checkDefinition(added.definition).issues).toEqual([]);
+    const name = added.definition.cells[0]!.name;
+    expect(evaluate(added.definition).cells.get(name)).toMatchObject({ value: { length: 8 } });
+  });
+
+  test('an existing cluster of the right shape is reused', () => {
+    const once = edits.withCallback(doc, 'map');
+    const twice = edits.withCallback(once, 'map');
+    expect(twice.fn).toBe(once.fn);
+    expect(twice.definition.functions).toHaveLength(1);
+    expect(edits.withCallback(twice, 'sort').definition.functions).toHaveLength(2);
+  });
+
+  test('a list node can call another cluster', () => {
+    const made = edits.withCallback(doc, 'generate');
+    const d = edits.newCluster(edits.addNode(made, made.expr, { x: 0, y: 0 }));
+    const next = edits.setNodeFn(d, 'c:generate', 'cluster');
+    expect(next.definition.cells[0]!.expr).toMatchObject({ list: 'generate', fn: 'cluster' });
+    expect(toDefinition(toGraph(next.definition))).toEqual(next.definition);
   });
 });

@@ -3,6 +3,8 @@
  * renaming rewrites every use, removing a cell writes its expression into the cells that used it, removing an input
  * writes its value there, and removing a function writes its body into the calls.
  */
+import { toCall } from '@dirty-geometry/fn/calls';
+import { isSharedForm } from '@dirty-geometry/fn/forms';
 import { isUnary, type UnaryOp } from '@dirty-geometry/fn/math';
 import type { Cell, Definition, Expr, Fn, Input, MathOp } from '@dirty-geometry/vec2/recording/definition';
 import { mapExpr, setAt, type ExprPath } from '@dirty-geometry/vec2/recording/expr';
@@ -134,6 +136,17 @@ export function nameFor(expr: Expr): string {
   }
   if (isObj(expr) && 'call' in expr) return expr.call;
   if (isObj(expr) && 'field' in expr) return expr.field;
+  // A shared form: after the function it calls (`sin`, `map`, `white`), or what the operator makes.
+  if (isSharedForm<Expr>(expr)) {
+    const operator: Record<string, string> = {
+      '+': 'sum',
+      '-': 'difference',
+      '*': 'product',
+      '/': 'quotient',
+      neg: 'negated',
+    };
+    return toCall(expr)?.name ?? ('math' in expr ? (operator[expr.math] ?? 'value') : 'value');
+  }
   return 'value';
 }
 const cellIndex = (definition: Definition, name: string) => {

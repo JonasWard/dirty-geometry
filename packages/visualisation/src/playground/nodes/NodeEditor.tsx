@@ -28,7 +28,7 @@ import {
   type NodeChange,
 } from '@xyflow/react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { Definition } from '@dirty-geometry/vec2/recording/definition';
+import type { Definition, Expr } from '@dirty-geometry/vec2/recording/definition';
 import type { Evaluation } from '@dirty-geometry/vec2/recording/evaluate';
 import { inputTypes, type Analysis } from '@dirty-geometry/vec2/schema/typing';
 import { describeValue } from '../describe';
@@ -147,7 +147,7 @@ function Canvas({
     },
     [store],
   );
-  const functions = definition.functions.map((fn) => fn.name);
+  const functions = useMemo(() => definition.functions.map((fn) => fn.name), [definition.functions]);
   // A cluster that is gone (renamed, removed) closes.
   useEffect(() => {
     if (canvas !== 'main' && !functions.includes(canvas.slice(3))) setCanvas('main');
@@ -179,6 +179,7 @@ function Canvas({
         edit((doc) => edits.removeClusterParam(doc, fn!, param!));
       },
       output: (key, output) => edit((doc) => edits.setOutput(doc, key, output)),
+      setFn: (key, fn) => edit((doc) => edits.setNodeFn(doc, key, fn)),
       enter,
       longPress: (key) => {
         onSelect(key);
@@ -224,15 +225,17 @@ function Canvas({
     edit((doc) => {
       // The nodes stay where they are drawn: placing one fixes the others too.
       doc = { ...doc, layout: { ...positions, ...doc.layout } };
+      let expr: Expr | undefined = 'expr' in entry ? entry.expr : undefined;
+      if ('callback' in entry) ({ expr, ...doc } = edits.withCallback(doc, entry.callback));
       if (palette!.into) {
         const { node, port } = palette!.into;
         if ('input' in entry) {
           const added = edits.addInputNode(doc, entry.input, at);
           return edits.connect(added, added.key, node, port);
         }
-        return edits.insertNode(doc, node, port, entry.expr, at);
+        return edits.insertNode(doc, node, port, expr!, at);
       }
-      const added = 'input' in entry ? edits.addInputNode(doc, entry.input, at) : edits.addNode(doc, entry.expr, at);
+      const added = 'input' in entry ? edits.addInputNode(doc, entry.input, at) : edits.addNode(doc, expr!, at);
       onSelect(added.key);
       return added;
     });
@@ -325,13 +328,14 @@ function Canvas({
             wired: wired.get(node.key) ?? new Set(),
             nameable: canvas === 'main' && node.kind !== 'input',
             types: paramTypes,
+            clusters: functions,
             showValues: prefs.showValues || node.key === selected,
             openIcon: icons.open,
             actions,
           },
         };
       });
-  }, [graph, canvas, positions, issues, evaluation, selected, actions, prefs.showValues, icons.open]);
+  }, [graph, canvas, positions, issues, evaluation, selected, actions, prefs.showValues, icons.open, functions]);
   // React Flow moves nodes while they are dragged; the layout is written when a drag ends.
   const [nodes, setNodes] = useState(derived);
   // Rebuilt nodes keep their measured size: React Flow hides a node until it is measured, and a hidden node misses
@@ -678,7 +682,7 @@ function SelectionMenu({
             <input
               autoFocus
               aria-label='node name'
-              className='w-28 rounded border border-dg-border px-1 py-0.5 font-mono text-xs'
+              className='w-28 rounded border border-dg-border px-1 py-0.5 font-mono text-xs coarse:w-36'
               value={naming}
               onChange={(event) => setNaming(event.target.value)}
               onBlur={() => setNaming(null)}
@@ -735,7 +739,7 @@ function IconSettings({ icons, onChange }: { icons: Icons; onChange: (icons: Ico
           <label key={name} className='contents text-[11px] text-dg-subtle'>
             <input
               aria-label={`${ICON_LABELS[name]} character`}
-              className='w-10 rounded border border-dg-border px-1 text-center text-sm text-dg-ink'
+              className='w-10 rounded border border-dg-border px-1 text-center text-sm text-dg-ink coarse:w-12'
               value={icons[name]}
               onChange={(event) => onChange({ ...icons, [name]: event.target.value })}
             />
@@ -782,7 +786,7 @@ function ClusterTools({
     <span className='flex flex-wrap items-center gap-1'>
       <input
         aria-label='cluster name'
-        className='w-24 rounded border border-dg-border px-1 py-0.5 font-mono text-xs font-semibold text-violet-700'
+        className='w-24 rounded border border-dg-border px-1 py-0.5 font-mono text-xs font-semibold text-violet-700 coarse:w-32'
         value={name}
         onChange={(event) => setName(event.target.value)}
         onKeyDown={(event) => {

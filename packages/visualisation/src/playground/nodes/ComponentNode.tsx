@@ -21,6 +21,8 @@ export type NodeActions = {
   name: (key: string, name: string) => void;
   output: (key: string, output: boolean) => void;
   enter: (fn: string) => void;
+  /** Which cluster a list node (generate, map, filter, sort) calls. */
+  setFn: (key: string, fn: string) => void;
   paramType: (key: string, type: string) => void;
   removeParam: (key: string) => void;
   /** A long press (or a right click): select the node and open its actions. */
@@ -36,6 +38,8 @@ export type ComponentData = {
   wired: ReadonlySet<string>;
   /** Whether the node can be named and made an output (it is in a cell, not in a cluster). */
   nameable: boolean;
+  /** The definition's clusters (a list node picks the one it calls). */
+  clusters?: readonly string[];
   /** The types a cluster param can have. */
   types?: readonly string[];
   /** Whether ports show their values (a viewer's setting; the selected node always does). */
@@ -79,7 +83,7 @@ function NumberField({ value, label, onChange }: { value: number; label: string;
   return (
     <input
       aria-label={label}
-      className={`${chip} w-14 border-dg-border bg-white text-dg-ink`}
+      className={`${chip} w-14 border-dg-border bg-white text-dg-ink coarse:w-20`}
       value={text}
       onChange={(event) => {
         setText(event.target.value);
@@ -184,7 +188,7 @@ function NameEditor({ node, actions }: { node: GraphNode; actions: NodeActions }
       <input
         autoFocus
         aria-label={`name ${node.label}`}
-        className='nodrag w-24 rounded border border-dg-border bg-white px-1 font-mono text-[10px] text-dg-ink'
+        className='nodrag w-24 rounded border border-dg-border bg-white px-1 font-mono text-[10px] text-dg-ink coarse:w-32'
         value={editing}
         onChange={(event) => setEditing(event.target.value)}
         onBlur={() => setEditing(null)}
@@ -285,7 +289,23 @@ export const ComponentNode = memo(function ComponentNode({ data, selected }: Nod
             )}
           </>
         )}
-        {node.fn && <span className='font-mono text-[10px] text-violet-700'>({node.fn})</span>}
+        {node.fn &&
+          (actions ? (
+            <select
+              aria-label={`cluster ${node.label} calls`}
+              title='the cluster it calls'
+              className='nodrag max-w-28 rounded border border-violet-300 bg-white px-0.5 font-mono text-[10px] text-violet-700 coarse:max-w-36'
+              value={node.fn}
+              onChange={(event) => actions.setFn(node.key, event.target.value)}
+            >
+              {!data.clusters?.includes(node.fn) && <option value={node.fn}>{node.fn}?</option>}
+              {data.clusters?.map((c) => (
+                <option key={c}>{c}</option>
+              ))}
+            </select>
+          ) : (
+            <span className='font-mono text-[10px] text-violet-700'>({node.fn})</span>
+          ))}
         {enter && actions && (
           <button
             type='button'

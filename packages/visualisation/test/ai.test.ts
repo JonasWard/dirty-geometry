@@ -199,11 +199,30 @@ describe('generate', () => {
     expect(result.ok).toBe(true);
     expect(result.attempts).toHaveLength(2);
   });
-  test('times out', async () => {
+  test('a request that never answers times out, naming the model and the limit', async () => {
     const slow: Chat = (_p, _m, _msgs, { signal }) =>
       new Promise((_, reject) => signal?.addEventListener('abort', () => reject(new ChatError('aborted', 'x'))));
-    const result = await generate({ prompt: 'x', mode: 'light', target, chat: slow, timeoutMs: 20 });
+    const result = await generate({ prompt: 'x', mode: 'light', target, chat: slow, requestTimeoutMs: 20 });
     expect(result.ok === false && result.kind).toBe('timeout');
+    expect(result.ok === false && result.message).toBe('No answer from gpt-oss 120B within 0 s');
+  });
+  test('the time limit is per request: an answer and a fix may each take most of it', async () => {
+    const replies = [fence('export function definition() { let a = 1; }'), fence(SQUARE)];
+    const slowly: Chat = () => new Promise((resolve) => setTimeout(() => resolve({ text: replies.shift()! }), 80));
+    const events: Progress[] = [];
+    const result = await generate({
+      prompt: 'a square',
+      mode: 'full',
+      target,
+      chat: slowly,
+      requestTimeoutMs: 100,
+      onProgress: (e) => events.push(e),
+    });
+    expect(result.ok).toBe(true);
+    expect(result.attempts).toHaveLength(2);
+    expect(events.filter((e) => e.type === 'request').map((e) => e.type === 'request' && e.timeoutMs)).toEqual([
+      100, 100,
+    ]);
   });
   test('the providers are known', () => {
     expect(providerById('anthropic')!.models[0]!.id).toBe('claude-haiku-5-5');
@@ -239,7 +258,7 @@ describe('rate limits', () => {
       prompt: 'a square',
       mode: 'light',
       target: ovh,
-      timeoutMs: 500,
+      requestTimeoutMs: 500,
       onProgress: (e) => events.push(e),
     });
     expect(result.ok).toBe(true);

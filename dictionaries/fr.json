@@ -78,7 +78,7 @@
       "graph": "Graphes : recherche de chemin, sous-ensembles d’arêtes et maillages en demi-arêtes."
     },
     "playground": "Bac à sable",
-    "playgroundIntro": "Construisez une définition vec2 à partir d’entrées, de vos propres fonctions et de cellules, chaque cellule étant une expression modifiée sur place ou sous forme de code. La géométrie de chaque cellule est dessinée, et toute la définition tient dans le lien sous forme de chaîne densing. L’onglet View ne laisse modifier que les valeurs des entrées, elles aussi gardées dans le lien.",
+    "playgroundIntro": "Construisez une définition vec2 à partir d’entrées, de vos propres fonctions et de cellules, chaque cellule étant une expression modifiée sur place ou sous forme de code. La géométrie de chaque cellule est dessinée, et toute la définition tient dans le lien sous forme de chaîne densing. L’onglet View ne laisse modifier que les valeurs des entrées, elles aussi gardées dans le lien. Ou décrivez une forme en mots : un modèle gratuit écrit le code, et le playground le vérifie avant de l’ouvrir.",
     "openPlayground": "Ouvrir le bac à sable"
   }
 }

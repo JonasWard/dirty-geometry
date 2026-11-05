@@ -237,6 +237,22 @@ export function definition(
   return { outline, kept, count };
 }`;
 
+/** The code of the starters written as code (all but the recorded plate), by id: examples for prompts. */
+export const STARTER_CODE: Readonly<Record<string, string>> = {
+  star: STAR.trim(),
+  line: LINE.trim(),
+  squares: SQUARES.trim(),
+  fillet: FILLET.trim(),
+  'three-points': THREE_POINTS.trim(),
+  slot: SLOT.trim(),
+  lens: LENS.trim(),
+  wave: WAVE.trim(),
+  'mounting-plate': MOUNTING_PLATE.trim(),
+  'half-ring': HALF_RING.trim(),
+  gear: GEAR.trim(),
+  'wobbly-ring': WOBBLY_RING.trim(),
+};
+
 export const STARTERS: readonly { id: string; label: string; build: () => Definition }[] = [
   { id: 'plate', label: 'Plate with a hole', build: () => fromV3(recordPlate()) },
   { id: 'star', label: 'Star from a function', build: () => parseDefinition(STAR) },

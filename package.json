@@ -13,6 +13,7 @@
     "typecheck": "tsc --noEmit -p packages/fn && tsc --noEmit -p packages/vec2 && tsc --noEmit -p packages/graph && tsc --noEmit -p packages/visualisation && tsc --noEmit",
     "schema": "bun scripts/vec2-schema.ts",
     "schema:check": "bun scripts/vec2-schema.ts --check",
+    "ai:eval": "bun scripts/ai-eval.ts",
     "format": "prettier --write \"packages/**/*.{ts,tsx,json}\"",
     "format:check": "prettier --check \"packages/**/*.{ts,tsx,json}\""
   },

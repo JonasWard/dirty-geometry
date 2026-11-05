@@ -78,7 +78,7 @@
       "graph": "Graphen: Wegsuche, Kantenmengen und Halbkanten-Netze."
     },
     "playground": "Spielwiese",
-    "playgroundIntro": "Baue eine vec2-Definition aus Eingaben, eigenen Funktionen und Zellen; jede Zelle ist ein Ausdruck, direkt oder als Code bearbeitet. Die Geometrie jeder Zelle wird gezeichnet, und die ganze Definition steckt als densing-Zeichenkette im Link. Im Tab „View“ lassen sich nur die Werte der Eingaben verändern; auch sie stehen im Link.",
+    "playgroundIntro": "Baue eine vec2-Definition aus Eingaben, eigenen Funktionen und Zellen; jede Zelle ist ein Ausdruck, direkt oder als Code bearbeitet. Die Geometrie jeder Zelle wird gezeichnet, und die ganze Definition steckt als densing-Zeichenkette im Link. Im Tab „View“ lassen sich nur die Werte der Eingaben verändern; auch sie stehen im Link. Oder beschreiben Sie eine Form in Worten: Ein freies Modell schreibt den Code, und der Playground prüft ihn, bevor er sich öffnet.",
     "openPlayground": "Spielwiese öffnen"
   }
 }

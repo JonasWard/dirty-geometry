@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Definition } from '@dirty-geometry/vec2/recording/definition';
 import { CodeError, parseDefinition } from './model/parse';
 import { printDefinition } from './model/print';
@@ -11,14 +11,30 @@ const button = 'rounded border border-dg-border px-2 py-0.5 text-xs hover:border
 
 /**
  * The definition as TypeScript: printed from the cells, edited as text, and read back on apply (Ctrl+Enter). While
- * the text is edited it is kept as typed; otherwise it follows every change made elsewhere.
+ * the text is edited it is kept as typed; otherwise it follows every change made elsewhere. `seed` opens it on code
+ * that does not work yet (a prompt's last attempt), with its error and where it is.
  */
-export function CodeEditor({ definition, onChange }: { definition: Definition; onChange: (d: Definition) => void }) {
+export type CodeSeed = { text: string; message: string; range?: { from: number; to: number } };
+
+export function CodeEditor({
+  definition,
+  onChange,
+  seed,
+}: {
+  definition: Definition;
+  onChange: (d: Definition) => void;
+  seed?: CodeSeed;
+}) {
   const printed = useMemo(() => printDefinition(definition), [definition]);
-  const [draft, setDraft] = useState<string | null>(null);
-  const [error, setError] = useState<CodeError | Error | null>(null);
+  const [draft, setDraft] = useState<string | null>(seed?.text ?? null);
+  const [error, setError] = useState<CodeError | Error | null>(seed ? new Error(seed.message) : null);
   const area = useRef<HTMLTextAreaElement>(null);
   const text = draft ?? printed;
+  useEffect(() => {
+    if (!seed?.range || !area.current) return;
+    area.current.focus();
+    area.current.setSelectionRange(seed.range.from, Math.max(seed.range.to, seed.range.from + 1));
+  }, [seed]);
 
   const apply = () => {
     try {

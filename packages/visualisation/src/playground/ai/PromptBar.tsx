@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import type { Definition } from '@dirty-geometry/vec2/recording/definition';
-import { generate, LIMITS, type Progress, type Target } from './generate';
+import { DEFAULT_REQUEST_TIMEOUT_MS, generate, LIMITS, type Progress, type Target } from './generate';
 import type { Mode } from './prompt';
 import { modelKey, PROVIDERS, resolveModel, type Provider } from './providers';
 
@@ -65,7 +65,13 @@ export function PromptBar({
   const [edit, setEdit] = useStored('edit', 'yes');
   const [key, setKey] = useState('');
   useEffect(() => setKey(stored.get('anthropic-key') ?? ''), []);
-  const [status, setStatus] = useState<{ text: string; tone: 'busy' | 'done' | 'error' } | null>(null);
+  const [timeoutText, setTimeoutText] = useStored('timeout', String(DEFAULT_REQUEST_TIMEOUT_MS / 1000));
+  /** Seconds one request (an answer or a fix) may take before it is given up. */
+  const timeoutSeconds = Math.min(
+    600,
+    Math.max(10, Math.round(Number(timeoutText)) || DEFAULT_REQUEST_TIMEOUT_MS / 1000),
+  );
+  const [status, setStatus] = useState<{ text: string; tone: 'busy' | 'warn' | 'done' | 'error' } | null>(null);
   const running = useRef<AbortController | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -73,31 +79,70 @@ export function PromptBar({
   const needsKey = target.provider.needsKey && !key;
   const label = (t: Target) => t.model.label;
 
-  /** The countdown while a free endpoint's rate limit is waited out. */
+  /**
+   * The request under way, for the ticking status: what it is, when it started and gives up, and the end of a
+   * rate-limit wait inside it (the wait pushes the give-up time back).
+   */
+  const current = useRef<{
+    what: string;
+    model: string;
+    started: number;
+    end: number;
+    limit: number;
+    waited: number;
+    waitEnd?: number;
+  } | null>(null);
   const ticking = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
   const stopTicking = () => clearInterval(ticking.current);
   useEffect(() => stopTicking, []);
-
-  const describe = (event: Progress, repairs: number) => {
-    stopTicking();
-    if (event.type === 'waiting') {
-      const end = Date.now() + event.seconds * 1000;
-      const tick = () =>
-        setStatus({
-          text: `Waiting ${Math.max(0, Math.ceil((end - Date.now()) / 1000))} s for ${label(event.target)}’s free rate limit… (cancel stops)`,
-          tone: 'busy',
-        });
-      tick();
-      ticking.current = setInterval(tick, 500);
-    } else if (event.type === 'request')
-      setStatus({
-        text: event.repairing
-          ? `Fixing a ${event.repairing} error (${event.attempt}/${repairs})…`
-          : `Asking ${label(event.target)}…`,
+  /** Seconds before the end at which the status warns: the last quarter of the limit, 5 to 20 s. */
+  const warnSeconds = (limit: number) => Math.min(20, Math.max(5, limit / 4));
+  const tick = () => {
+    const r = current.current;
+    if (!r) return;
+    const now = Date.now();
+    if (r.waitEnd && now < r.waitEnd)
+      return setStatus({
+        text: `Waiting ${Math.ceil((r.waitEnd - now) / 1000)} s for ${r.model}’s free rate limit… (cancel stops)`,
         tone: 'busy',
       });
-    else if (event.type === 'fallback')
-      setStatus({ text: `${label(event.from)} is busy; trying ${label(event.to)}…`, tone: 'busy' });
+    const left = Math.max(0, Math.ceil((r.end - now) / 1000));
+    if (left <= warnSeconds(r.limit))
+      return setStatus({
+        text: `${r.what} No answer yet; gives up in ${left} s (the timeout is set next to the model).`,
+        tone: 'warn',
+      });
+    // The model's time so far: rate-limit waits left out.
+    const elapsed = Math.floor((now - r.started - r.waited) / 1000);
+    setStatus({ text: `${r.what} ${elapsed} s (gives up after ${r.limit} s)`, tone: 'busy' });
+  };
+
+  const describe = (event: Progress, repairs: number) => {
+    if (event.type === 'request') {
+      const what = event.repairing
+        ? `Fixing a ${event.repairing} error (${event.attempt}/${repairs})…`
+        : `Asking ${label(event.target)}…`;
+      const started = Date.now();
+      current.current = {
+        what,
+        model: label(event.target),
+        started,
+        end: started + event.timeoutMs,
+        limit: Math.round(event.timeoutMs / 1000),
+        waited: 0,
+      };
+    } else if (event.type === 'waiting' && current.current) {
+      current.current.waitEnd = Date.now() + event.seconds * 1000;
+      current.current.end += event.seconds * 1000;
+      current.current.waited += event.seconds * 1000;
+    } else if (event.type === 'fallback') {
+      current.current = null;
+      stopTicking();
+      return setStatus({ text: `${label(event.from)} is unreachable; trying ${label(event.to)}…`, tone: 'busy' });
+    } else return;
+    stopTicking();
+    tick();
+    ticking.current = setInterval(tick, 500);
   };
 
   const run = async () => {
@@ -114,11 +159,13 @@ export function PromptBar({
       target,
       signal: controller.signal,
       onProgress: (event) => describe(event, repairs),
+      requestTimeoutMs: timeoutSeconds * 1000,
       ...(edit === 'yes' && { current: definition }),
       ...(fallback && { fallback }),
       ...(target.provider.needsKey && { apiKey: key }),
     });
     running.current = null;
+    current.current = null;
     stopTicking();
     setBusy(false);
     const seconds = ((Date.now() - started) / 1000).toFixed(1);
@@ -184,6 +231,25 @@ export function PromptBar({
         >
           {PROVIDERS.map(group)}
         </select>
+        <label
+          className='flex items-center gap-1 text-xs text-dg-subtle'
+          title='How long one request (the first answer, or a fix) may take before it is given up; waits for a free rate limit do not count'
+        >
+          timeout
+          <input
+            type='number'
+            aria-label='timeout in seconds per request'
+            className={`${field} w-16`}
+            min={10}
+            max={600}
+            step={10}
+            value={timeoutText}
+            disabled={busy}
+            onChange={(e) => setTimeoutText(e.target.value)}
+            onBlur={() => setTimeoutText(String(timeoutSeconds))}
+          />
+          s
+        </label>
         <button
           type='button'
           className={button}
@@ -222,7 +288,13 @@ export function PromptBar({
         {status ? (
           <span
             className={
-              status.tone === 'error' ? 'text-red-600' : status.tone === 'done' ? 'text-emerald-700' : 'text-dg-subtle'
+              status.tone === 'error'
+                ? 'text-red-600'
+                : status.tone === 'warn'
+                  ? 'text-amber-700'
+                  : status.tone === 'done'
+                    ? 'text-emerald-700'
+                    : 'text-dg-subtle'
             }
           >
             {status.text}
@@ -231,7 +303,9 @@ export function PromptBar({
           <span className='text-dg-subtle'>
             {target.provider.logsPrompts
               ? 'Free endpoint, no key: prompts may be logged by the provider. Don’t include anything private.'
-              : 'Runs on your Anthropic account.'}
+              : 'Runs on your Anthropic account.'}{' '}
+            Each request gives up after {timeoutSeconds} s
+            {mode === 'full' ? ' (an answer and up to 2 fixes)' : ' (an answer and 1 fix)'}.
           </span>
         )}
       </p>

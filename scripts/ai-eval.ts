@@ -9,18 +9,14 @@
  *   bun run ai:eval --list                            # the models each keyless endpoint serves
  *   bun run ai:eval --dry                             # no network: the reference solutions answer (checks the script)
  *   bun run ai:eval --fixtures                        # also record replies to test/ai-fixtures/
+ *   bun run ai:eval --timeout 60                      # seconds per request (default 100)
  *
  * Claude reads ANTHROPIC_API_KEY or an `ant auth login` profile; without either, its rows are skipped.
  */
 import { mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { parseArgs } from 'node:util';
-import {
-  generate,
-  LIMITS,
-  type FailureKind,
-  type GenerateResult,
-} from '../packages/visualisation/src/playground/ai/generate';
+import { generate, type FailureKind, type GenerateResult } from '../packages/visualisation/src/playground/ai/generate';
 import type { Mode } from '../packages/visualisation/src/playground/ai/prompt';
 import {
   costOf,
@@ -40,6 +36,7 @@ const { values: args } = parseArgs({
     only: { type: 'string' },
     runs: { type: 'string', default: '3' },
     effort: { type: 'string', default: 'medium' },
+    timeout: { type: 'string', default: '100' },
     out: { type: 'string', default: 'docs/AI-EVAL.md' },
     list: { type: 'boolean', default: false },
     dry: { type: 'boolean', default: false },
@@ -147,8 +144,8 @@ for (const { provider, model } of targets) {
             chat,
             ...(current && { current }),
             ...(effort && { effort }),
-            // Generous: free endpoints are slow at times (waits for their limits extend it by themselves).
-            timeoutMs: LIMITS[mode].timeoutMs * 3,
+            // Per request; waits for a free endpoint's rate limit do not count.
+            requestTimeoutMs: Number(args.timeout) * 1000,
             onProgress: (event) => {
               if (event.type !== 'waiting') return;
               waited += event.seconds * 1000;

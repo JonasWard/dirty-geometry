@@ -27,7 +27,7 @@ export type Attempt = {
   ms: number;
 };
 export type Progress =
-  | { type: 'request'; attempt: number; target: Target; repairing?: Stage }
+  | { type: 'request'; attempt: number; target: Target; timeoutMs: number; repairing?: Stage }
   | { type: 'checked'; attempt: number; validation: Validation }
   | { type: 'fallback'; from: Target; to: Target; reason: string }
   /** Waiting out a free endpoint's rate limit; the same request is sent again after. */
@@ -52,14 +52,16 @@ export type GenerateOptions = {
   apiKey?: string;
   effort?: 'low' | 'medium' | 'high';
   maxRepairs?: number;
-  timeoutMs?: number;
+  /** How long one request (the first answer, or a fix) may take; rate-limit waits do not count. */
+  requestTimeoutMs?: number;
   onProgress?: (progress: Progress) => void;
 };
 
-export const LIMITS: Record<Mode, { repairs: number; timeoutMs: number }> = {
-  full: { repairs: 2, timeoutMs: 60_000 },
-  light: { repairs: 1, timeoutMs: 25_000 },
+export const LIMITS: Record<Mode, { repairs: number }> = {
+  full: { repairs: 2 },
+  light: { repairs: 1 },
 };
+export const DEFAULT_REQUEST_TIMEOUT_MS = 100_000;
 
 export async function generate(options: GenerateOptions): Promise<GenerateResult> {
   const { prompt, mode, current, onProgress } = options;
@@ -68,9 +70,10 @@ export async function generate(options: GenerateOptions): Promise<GenerateResult
   const controller = new AbortController();
   const abort = () => controller.abort();
   options.signal?.addEventListener('abort', abort);
-  // The time limit is the model's time: waits for a rate limit push it back.
+  // Each request gets its own time limit, of the model's time: waits for a rate limit push it back.
+  const timeoutMs = options.requestTimeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS;
   let timedOut = false;
-  let deadline = Date.now() + (options.timeoutMs ?? LIMITS[mode].timeoutMs);
+  let deadline = 0;
   let timer: ReturnType<typeof setTimeout> | undefined;
   const arm = () => {
     clearTimeout(timer);
@@ -79,7 +82,6 @@ export async function generate(options: GenerateOptions): Promise<GenerateResult
       controller.abort();
     }, deadline - Date.now());
   };
-  arm();
 
   const currentCode = current && printDefinition(current);
   const messages: ChatMessage[] = buildMessages({ prompt, mode, ...(currentCode && { current: currentCode }) });
@@ -97,8 +99,10 @@ export async function generate(options: GenerateOptions): Promise<GenerateResult
 
   try {
     for (let attempt = 0; attempt <= repairs; ) {
-      onProgress?.({ type: 'request', attempt, target, ...(repairing && { repairing }) });
+      onProgress?.({ type: 'request', attempt, target, timeoutMs, ...(repairing && { repairing }) });
       const started = Date.now();
+      deadline = started + timeoutMs;
+      arm();
       let reply;
       try {
         reply = await chat(target.provider, target.model, messages, {
@@ -114,7 +118,7 @@ export async function generate(options: GenerateOptions): Promise<GenerateResult
         });
       } catch (error) {
         if (timedOut)
-          return fail('timeout', `No working answer within ${(options.timeoutMs ?? LIMITS[mode].timeoutMs) / 1000} s`);
+          return fail('timeout', `No answer from ${target.model.label} within ${Math.round(timeoutMs / 1000)} s`);
         const kind: ChatErrorKind =
           error instanceof ChatError ? error.kind : controller.signal.aborted ? 'aborted' : 'network';
         if ((kind === 'network' || kind === 'http') && options.fallback && !fellBack) {
@@ -124,6 +128,8 @@ export async function generate(options: GenerateOptions): Promise<GenerateResult
           continue; // the same attempt, on the other model
         }
         return fail(kind, (error as Error).message);
+      } finally {
+        clearTimeout(timer);
       }
       const code = extractCode(reply.text);
       let validation = validateCode(code);

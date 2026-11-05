@@ -7,7 +7,8 @@ import {
   encodeDefinition,
 } from '@dirty-geometry/vec2/schema/dense/definition';
 import { VisualisationLegend } from '../core/VisualisationLegend';
-import { CodeEditor } from './CodeEditor';
+import { PromptBar } from './ai/PromptBar';
+import { CodeEditor, type CodeSeed } from './CodeEditor';
 import { EncodingPanel } from './EncodingPanel';
 import { JsonEditor } from './JsonEditor';
 import { ModeSwitch, tab, type View } from './ModeSwitch';
@@ -84,6 +85,8 @@ function PlaygroundView({
   const canUndo = usePlayground((s) => s.past.length > 0);
   const canRedo = usePlayground((s) => s.future.length > 0);
   const [mode, setMode] = useState<Mode>('cells');
+  /** A prompt's last attempt that did not work, opened in the Code tab (keyed so the editor starts over on it). */
+  const [seed, setSeed] = useState<{ key: number; seed: CodeSeed } | null>(null);
   /** The Raw mode to come back to from Nodes. */
   const [raw, setRaw] = useState<Exclude<Mode, 'nodes'>>('cells');
   const switchTo = (next: View, nodes: boolean) => {
@@ -447,6 +450,23 @@ function PlaygroundView({
             </label>
           </div>
 
+          <PromptBar
+            definition={definition}
+            onResult={(next) => {
+              setSeed(null);
+              commit(next);
+            }}
+            onFailure={({ code, message, range }) => {
+              if (!code) return;
+              setSeed((current) => ({
+                key: (current?.key ?? 0) + 1,
+                seed: { text: code, message, ...(range && { range }) },
+              }));
+              setMode('code');
+              setRaw('code');
+            }}
+          />
+
           <div className='grid gap-4 xl:grid-cols-[minmax(0,6fr)_minmax(0,5fr)]'>
             <div className='min-w-0 space-y-4'>
               {mode === 'cells' && (
@@ -456,7 +476,17 @@ function PlaygroundView({
                   <CellsPanel analysis={analysis} evaluation={evaluation} />
                 </>
               )}
-              {mode === 'code' && <CodeEditor definition={definition} onChange={commit} />}
+              {mode === 'code' && (
+                <CodeEditor
+                  key={seed?.key ?? 0}
+                  definition={definition}
+                  onChange={(next) => {
+                    setSeed(null);
+                    commit(next);
+                  }}
+                  {...(seed && { seed: seed.seed })}
+                />
+              )}
               {mode === 'json' && <JsonEditor definition={definition} onChange={commit} />}
             </div>
 

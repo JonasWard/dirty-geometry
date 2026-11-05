@@ -78,7 +78,7 @@
       "graph": "Grafi: ricerca di percorsi, sottoinsiemi di archi e mesh a semispigoli."
     },
     "playground": "Playground",
-    "playgroundIntro": "Costruisci una definizione vec2 da input, funzioni tue e celle, ognuna un’espressione modificata sul posto o come codice. La geometria di ogni cella viene disegnata e l’intera definizione sta nel link come stringa densing. La scheda View lascia modificare solo i valori degli input, anch’essi conservati nel link.",
+    "playgroundIntro": "Costruisci una definizione vec2 da input, funzioni tue e celle, ognuna un’espressione modificata sul posto o come codice. La geometria di ogni cella viene disegnata e l’intera definizione sta nel link come stringa densing. La scheda View lascia modificare solo i valori degli input, anch’essi conservati nel link. Oppure descrivi una forma a parole: un modello gratuito scrive il codice e il playground lo verifica prima di aprirlo.",
     "openPlayground": "Apri il playground"
   }
 }

@@ -7,6 +7,9 @@ import { evaluate } from '@dirty-geometry/vec2/recording/evaluate';
 import { fromV3 } from '@dirty-geometry/vec2/recording/migrate';
 import { CodeError, parseDefinition } from '../src/playground/model/parse';
 import { printDefinition } from '../src/playground/model/print';
+import { choosePresets } from '../src/playground/presets';
+import { encodeAppState } from '../src/playground/url';
+import { createDefinitionSchema } from '@dirty-geometry/vec2/schema/dense/definition';
 import { arbitraryDefinition } from '../../vec2/test/recording/arbitrary';
 
 const plate = () => fromV3(recordPlate());
@@ -153,4 +156,79 @@ test('the printed plate is valid TypeScript against vec2', () => {
 test('a definition printed with no outputs or inputs still reads back', () => {
   const empty: Definition = { format: 'vec2-definition', version: 4, inputs: [], functions: [], cells: [] };
   expect(parseDefinition(printDefinition(empty))).toEqual(empty);
+});
+
+describe('what models write', () => {
+  const strict = `function rim(c: Circle2, turn: Coordinate) {
+  return c.evaluate(turn * 6.2832 * 3.141592653589793);
+}
+
+export function definition(r: Length = 2): { p: Vec2; n: number } {
+  const c = new Circle2(new Vec2(lib.cos(1), lib.pow(4, 0.5)), r);
+  const p = rim(c, 0.25);
+  const n = lib.max(1, r);
+  return { p, n };
+}`;
+  test('helper consts, casts, let and Math read as the strict code', () => {
+    const loose = `function rim(c: Circle2, turn: Coordinate): Vec2 {
+  const full = 6.2832 as Coordinate;
+  const angle = turn * full;
+  return c.evaluate(angle * Math.PI);
+}
+
+export function definition(r: Length = 2): { p: Vec2; n: number } {
+  let c = new Circle2(new Vec2(Math.cos(1), Math.sqrt(4)), r as Length);
+  const p = rim(c, 0.25);
+  const n = Math.max(1, r) as number;
+  return { p, n };
+}`;
+    expect(parseDefinition(loose)).toEqual(parseDefinition(strict));
+    // Printed code stays strict: no consts in functions, no Math.
+    expect(printDefinition(parseDefinition(loose))).not.toMatch(/Math\.|\w as [A-Z]|let /);
+  });
+  test('a model’s spiral (helper consts and casts) evaluates', () => {
+    const spiral = `import * as lib from '@dirty-geometry/fn/lib';
+import { Circle2, Polyline2, Vec2 } from '@dirty-geometry/vec2/schema/bindings';
+import type { Coordinate, Index, Length } from '@dirty-geometry/vec2/schema/bindings';
+
+function spiralPoint(
+  i: Index,
+  previous: Vec2 | undefined,
+  count: Index,
+  data: (Length | Coordinate)[]
+): Vec2 {
+  const radius = data[0] as Length;
+  const turns = data[1] as Coordinate;
+  const t = i / count;
+  const angle = t * turns * 6.2832;
+  const r = radius * t;
+  return new Vec2(r * lib.cos(angle), r * lib.sin(angle));
+}
+
+export function definition(
+  radius: Length = 3,
+  turns: Coordinate = 5,
+  segments: Index = 100,
+): { circle: Circle2; spiral: Polyline2; length: number } {
+  const circle = new Circle2(new Vec2(0, 0), radius);
+  const points = lib.generate(segments, spiralPoint, undefined, [radius, turns]);
+  const spiral = new Polyline2(points);
+  const length = spiral.length();
+  return { circle, spiral, length };
+}`;
+    const definition = parseDefinition(spiral);
+    const evaluation = evaluate(definition);
+    expect([...evaluation.cells.values()].filter((r) => 'error' in r)).toEqual([]);
+    // Its parameter types are ones the link can pack: no `| undefined`, one number type.
+    expect(definition.functions[0]!.params.map((p) => p.type)).toEqual(['Index', 'Vec2', 'Index', 'Coordinate[]']);
+    const presets = choosePresets(definition, {}, createDefinitionSchema());
+    expect(() => encodeAppState({ definition, options: {}, presets })).not.toThrow();
+    expect(evaluation.outputs.length as number).toBeGreaterThan(10);
+  });
+  test('a local that shadows, and a Math member that is not there, are errors', () => {
+    expect(parseError(`function f(a: Coordinate) { const a = 1; return a; }\n${wrap('')}`).message).toContain(
+      'a is already defined in f',
+    );
+    expect(parseError(wrap('  const h = Math.hypot(1, 2);')).message).toContain('Math.hypot is not available');
+  });
 });

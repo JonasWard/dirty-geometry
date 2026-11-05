@@ -33,6 +33,7 @@ export class Polyline2 {
     return segmentsFromVertices(this.vertices, false);
   }
 
+  /** The total length of all segments. */
   length(): number {
     return Line2.lengthTable(this.segments())[this.n()]!;
   }

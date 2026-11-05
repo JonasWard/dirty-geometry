@@ -44,6 +44,7 @@ export class Aabb2 {
     return new Aabb2(x, y);
   }
 
+  /** The smallest axis-aligned box holding every point (two opposite corners make a rectangle). */
   static fromPoints(...points: readonly Vec2[]): Aabb2 {
     return Aabb2.fromPointList(points);
   }

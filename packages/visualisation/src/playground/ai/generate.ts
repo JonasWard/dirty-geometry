@@ -1,10 +1,10 @@
 /**
- * A prompt to a working definition: ask, check the reply with `validateCode`, and send what failed back for a fix
+ * A prompt to a working definition: ask for JSON, check the reply with `validateJson`, and send what failed back for a fix
  * (full mode two fixes, light one). Nothing reaches the playground unless every check passes.
  */
 import type { Definition } from '@dirty-geometry/vec2/recording/definition';
 import { printDefinition } from '../model/print';
-import { extractCode } from './extract';
+import { extractJson } from './extract';
 import { buildMessages, repairMessage, type ChatMessage, type Mode } from './prompt';
 import {
   chat as defaultChat,
@@ -15,7 +15,7 @@ import {
   type Provider,
   type Usage,
 } from './providers';
-import { validateCode, type Stage, type Validation } from './validate';
+import { validateJson, type Stage, type Validation } from './validate';
 
 export type Target = { provider: Provider; model: Model };
 export type Attempt = {
@@ -84,7 +84,7 @@ export async function generate(options: GenerateOptions): Promise<GenerateResult
   };
 
   const currentCode = current && printDefinition(current);
-  const messages: ChatMessage[] = buildMessages({ prompt, mode, ...(currentCode && { current: currentCode }) });
+  const messages: ChatMessage[] = buildMessages({ prompt, mode, ...(current && { current }) });
   const attempts: Attempt[] = [];
   let target = options.target;
   let fellBack = false;
@@ -131,8 +131,8 @@ export async function generate(options: GenerateOptions): Promise<GenerateResult
       } finally {
         clearTimeout(timer);
       }
-      const code = extractCode(reply.text);
-      let validation = validateCode(code);
+      const json = extractJson(reply.text);
+      let validation = validateJson(json);
       // An edit that changes nothing has not done what was asked.
       if (validation.ok && currentCode && printDefinition(validation.definition) === currentCode)
         validation = {

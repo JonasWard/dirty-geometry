@@ -1,7 +1,8 @@
 /**
- * The vec2 API as short TypeScript-like signatures, built from the schema the playground already loads, so a
- * prompt never lists an operation that does not exist (or misses a new one). Two sizes: every operation (full), or
- * the core ones (compact, for small models). The `lib` functions are described in the prompt itself.
+ * The vec2 API as the JSON a definition writes it in: `Polygon2.fromCircle2 {circle: Circle2, segments: Index} →
+ * Polygon2`, with each operation's doc comment (from vec2.docs.json) where it says what the name does not. Built
+ * from the schema the playground already loads, so a prompt never lists an operation that does not exist. Two
+ * sizes: every operation (full), or the core ones (compact, for small models).
  */
 import {
   NUMBER_TYPES,
@@ -15,6 +16,7 @@ import {
   type Type,
 } from '@dirty-geometry/vec2/schema/schema';
 import { typeName } from '@dirty-geometry/vec2/schema/typing';
+import docs from '@dirty-geometry/vec2/schema/vec2.docs.json';
 import { DEFAULT_FAVOURITES } from '../operations';
 
 /** The compact reference: the playground's favourites and what the examples and common shapes need. */
@@ -53,21 +55,22 @@ export const COMPACT_OPERATIONS: readonly string[] = [
 ];
 
 const byId = new Map(operations.map((op) => [op.id, op]));
+export const operationDocs: Readonly<Record<string, string>> = docs;
 
 const param = ([name, slot]: [string, Parameters<typeof slotType>[0]]) => {
   const type = typeName(slotType(slot) as Type);
-  if (isRest(slot)) return `...${name}: ${type}[]`;
+  // A rest parameter takes its items as one list under its name.
+  if (isRest(slot)) return `${name}: ${type}[]`;
   return `${name}${isOptional(slot) ? '?' : ''}: ${type}`;
 };
 
-/** One operation as it is written in code. */
+/**
+ * One operation as a definition writes it: `{op, self?, args}`. `Vec2.new {x?: Coordinate, …} → Vec2` makes one;
+ * `Polygon2.area {self: Polygon2} → number` is a method on `self`; a field reads `self` and takes no args.
+ */
 export function signature(op: Operation): string {
-  const params = op.params.map(param).join(', ');
-  const returns = typeName(op.returns as Type);
-  if (op.owner === 'helpers') return `${op.member}(${params}): ${returns}`;
-  if (op.member === 'new') return `new ${op.owner}(${params})`;
-  if (op.value) return `.${op.member}: ${returns}`;
-  return `${op.static ? `${op.owner}.` : '.'}${op.member}(${params}): ${returns}`;
+  const fields = [...(op.static ? [] : [`self: ${op.owner}`]), ...op.params.map(param)];
+  return `${op.id} {${fields.join(', ')}}${op.value ? ' (field)' : ''} → ${typeName(op.returns as Type)}`;
 }
 
 const KNOWN = new Set<string>([...NUMBER_TYPES, ...classes, 'number', 'boolean', 'string', 'void', 'null']);
@@ -88,24 +91,35 @@ function typeLines(text: string): string[] {
   return lines.sort();
 }
 
-/** Signatures grouped by class (`new` first), then helpers and the named types they use. */
-export function buildReference(ids?: readonly string[]): string {
+/** One reference line: the signature, and its doc when `withDoc`. */
+export const referenceLine = (op: Operation, withDoc: boolean) => {
+  const doc = withDoc ? operationDocs[op.id] : undefined;
+  return doc ? `${signature(op)} — ${doc}` : signature(op);
+};
+
+/**
+ * Signatures grouped by class, then the named types they use. `documented`: the operations whose doc is shown
+ * (each doc is a sentence, so a full reference shows them only for the core operations).
+ */
+export function buildReference(ids?: readonly string[], documented: ReadonlySet<string> = new Set()): string {
   const chosen = ids ? ids.map((id) => byId.get(id)).filter((op): op is Operation => !!op) : operations;
   const groups = new Map<string, Operation[]>();
   for (const op of chosen) groups.set(op.owner, [...(groups.get(op.owner) ?? []), op]);
   const out: string[] = [];
   for (const [owner, ops] of groups) {
-    if (owner === 'helpers') continue;
     const sorted = [...ops].sort((a, b) => +(b.member === 'new') - +(a.member === 'new'));
-    out.push(`${owner}`, ...sorted.map((op) => `  ${signature(op)}`));
+    out.push(
+      owner === 'helpers' ? 'helpers' : owner,
+      ...sorted.map((op) => `  ${referenceLine(op, documented.has(op.id))}`),
+    );
   }
-  const helpers = groups.get('helpers');
-  if (helpers) out.push('helpers (call without a prefix)', ...helpers.map((op) => `  ${signature(op)}`));
   const body = out.join('\n');
   return [body, '', 'Types', ...typeLines(body).map((l) => `  ${l}`)].join('\n');
 }
 
+const CORE = new Set(COMPACT_OPERATIONS);
 let full: string | undefined;
 let compact: string | undefined;
-export const fullReference = () => (full ??= buildReference());
-export const compactReference = () => (compact ??= buildReference(COMPACT_OPERATIONS));
+export const fullReference = () => (full ??= buildReference(undefined, CORE));
+export const compactReference = () => (compact ??= buildReference(COMPACT_OPERATIONS, CORE));
+export const operationById = byId;

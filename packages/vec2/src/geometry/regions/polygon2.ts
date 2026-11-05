@@ -165,6 +165,7 @@ export class Polygon2 {
     return this.windingNumber(point) !== 0;
   }
 
+  /** The polygon with every vertex transformed by `matrix` (Mat3.rotation, Mat3.translation or Mat3.scale). */
   transform(matrix: Mat3): Polygon2 {
     return new Polygon2(this.vertices.map((v) => v.transform(matrix)));
   }
@@ -203,6 +204,7 @@ export class Polygon2 {
     return Polygon2.computeSignedArea(this.vertices);
   }
 
+  /** The enclosed area (always positive; `signedArea` keeps the orientation). */
   area(): number {
     return Math.abs(this.signedArea());
   }

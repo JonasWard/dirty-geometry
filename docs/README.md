@@ -36,12 +36,17 @@ Localized copies live under `/de/`, `/fr/` and `/it/`. Old `/lab#/<demo>` links 
 
 The playground's prompt bar turns a sentence ("a gear with 12 teeth", or with *edit current*, "make it 7-pointed") into a definition. The code is in `packages/visualisation/src/playground/ai/`.
 
-- **What the model writes.** Code in the Code tab's language. The prompt holds three things:
-  - the language rules;
-  - an API reference built from `vec2.schema.json` at runtime, so it always matches the schema;
-  - worked examples taken from the starters.
-- **How the answer is checked.** The answer goes through `parseDefinition`, then `checkDefinition`, then `evaluate`, and at least one output must draw something. When a stage fails, its errors (a parse error with line and caret, type issues, cell errors) go back to the model for a fix: two fixes in full mode, one in light mode. Only a working definition is committed, so Ctrl+Z undoes it. If every attempt fails, the Code tab opens on the last one with its error selected.
-- **Habits the code accepts.** The Code tab reads some TypeScript that models (and people) write by habit:
+- **What the model writes.** The definition as JSON, the JSON tab's format, with explicit op ids and named args. The prompt holds:
+  - the format, and every expression form (the shared forms' JSON is generated with `fromCall`, so it can't drift);
+  - an API reference built from `vec2.schema.json`, as `Polygon2.fromCircle2 {circle: Circle2, segments: Index} → Polygon2`;
+  - for core operations, what each one does. The text is the first sentence of its doc comment, collected by `bun run schema` into `vec2.docs.json`;
+  - worked examples (`ai/examples.ts` plus starters) chosen because they build with operations, not vertex by vertex.
+- **Built-ins first.** Models tend to compute coordinates with sin and cos. Three things push them toward the library's operations:
+  - the request opens with "Operations that fit this request": operations ranked by a table of intents (hole → `Boolean2.subtract`, hexagon → `Polygon2.fromCircle2`, …) and by the request's words in op names and docs, each shown with its doc;
+  - the rules include a "use the operations" recipe list;
+  - the model writes a `"uses"` list of operations before its cells, a one-line plan that is dropped before checking.
+- **How the answer is checked.** The JSON is read leniently: comments and trailing commas are fine, and a syntax error is reported with line and caret. Then it is shape-checked (missing `format`/`version` filled in, untyped outputs typed), and goes through `checkDefinition`, `evaluate`, a drawable output and the link. When a stage fails, its errors go back to the model for a fix, named by place (`cells[3] plate at args.radius`) with hints such as an op's real signature: two fixes in full mode, one in light mode. Only a working definition is committed, so Ctrl+Z undoes it. If every attempt fails, the JSON tab opens on the last one with its error. OpenAI-compatible endpoints are asked for `response_format: json_object`, and asked without it if they refuse.
+- **Habits the code accepts.** The Code tab reads some TypeScript that people (and models) write by habit:
   - `const` lines inside helper functions, which are inlined into the return;
   - `as Type` casts, which are ignored;
   - `let` for a cell;
@@ -51,13 +56,14 @@ The playground's prompt bar turns a sentence ("a gear with 12 teeth", or with *e
   Printed code stays in the strict form. Known mistakes (loops, ternaries, `%`, comparisons, unknown methods) get a concrete hint in the repair message.
 - **Rate limits.** OVHcloud's anonymous limit is 2 requests a minute per model. The browser keeps under it, and on a 429 it waits (`Retry-After`, or until the model's minute is over) and asks the same model again, at most twice. The bar shows a countdown that Cancel stops. Waiting doesn't count toward the time limit, and the eval waits the same way.
 - **Timeout.** Each request (the first answer, or a fix) gives up after 100 s. This is a setting next to the model picker, kept in the browser. Rate-limit waits don't count. The status shows the seconds so far, and it warns in amber near the end (the last quarter of the limit, 5 to 20 s). The eval takes `--timeout <s>`.
-- **Light mode.** A ~1.3k-token reference, two fixed examples and at most one fix, for small fast models. Full mode sends the whole ~7k-token reference.
+- **Light mode.** A ~2k-token reference of the core operations, two fixed examples and at most one fix, for small fast models. Full mode sends the whole ~10k-token reference.
 - **Models.** Keyless free endpoints (OVHcloud AI Endpoints, LLM7.io; see [awesome-free-llm-apis](https://github.com/mnfst/awesome-free-llm-apis)) are called straight from the browser. They may log prompts, and the bar says so. Claude Haiku 5.5 runs on the viewer's own Anthropic key, which is kept in localStorage and sent only to api.anthropic.com.
 - **CORS.** The site has no server, so an endpoint is only usable if it allows browser calls. Before trusting a provider, open the playground (`bun run dev`), run a prompt, and check the network tab for a blocked request. A provider that fails this check comes out of `PROVIDERS` in `ai/providers.ts`.
 
 **Eval.** `bun run ai:eval` scores every model on 20 cases in `packages/visualisation/test/ai-suite.ts`: 6 easy, 7 medium, 4 hard and 3 edits of starters. A case passes when the code works *and* passes property checks such as area, vertex count, or points on a circle. Every case has a reference solution that passes its own checks (tested). The script writes `docs/AI-EVAL.md`:
 - pass@1 and pass after fixes, per tier;
 - repairs, p50 latency and cost;
+- built-in usage: *built-ins* is the share of answers that used a case's preferred operation (`prefers` in the suite), and *ops share* is vec2 operation nodes against math nodes;
 - a verdict per model: *recommended*, *usable* or *hidden*;
 - a ship check.
 

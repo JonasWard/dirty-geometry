@@ -12,7 +12,16 @@ import { STARTERS } from '../src/playground/starters';
 export type Tier = 'easy' | 'medium' | 'hard' | 'edit';
 /** A failed check says why; a passed one returns nothing. */
 export type Check = (definition: Definition, evaluation: Evaluation) => string | undefined;
-export type Case = { id: string; tier: Tier; prompt: string; edit?: string; checks: Check[]; reference: string };
+export type Case = {
+  id: string;
+  tier: Tier;
+  prompt: string;
+  edit?: string;
+  checks: Check[];
+  reference: string;
+  /** Operations a good answer builds with (any one counts): the eval's built-in usage, not a pass condition. */
+  prefers?: readonly string[];
+};
 
 type Shape = { signedArea?: () => number; area?: () => number; vertices?: readonly unknown[] };
 
@@ -161,6 +170,7 @@ export function definition(side: Length = 2): { square: Polygon2; area: number }
   },
   {
     id: 'circle',
+    prefers: ['Circle2.new', 'ArcPolygon2.fromCircle2'],
     tier: 'easy',
     prompt: 'a circle of radius 3 at the origin',
     checks: [has('Circle2', 'ArcPolygon2', 'Polygon2'), area(PI * 9)],
@@ -172,6 +182,7 @@ export function definition(radius: Length = 3): { circle: Circle2 } {
   },
   {
     id: 'triangle',
+    prefers: ['Polygon2.fromCircle2'],
     tier: 'easy',
     prompt: 'an equilateral triangle with side length 2',
     checks: [vertices(3), area(Math.sqrt(3))],
@@ -206,6 +217,7 @@ export function definition(width: Length = 4, height: Length = 2): { rectangle: 
   },
   {
     id: 'hexagon',
+    prefers: ['Polygon2.fromCircle2'],
     tier: 'easy',
     prompt: 'a regular hexagon with a circumradius of 2',
     checks: [vertices(6), area(((3 * Math.sqrt(3)) / 2) * 4, 0.05)],
@@ -238,6 +250,7 @@ export function definition(outer: Length = 2, inner: Length = 1): { star: Polygo
   },
   {
     id: 'union-squares',
+    prefers: ['Boolean2.union'],
     tier: 'medium',
     prompt: 'the union of two 2 × 2 squares, the second one shifted by (1, 1)',
     checks: [area(7, 0.02)],
@@ -253,6 +266,7 @@ export function definition(shift: Coordinate = 1): { union: Polygon2[] } {
   },
   {
     id: 'square-hole',
+    prefers: ['Boolean2.subtract'],
     tier: 'medium',
     prompt: 'a 4 × 4 square plate with a circular hole of radius 1 in the middle',
     checks: [area(16 - PI, 0.03)],
@@ -266,6 +280,7 @@ export function definition(size: Length = 4, radius: Length = 1): { plate: ArcPo
   },
   {
     id: 'fillet',
+    prefers: ['Arc2.fromFillet'],
     tier: 'medium',
     prompt:
       'a rounded corner: a fillet of radius 1 between the line from (-3, 0) to (0, 0) and the line from (0, 0) to (0, 3)',
@@ -278,6 +293,7 @@ export function definition(radius: Length = 1): { fillet: Arc2 } {
   },
   {
     id: 'points-on-circle',
+    prefers: ['Circle2.evaluate'],
     tier: 'medium',
     prompt: '8 points evenly spaced on a circle of radius 2 around the origin',
     checks: [onCircle(8, 2)],
@@ -295,6 +311,7 @@ export function definition(count: Index = 8, radius: Length = 2): { points: Vec2
   },
   {
     id: 'stadium',
+    prefers: ['ArcPolygon2.new', 'ArcPolygon2.fromSegments'],
     tier: 'medium',
     prompt: 'a stadium shape: a 4 × 2 rectangle with a semicircle of radius 1 on each of its short ends',
     checks: [area(8 + PI, 0.03)],
@@ -307,6 +324,7 @@ export function definition(length: Length = 4, radius: Length = 1): { slot: ArcP
   },
   {
     id: 'ring',
+    prefers: ['Boolean2.subtract'],
     tier: 'medium',
     prompt: 'a ring (annulus) with outer radius 3 and inner radius 2',
     checks: [area(5 * PI, 0.03)],
@@ -344,6 +362,7 @@ export function definition(radius: Length = 3, turns: Coordinate = 5, segments: 
   // ---- hard ----
   {
     id: 'gear',
+    prefers: ['Boolean2.union'],
     tier: 'hard',
     prompt: 'a gear with 12 teeth: body radius 2, each tooth 0.5 long and 0.4 wide, and a central bore of radius 0.5',
     // body + teeth outside it − bore; the teeth's inner ends overlap the disc a little.
@@ -371,6 +390,7 @@ export function definition(teeth: Index = 12, radius: Length = 2, length: Length
   },
   {
     id: 'plate-holes',
+    prefers: ['Boolean2.subtract'],
     tier: 'hard',
     prompt: 'a 6 × 4 plate with four holes of radius 0.4, each hole centred 1 in from both edges at a corner',
     checks: [area(24 - 4 * PI * 0.16, 0.03)],
@@ -391,6 +411,7 @@ export function definition(width: Length = 6, height: Length = 4, r: Length = 0.
   },
   {
     id: 'circle-grid',
+    prefers: ['Circle2.new', 'ArcPolygon2.fromCircle2', 'Polygon2.fromCircle2'],
     tier: 'hard',
     prompt: 'a 3 × 3 grid of circles of radius 0.4, their centres 1.5 apart',
     checks: [count(9, 'Circle2', 'ArcPolygon2', 'Polygon2')],
@@ -408,6 +429,7 @@ export function definition(spacing: Length = 1.5, radius: Length = 0.4): { circl
   },
   {
     id: 'n-gon',
+    prefers: ['Polygon2.fromCircle2'],
     tier: 'hard',
     prompt: 'a regular polygon whose number of sides is an input (7 by default), with circumradius 2',
     checks: [vertices(7), area(0.5 * 7 * 4 * Math.sin((2 * PI) / 7), 0.03), inputsDrive(1)],

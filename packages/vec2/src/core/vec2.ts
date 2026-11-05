@@ -137,6 +137,7 @@ export class Vec2 {
     return new Vec2(0, 1);
   }
 
+  /** The average of the points (two points: their midpoint). */
   static center(...points: Vec2[]): Vec2 {
     if (points.length === 0) {
       throw new Error('Vec2.center requires at least one point');

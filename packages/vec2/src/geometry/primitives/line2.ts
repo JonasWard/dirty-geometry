@@ -22,6 +22,7 @@ export class Line2 {
     public readonly to: Vec2,
   ) {}
 
+  /** The distance from `from` to `to`. */
   length(): number {
     return this.from.distance(this.to);
   }
@@ -30,6 +31,7 @@ export class Line2 {
     return this.to.subtract(this.from);
   }
 
+  /** The point at `t` along the line: `from` at 0, `to` at 1 (0.5 is the midpoint). */
   evaluate(t: Parameter): Vec2 {
     return this.infiniteLine().evaluate(t);
   }

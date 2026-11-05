@@ -85,7 +85,7 @@ function PlaygroundView({
   const canUndo = usePlayground((s) => s.past.length > 0);
   const canRedo = usePlayground((s) => s.future.length > 0);
   const [mode, setMode] = useState<Mode>('cells');
-  /** A prompt's last attempt that did not work, opened in the Code tab (keyed so the editor starts over on it). */
+  /** A prompt's last attempt that did not work, opened in the JSON tab (keyed so the editor starts over on it). */
   const [seed, setSeed] = useState<{ key: number; seed: CodeSeed } | null>(null);
   /** The Raw mode to come back to from Nodes. */
   const [raw, setRaw] = useState<Exclude<Mode, 'nodes'>>('cells');
@@ -475,8 +475,8 @@ function PlaygroundView({
                 key: (current?.key ?? 0) + 1,
                 seed: { text: code, message, ...(range && { range }) },
               }));
-              setMode('code');
-              setRaw('code');
+              setMode('json');
+              setRaw('json');
             }}
           />
 
@@ -489,8 +489,9 @@ function PlaygroundView({
                   <CellsPanel analysis={analysis} evaluation={evaluation} />
                 </>
               )}
-              {mode === 'code' && (
-                <CodeEditor
+              {mode === 'code' && <CodeEditor definition={definition} onChange={commit} />}
+              {mode === 'json' && (
+                <JsonEditor
                   key={seed?.key ?? 0}
                   definition={definition}
                   onChange={(next) => {
@@ -500,7 +501,6 @@ function PlaygroundView({
                   {...(seed && { seed: seed.seed })}
                 />
               )}
-              {mode === 'json' && <JsonEditor definition={definition} onChange={commit} />}
             </div>
 
             <div className='min-w-0 space-y-4 xl:sticky xl:top-16 xl:self-start'>

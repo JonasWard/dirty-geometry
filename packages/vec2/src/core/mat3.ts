@@ -33,16 +33,19 @@ export class Mat3 {
     return new Mat3();
   }
 
+  /** A move by `(x, y)`; apply it with `.transform` (several copies: one matrix each). */
   static translation(x: Coordinate, y: Coordinate): Mat3 {
     return new Mat3(1, 0, x, 0, 1, y, 0, 0, 1);
   }
 
+  /** A rotation by `radians` about the origin; apply it with `.transform` (copies around a centre: one matrix per angle). */
   static rotation(radians: Radians): Mat3 {
     const c = Math.cos(radians);
     const s = Math.sin(radians);
     return new Mat3(c, -s, 0, s, c, 0, 0, 0, 1);
   }
 
+  /** A scale by `x` and `y` about the origin (`y` defaults to `x`; a negative factor mirrors); apply it with `.transform`. */
   static scale(x: Coordinate, y: Coordinate = x): Mat3 {
     return new Mat3(x, 0, 0, 0, y, 0, 0, 0, 1);
   }

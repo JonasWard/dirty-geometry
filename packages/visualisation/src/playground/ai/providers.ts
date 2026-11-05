@@ -104,7 +104,9 @@ export type Chat = (
   options: ChatOptions,
 ) => Promise<ChatResult>;
 
-const MAX_TOKENS: Record<Mode, number> = { full: 6000, light: 2000 };
+const MAX_TOKENS: Record<Mode, number> = { full: 12000, light: 6000 };
+/** Endpoints that refused `response_format` (this page): asked for plain text after. */
+const noJsonMode = new Set<string>();
 /** How often a 429 is waited out before giving up. */
 const RATE_RETRIES = 2;
 
@@ -153,7 +155,13 @@ async function chatOpenAI(provider: Provider, model: Model, messages: ChatMessag
     const wait = untilFree(key, provider.rpm);
     if (wait > 0) await waitFor(wait, options);
     recent.set(key, [...(recent.get(key) ?? []), Date.now()]);
-    const response = await send(provider, model, messages, options);
+    const json = !noJsonMode.has(provider.id);
+    const response = await send(provider, model, messages, options, json);
+    if (json && response.status === 400 && /response_format|json/i.test(await response.clone().text())) {
+      // Not every endpoint takes a JSON mode; the prompt asks for JSON anyway.
+      noJsonMode.add(provider.id);
+      continue;
+    }
     if (response.status === 429 && retry < RATE_RETRIES) {
       // Free endpoints rarely expose Retry-After to the page; then wait until this model's minute is over.
       const seconds = retryAfter(response) ?? Math.max(5, Math.ceil(untilFree(key, 1) / 1000) || 60);
@@ -164,7 +172,7 @@ async function chatOpenAI(provider: Provider, model: Model, messages: ChatMessag
   }
 }
 
-async function send(provider: Provider, model: Model, messages: ChatMessage[], options: ChatOptions) {
+async function send(provider: Provider, model: Model, messages: ChatMessage[], options: ChatOptions, json: boolean) {
   let response: Response;
   try {
     response = await fetch(`${provider.baseUrl}/chat/completions`, {
@@ -173,7 +181,13 @@ async function send(provider: Provider, model: Model, messages: ChatMessage[], o
         'content-type': 'application/json',
         ...(options.apiKey && { authorization: `Bearer ${options.apiKey}` }),
       },
-      body: JSON.stringify({ model: model.id, messages, temperature: 0.2, max_tokens: MAX_TOKENS[options.mode] }),
+      body: JSON.stringify({
+        model: model.id,
+        messages,
+        temperature: 0.2,
+        max_tokens: MAX_TOKENS[options.mode],
+        ...(json && { response_format: { type: 'json_object' } }),
+      }),
       signal: options.signal,
     });
   } catch (error) {
@@ -196,8 +210,7 @@ async function read(provider: Provider, response: Response): Promise<ChatResult>
   };
   const choice = json.choices?.[0];
   const text = choice?.message?.content ?? '';
-  if (choice?.finish_reason === 'length' && !/```[\s\S]*```/.test(text))
-    throw new ChatError('max_tokens', 'The answer was cut off (too long)');
+  if (choice?.finish_reason === 'length') throw new ChatError('max_tokens', 'The answer was cut off (too long)');
   return {
     text,
     usage: json.usage && { input: json.usage.prompt_tokens ?? 0, output: json.usage.completion_tokens ?? 0 },
@@ -250,8 +263,7 @@ async function chatAnthropic(provider: Provider, model: Model, messages: ChatMes
   }
   if (response.stop_reason === 'refusal') throw new ChatError('refusal', 'Claude declined this request');
   const text = response.content.map((block) => (block.type === 'text' ? block.text : '')).join('');
-  if (response.stop_reason === 'max_tokens' && !/```[\s\S]*```/.test(text))
-    throw new ChatError('max_tokens', 'The answer was cut off (too long)');
+  if (response.stop_reason === 'max_tokens') throw new ChatError('max_tokens', 'The answer was cut off (too long)');
   const u = response.usage;
   return {
     text,

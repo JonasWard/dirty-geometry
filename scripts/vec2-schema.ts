@@ -241,8 +241,24 @@ export function generateSchema(root = srcRoot) {
   }
 
   const skipped: string[] = [];
+  /** Each operation's doc comment, first sentence (`Class.member` or `helpers.name`): what a prompt shows. */
+  const docs: Record<string, string> = {};
+  const describe = (id: string, ...nodes: ts.Node[]) => {
+    const text = nodes
+      .flatMap((node) => ts.getJSDocCommentsAndTags(node).filter(ts.isJSDoc))
+      .map((doc) => ts.getTextOfJSDocComment(doc.comment) ?? '')
+      .find((t) => t.trim());
+    if (!text) return;
+    const plain = text
+      .replace(/\{@link\s+([^}|\s]+)[^}]*\}/g, '$1')
+      .replace(/\s+/g, ' ')
+      .trim();
+    const sentence = plain.match(/^.*?[.!?](?=\s|$)/)?.[0] ?? plain;
+    docs[id] = sentence.length > 200 ? `${sentence.slice(0, 197)}…` : sentence;
+  };
   /** Parameters and result of a signature; `null` when it cannot be recorded. */
-  function call(id: string, decl: ts.SignatureDeclaration, isStatic: boolean): Entry {
+  function call(id: string, decl: ts.SignatureDeclaration, isStatic: boolean, ...docNodes: ts.Node[]): Entry {
+    describe(id.includes('.') ? id : `helpers.${id}`, decl, ...docNodes);
     try {
       const params = Object.fromEntries(
         decl.parameters.map((p) => {
@@ -263,6 +279,7 @@ export function generateSchema(root = srcRoot) {
     }
   }
   function read(id: string, node: ts.Node, typeNode: ts.TypeNode | undefined, isStatic: boolean): Entry {
+    describe(id, node);
     try {
       const value = typeNode ? fromNode(typeNode) : fromType(checker.getTypeAtLocation(node));
       return { ...(isStatic ? { static: true as const } : {}), value };
@@ -319,7 +336,7 @@ export function generateSchema(root = srcRoot) {
     }
     const constructible = !ctor || isPublic(ctor);
     return {
-      ...(constructible ? { new: ctor ? (call(`${name}.new`, ctor, false)?.params ?? {}) : {} } : {}),
+      ...(constructible ? { new: ctor ? (call(`${name}.new`, ctor, false, decl)?.params ?? {}) : {} } : {}),
       members: sorted(members),
     };
   }
@@ -396,7 +413,7 @@ export function generateSchema(root = srcRoot) {
     }
   })(modules, '');
   if (untyped.length > 0) throw new Error(`Bare \`number\` (use a type from core/numbers.ts): ${untyped.join(', ')}`);
-  return { numbers: NUMBERS, types: namedTypes, modules: sortTree(modules), tables, skipped };
+  return { numbers: NUMBERS, types: namedTypes, modules: sortTree(modules), tables, skipped, docs };
 }
 
 // ---- writing: folders, files, classes and `members` expanded; every entry on one line ----
@@ -430,10 +447,11 @@ export const schemaFiles = {
   schema: path.join(schemaDir, 'vec2.schema.json'),
   dense: path.join(schemaDir, 'vec2.dense.json'),
   bindings: path.join(schemaDir, 'bindings.ts'),
+  docs: path.join(schemaDir, 'vec2.docs.json'),
 };
 
 export async function renderSchemaFiles(): Promise<Record<keyof typeof schemaFiles, string> & { skipped: string[] }> {
-  const { numbers, types, modules, tables, skipped } = generateSchema();
+  const { numbers, types, modules, tables, skipped, docs } = generateSchema();
   const schema = [
     '{',
     '  "format": "vec2-schema",',
@@ -482,6 +500,11 @@ export async function renderSchemaFiles(): Promise<Record<keyof typeof schemaFil
     schema,
     dense,
     bindings: await prettier.format(bindings, { ...config, filepath: schemaFiles.bindings }),
+    // One operation per line, sorted, so a changed doc comment is a one-line diff.
+    docs: `{\n${Object.keys(docs)
+      .sort()
+      .map((id) => `  ${JSON.stringify(id)}: ${JSON.stringify(docs[id])}`)
+      .join(',\n')}\n}\n`,
     skipped,
   };
 }

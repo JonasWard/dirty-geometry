@@ -217,6 +217,7 @@ export class ArcPolygon2 {
     return area;
   }
 
+  /** The enclosed area, arcs included (always positive; `signedArea` keeps the orientation). */
   area(): number {
     return Math.abs(this.signedArea());
   }

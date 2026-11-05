@@ -22,6 +22,9 @@ export type Evaluation = {
 export type EvaluateOptions = { inputs?: Readonly<Record<string, unknown>>; previous?: Evaluation };
 
 class Failed extends Error {}
+/** How deep function calls may nest (recursion), and how many nested calls one cell may make. */
+export const MAX_CALL_DEPTH = 64;
+export const MAX_CALLS = 100_000;
 const fail = (message: string): never => {
   throw new DefinitionError(message);
 };
@@ -101,13 +104,31 @@ export function evaluate(definition: Definition, options: EvaluateOptions = {}):
 
     function call(fn: Fn, args: Record<string, Expr>): unknown {
       const params = new Map(fn.params.map((p) => [p.name, run(args[p.name] ?? null, scope, used)]));
-      return run(fn.body, params, new Set());
+      return enter(fn, () => run(fn.body, params, new Set()));
     }
   }
 
   /** Calls `fn` with positional values (a list form's callback); params past the values get `null`. */
   function callWith(fn: Fn, values: unknown[]): unknown {
-    return run(fn.body, new Map(fn.params.map((p, i) => [p.name, i < values.length ? values[i] : null])), new Set());
+    const params = new Map(fn.params.map((p, i) => [p.name, i < values.length ? values[i] : null]));
+    return enter(fn, () => run(fn.body, params, new Set()));
+  }
+
+  // A function may call itself: these keep a missing base case (or a tree too deep) from hanging the page.
+  let depth = 0;
+  let calls = 0;
+  function enter(fn: Fn, body: () => unknown): unknown {
+    if (depth >= MAX_CALL_DEPTH)
+      fail(`${fn.name} calls nested more than ${MAX_CALL_DEPTH} deep: a function that calls itself needs a base case`);
+    // Only calls made inside other calls count: a long list of callbacks (generate, map) is not recursion.
+    if (depth > 0 && ++calls > MAX_CALLS)
+      fail(`more than ${MAX_CALLS} nested function calls in one cell: recursion that branches is too deep`);
+    depth++;
+    try {
+      return body();
+    } finally {
+      depth--;
+    }
   }
 
   const fnKey = JSON.stringify(definition.functions);
@@ -122,6 +143,7 @@ export function evaluate(definition: Definition, options: EvaluateOptions = {}):
       used = new Set(before.depNames);
     } else {
       try {
+        calls = 0;
         result = { value: run(cell.expr, env, used) };
       } catch (error) {
         result = { error: error instanceof Error ? error.message : String(error) };

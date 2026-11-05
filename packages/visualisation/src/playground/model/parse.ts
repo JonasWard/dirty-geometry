@@ -367,7 +367,7 @@ export function parseDefinition(text: string): Definition {
   };
 
   // ---- the module ----
-  const functions: { fn: Omit<Fn, 'body'>; body: Node; from: number }[] = [];
+  const functions: { fn: Omit<Fn, 'body'>; body: Node; from: number; to: number; returns?: string }[] = [];
   const inputs: { name: string; type: string; value: Node; from: number; to: number }[] = [];
   const cells: { name: string; type?: string; node: Node; from: number; to: number }[] = [];
   let outputs: Token[] = [];
@@ -437,7 +437,8 @@ export function parseDefinition(text: string): Definition {
         if (!eat(',')) break;
       }
       expect(')');
-      if (eat(':')) typeText(['{']);
+      // The declared result: needed when the function calls itself (what the call gives is not known yet).
+      const returns = eat(':') ? typeText(['{']) : undefined;
       expect('{');
       // `const t = …;` lines before the return are written into it (expressions have no side effects).
       const locals = new Map<string, Node>();
@@ -454,7 +455,13 @@ export function parseDefinition(text: string): Definition {
       const body = inline(expression(), locals);
       eat(';');
       expect('}');
-      functions.push({ fn: { name: fnName.text, params }, body, from: start.from });
+      functions.push({
+        fn: { name: fnName.text, params },
+        body,
+        from: fnName.from,
+        to: fnName.to,
+        ...(returns && { returns }),
+      });
     }
   }
   if (!seen) error('The code needs an `export function definition(…) { … }`', text.length, text.length);
@@ -621,8 +628,23 @@ export function parseDefinition(text: string): Definition {
 
   const fnMap = new Map<string, Fn>();
   const outFunctions: Fn[] = [];
-  for (const { fn, body } of functions) {
+  for (const { fn, body, from, to, returns } of functions) {
     const params = new Map(fn.params.map((p) => [p.name, parseTypeName(p.type)]));
+    // A function that calls itself is in scope in its own body, as what it declares it returns.
+    let selfCall = false;
+    mapNode(body, (n) => {
+      if (n.kind === 'name' && n.name === fn.name) selfCall = true;
+      return n;
+    });
+    if (selfCall) {
+      if (!returns)
+        error(`${fn.name} calls itself, so it declares what it returns: function ${fn.name}(…): Type { … }`, from, to);
+      fnMap.set(fn.name, { ...fn, body: null });
+      fnTypes.set(fn.name, {
+        params: fn.params.map((p) => ({ name: p.name, type: parseTypeName(p.type) })),
+        returns: parseTypeName(returns!),
+      });
+    }
     const resolved = { ...fn, body: resolve(mathCalls(body), params, fnMap) };
     fnTypes.set(fn.name, {
       params: fn.params.map((p) => ({ name: p.name, type: parseTypeName(p.type) })),

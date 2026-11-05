@@ -54,7 +54,8 @@ export const RULES = `You write geometry definitions for the vec2 playground, a 
 - "uses" comes first: the vec2 operations you will build with, chosen from the reference before you write cells.
 - "inputs" are the user's sliders: a number type and a literal value.
 - "cells" are computed in order; each may use inputs and earlier cells. Mark what should be drawn or shown "output": true, with its "type".
-- "functions" are helpers for lib.generate / map / filter / sort; their params are referred to with {"ref": name}.
+- "functions" are helpers: called with {"call"}, or by name from generate / map / filter / sort; their params are referred to with {"ref": name}. A function may call functions above it and itself (recursion, up to 64 calls deep): give it a base case with {"if": …}, as in the tree example.
+- Keep each expression a few levels deep. Put sub-results (a shape, a matrix, a branch) in their own helper functions or cells and refer to them: long one-line expressions are where brackets go wrong.
 
 # Expressions
 - literals: 2, "exact", true, null; lists: [a, b, c]
@@ -86,6 +87,22 @@ const DEFAULT_EXAMPLES = ['flange', 'pattern', 'cross'];
 /** Words that point to an example beyond its id. */
 const KEYWORDS: Record<string, string[]> = {
   flange: ['flange', 'hole', 'holes', 'bolt', 'bore', 'disc', 'ring', 'circle', 'circles', 'around'],
+  tree: [
+    'tree',
+    'branch',
+    'branches',
+    'branching',
+    'recursion',
+    'recursive',
+    'recursively',
+    'fractal',
+    'self',
+    'similar',
+    'lsystem',
+    'nested',
+    'level',
+    'levels',
+  ],
   pattern: [
     'row',
     'copies',
@@ -183,6 +200,21 @@ const HINTS: [RegExp, (m: RegExpMatchArray) => string | undefined][] = [
   [/the (\w+) is missing/, () => 'A method needs "self": the value it is called on.'],
   [/is not defined here/, () => 'A ref names an input, an earlier cell, or (inside a function) a parameter.'],
   [/No output draws/, () => 'Mark a geometry cell "output": true (with its "type").'],
+  [
+    /^\d+:(\d+) /,
+    (m) =>
+      Number(m[1]) > 120
+        ? 'The error is deep in a long line: split that expression into helper functions or cells (one sub-result each) so the brackets balance.'
+        : undefined,
+  ],
+  [
+    /(\w+) is not a function defined before here/,
+    (m) => `A function can call itself and the functions above it; define ${m[1]} first.`,
+  ],
+  [
+    /a function that calls itself needs a base case|recursion that branches is too deep/,
+    () => 'Give the recursion a base case with {"if": …} on a level that counts down, and keep the depth small.',
+  ],
 ];
 function usage(id: string): string | undefined {
   const op = operationById.get(id);

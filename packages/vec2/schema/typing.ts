@@ -9,7 +9,7 @@
  */
 import { isSharedForm } from '@dirty-geometry/fn/forms';
 import { NULLABLE_OPS } from '@dirty-geometry/fn/math';
-import type { Definition, Expr, SharedExpr } from '../src/recording/definition';
+import type { Definition, Expr, Fn, SharedExpr } from '../src/recording/definition';
 import {
   classes,
   classJson,
@@ -495,6 +495,25 @@ const INPUT_TYPES = new Set([...NUMBER_TYPES, 'boolean', 'string', ...VALUE_CLAS
 export const inputTypes = (): string[] => [...INPUT_TYPES];
 
 /** Types and checks a whole definition: names, scopes, operations and their arguments. */
+/** Whether a function's body calls the function itself (directly, or as a list form's callback). */
+export function callsItself(fn: Fn): boolean {
+  const walk = (e: unknown): boolean =>
+    Array.isArray(e)
+      ? e.some(walk)
+      : e !== null &&
+        typeof e === 'object' &&
+        !('value' in e) &&
+        ((e as { call?: unknown }).call === fn.name ||
+          (e as { fn?: unknown }).fn === fn.name ||
+          Object.values(e).some(walk));
+  return walk(fn.body);
+}
+/** A type without its `unknown` members (`Polygon2 | unknown` is `Polygon2`); all unknown stays unknown. */
+function withoutUnknown(type: Type): Type {
+  const known = members(type).filter((m) => m !== 'unknown');
+  return known.length === 0 ? type : known.length === 1 ? known[0]! : { or: known };
+}
+
 export function checkDefinition(definition: Definition): Analysis {
   const issues: Issue[] = [];
   const refs = new Map<string, Type>();
@@ -524,7 +543,18 @@ export function checkDefinition(definition: Definition): Analysis {
       if (problem) issues.push({ kind: 'function', name: fn.name, path: ['params', p.name], message: problem });
       seen.add(p.name);
     }
-    const scope = { refs: new Map(params.map((p) => [p.name, p.type])), fns: new Map(fns) };
+    const refs = new Map(params.map((p) => [p.name, p.type]));
+    // A function may call itself (an `if` stops it). Its result type is found in two passes: first with the
+    // self-call as `unknown` (so the base case decides), then with that type, as the result.
+    let returns: Type = 'unknown';
+    if (callsItself(fn)) {
+      const first = typer([], 'function', fn.name).typeOf(fn.body, {
+        refs,
+        fns: new Map([...fns, [fn.name, { params, returns }]]),
+      });
+      returns = withoutUnknown(widen(first));
+    }
+    const scope = { refs, fns: new Map([...fns, [fn.name, { params, returns }]]) };
     fns.set(fn.name, { params, returns: widen(typeOf(fn.body, scope)) });
   }
   for (const input of definition.inputs) {

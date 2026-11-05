@@ -1,10 +1,10 @@
-import { describe, expect, test } from 'bun:test';
+import { afterEach, describe, expect, test } from 'bun:test';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { operationById, operations } from '@dirty-geometry/vec2/schema/schema';
 import { extractCode } from '../src/playground/ai/extract';
 import { generate, type Progress } from '../src/playground/ai/generate';
-import { buildMessages, pickExamples } from '../src/playground/ai/prompt';
+import { buildMessages, pickExamples, repairMessage } from '../src/playground/ai/prompt';
 import { ChatError, providerById, resolveModel, type Chat } from '../src/playground/ai/providers';
 import { COMPACT_OPERATIONS, compactReference, fullReference } from '../src/playground/ai/reference';
 import { validateCode } from '../src/playground/ai/validate';
@@ -107,6 +107,21 @@ describe('prompts', () => {
     expect(light[0]!.content.length).toBeLessThan(full[0]!.content.length / 2);
     expect(buildMessages({ prompt: 'bigger', mode: 'light', current: SQUARE })[1]!.content).toContain(SQUARE);
   });
+  test('repairs carry a hint for known mistakes', () => {
+    const fail = (code: string) => {
+      const result = validateCode(code);
+      if (result.ok) throw new Error('expected a failure');
+      return repairMessage(result.stage, result.errors);
+    };
+    expect(
+      fail(`export function definition(r: Length = 1): { p: Polygon2 } { const p = r > 1 ? 1 : 2; return { p }; }`),
+    ).toContain('lib.smallerThan');
+    expect(
+      fail(
+        `export function definition(r: Length = 1): { p: number } { const p = new Circle2(new Vec2(0, 0), r).perimeter(); return { p }; }`,
+      ),
+    ).toContain('Circle2 methods: ');
+  });
   test('examples follow the request', () => {
     expect(pickExamples('a gear with 12 teeth')[0]).toBe('gear');
     expect(pickExamples('a plate with bolt holes')[0]).toBe('mounting-plate');
@@ -157,11 +172,19 @@ describe('generate', () => {
     const result = await generate({ prompt: 'x', mode: 'full', target, chat: scripted(bad, bad, fence(SQUARE)) });
     expect(result.ok === false && result.kind).toBe('repeated');
   });
-  test('falls back once when rate limited', async () => {
-    const chat = scripted(new ChatError('rate', 'slow down', 429), fence(SQUARE));
+  test('falls back once when the endpoint is unreachable, not when rate limited', async () => {
+    const chat = scripted(new ChatError('network', 'offline'), fence(SQUARE));
     const result = await generate({ prompt: 'a square', mode: 'full', target, fallback, chat });
     expect(result.ok).toBe(true);
     expect(chat.calls.map((c) => c.model)).toEqual(['gpt-oss-120b', 'codestral-latest']);
+    const limited = await generate({
+      prompt: 'a square',
+      mode: 'full',
+      target,
+      fallback,
+      chat: scripted(new ChatError('rate', 'slow down', 429)),
+    });
+    expect(limited.ok === false && limited.kind).toBe('rate');
   });
   test('an edit must change the definition', async () => {
     const current = validateCode(SQUARE);
@@ -184,6 +207,59 @@ describe('generate', () => {
   });
   test('the providers are known', () => {
     expect(providerById('anthropic')!.models[0]!.id).toBe('claude-haiku-5-5');
+  });
+});
+
+describe('rate limits', () => {
+  const ovh = resolveModel('ovh/Qwen3.6-27B')!;
+  const original = globalThis.fetch;
+  const reply = (status: number, headers: Record<string, string> = {}) =>
+    new Response(
+      status === 200
+        ? JSON.stringify({ choices: [{ message: { content: fence(SQUARE) }, finish_reason: 'stop' }] })
+        : 'slow down',
+      { status, headers },
+    );
+  const serve = (...responses: Response[]) => {
+    const calls: number[] = [];
+    globalThis.fetch = (async () => (
+      calls.push(Date.now()),
+      responses.shift() ?? reply(200)
+    )) as unknown as typeof fetch;
+    return calls;
+  };
+  afterEach(() => {
+    globalThis.fetch = original;
+  });
+
+  test('a 429 is waited out (Retry-After) and asked again on the same model', async () => {
+    const calls = serve(reply(429, { 'retry-after': '1' }), reply(200));
+    const events: Progress[] = [];
+    const result = await generate({
+      prompt: 'a square',
+      mode: 'light',
+      target: ovh,
+      timeoutMs: 500,
+      onProgress: (e) => events.push(e),
+    });
+    expect(result.ok).toBe(true);
+    expect(calls).toHaveLength(2);
+    expect(calls[1]! - calls[0]!).toBeGreaterThanOrEqual(950);
+    // The wait does not use up the 500 ms limit.
+    expect(events.filter((e) => e.type === 'waiting').map((e) => e.type === 'waiting' && e.seconds)).toEqual([1]);
+  });
+  test('cancel ends the wait', async () => {
+    serve(reply(429, { 'retry-after': '30' }));
+    const controller = new AbortController();
+    const pending = generate({
+      prompt: 'x',
+      mode: 'light',
+      target: ovh,
+      signal: controller.signal,
+      onProgress: (e) => e.type === 'waiting' && controller.abort(),
+    });
+    const result = await pending;
+    expect(result.ok === false && result.kind).toBe('aborted');
   });
 });
 

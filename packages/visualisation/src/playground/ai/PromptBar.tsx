@@ -73,8 +73,23 @@ export function PromptBar({
   const needsKey = target.provider.needsKey && !key;
   const label = (t: Target) => t.model.label;
 
+  /** The countdown while a free endpoint's rate limit is waited out. */
+  const ticking = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
+  const stopTicking = () => clearInterval(ticking.current);
+  useEffect(() => stopTicking, []);
+
   const describe = (event: Progress, repairs: number) => {
-    if (event.type === 'request')
+    stopTicking();
+    if (event.type === 'waiting') {
+      const end = Date.now() + event.seconds * 1000;
+      const tick = () =>
+        setStatus({
+          text: `Waiting ${Math.max(0, Math.ceil((end - Date.now()) / 1000))} s for ${label(event.target)}’s free rate limit… (cancel stops)`,
+          tone: 'busy',
+        });
+      tick();
+      ticking.current = setInterval(tick, 500);
+    } else if (event.type === 'request')
       setStatus({
         text: event.repairing
           ? `Fixing a ${event.repairing} error (${event.attempt}/${repairs})…`
@@ -104,6 +119,7 @@ export function PromptBar({
       ...(target.provider.needsKey && { apiKey: key }),
     });
     running.current = null;
+    stopTicking();
     setBusy(false);
     const seconds = ((Date.now() - started) / 1000).toFixed(1);
     if (result.ok) {

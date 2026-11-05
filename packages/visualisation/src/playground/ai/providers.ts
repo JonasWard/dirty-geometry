@@ -94,6 +94,8 @@ export type ChatOptions = {
   apiKey?: string;
   /** Claude only: how hard it thinks (Haiku 5.5's own default is medium). */
   effort?: 'low' | 'medium' | 'high';
+  /** Called before waiting for a free endpoint's rate limit (then the request is sent again, same model). */
+  onWait?: (seconds: number) => void;
 };
 export type Chat = (
   provider: Provider,
@@ -103,8 +105,66 @@ export type Chat = (
 ) => Promise<ChatResult>;
 
 const MAX_TOKENS: Record<Mode, number> = { full: 6000, light: 2000 };
+/** How often a 429 is waited out before giving up. */
+const RATE_RETRIES = 2;
+
+/** When each model was last asked (this page only), to stay under a provider's requests per minute. */
+const recent = new Map<string, number[]>();
+/** A wait that Cancel ends. */
+const sleep = (ms: number, signal?: AbortSignal) =>
+  new Promise<void>((resolve, reject) => {
+    if (signal?.aborted) return reject(new ChatError('aborted', 'Cancelled'));
+    const timer = setTimeout(done, ms);
+    function done() {
+      signal?.removeEventListener('abort', abort);
+      resolve();
+    }
+    function abort() {
+      clearTimeout(timer);
+      reject(new ChatError('aborted', 'Cancelled'));
+    }
+    signal?.addEventListener('abort', abort, { once: true });
+  });
+/** Seconds from a Retry-After header (seconds or a date); missing when the header is absent or unreadable. */
+function retryAfter(response: Response): number | undefined {
+  const value = response.headers.get('retry-after');
+  if (!value) return undefined;
+  const seconds = Number(value);
+  if (Number.isFinite(seconds)) return Math.max(1, Math.ceil(seconds));
+  const date = Date.parse(value);
+  return Number.isNaN(date) ? undefined : Math.max(1, Math.ceil((date - Date.now()) / 1000));
+}
+/** Milliseconds until another request to this model fits in its per-minute limit. */
+function untilFree(key: string, rpm: number | undefined): number {
+  if (!rpm) return 0;
+  const now = Date.now();
+  const times = (recent.get(key) ?? []).filter((t) => t > now - 60_000);
+  recent.set(key, times);
+  return times.length < rpm ? 0 : times[0]! + 60_000 - now + 250;
+}
+const waitFor = async (ms: number, options: ChatOptions) => {
+  options.onWait?.(Math.ceil(ms / 1000));
+  await sleep(ms, options.signal);
+};
 
 async function chatOpenAI(provider: Provider, model: Model, messages: ChatMessage[], options: ChatOptions) {
+  const key = modelKey(provider, model);
+  for (let retry = 0; ; retry++) {
+    const wait = untilFree(key, provider.rpm);
+    if (wait > 0) await waitFor(wait, options);
+    recent.set(key, [...(recent.get(key) ?? []), Date.now()]);
+    const response = await send(provider, model, messages, options);
+    if (response.status === 429 && retry < RATE_RETRIES) {
+      // Free endpoints rarely expose Retry-After to the page; then wait until this model's minute is over.
+      const seconds = retryAfter(response) ?? Math.max(5, Math.ceil(untilFree(key, 1) / 1000) || 60);
+      await waitFor(seconds * 1000, options);
+      continue;
+    }
+    return read(provider, response);
+  }
+}
+
+async function send(provider: Provider, model: Model, messages: ChatMessage[], options: ChatOptions) {
   let response: Response;
   try {
     response = await fetch(`${provider.baseUrl}/chat/completions`, {
@@ -120,6 +180,10 @@ async function chatOpenAI(provider: Provider, model: Model, messages: ChatMessag
     if ((error as Error).name === 'AbortError') throw new ChatError('aborted', 'Cancelled');
     throw new ChatError('network', `${provider.label}: ${(error as Error).message} (blocked by CORS or offline?)`);
   }
+  return response;
+}
+
+async function read(provider: Provider, response: Response): Promise<ChatResult> {
   if (!response.ok) {
     const body = (await response.text().catch(() => '')).slice(0, 300);
     const kind =

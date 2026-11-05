@@ -41,6 +41,15 @@ The playground's prompt bar turns a sentence ("a gear with 12 teeth", or with *e
   - an API reference built from `vec2.schema.json` at runtime, so it always matches the schema;
   - worked examples taken from the starters.
 - **How the answer is checked.** The answer goes through `parseDefinition`, then `checkDefinition`, then `evaluate`, and at least one output must draw something. When a stage fails, its errors (a parse error with line and caret, type issues, cell errors) go back to the model for a fix: two fixes in full mode, one in light mode. Only a working definition is committed, so Ctrl+Z undoes it. If every attempt fails, the Code tab opens on the last one with its error selected.
+- **Habits the code accepts.** The Code tab reads some TypeScript that models (and people) write by habit:
+  - `const` lines inside helper functions, which are inlined into the return;
+  - `as Type` casts, which are ignored;
+  - `let` for a cell;
+  - `Math.PI`, `Math.sin/cos/…` and `Math.sqrt`, read as numbers and `lib.*` calls;
+  - helper parameter types such as `Vec2 | undefined` and `(Length | Coordinate)[]`, simplified to `Vec2` and `Coordinate[]` so the link can pack them.
+
+  Printed code stays in the strict form. Known mistakes (loops, ternaries, `%`, comparisons, unknown methods) get a concrete hint in the repair message.
+- **Rate limits.** OVHcloud's anonymous limit is 2 requests a minute per model. The browser keeps under it, and on a 429 it waits (`Retry-After`, or until the model's minute is over) and asks the same model again, at most twice. The bar shows a countdown that Cancel stops. Waiting doesn't count toward the time limit, and the eval waits the same way.
 - **Light mode.** A ~1.3k-token reference, two fixed examples and at most one fix, for small fast models. Full mode sends the whole ~7k-token reference.
 - **Models.** Keyless free endpoints (OVHcloud AI Endpoints, LLM7.io; see [awesome-free-llm-apis](https://github.com/mnfst/awesome-free-llm-apis)) are called straight from the browser. They may log prompts, and the bar says so. Claude Haiku 5.5 runs on the viewer's own Anthropic key, which is kept in localStorage and sent only to api.anthropic.com.
 - **CORS.** The site has no server, so an endpoint is only usable if it allows browser calls. Before trusting a provider, open the playground (`bun run dev`), run a prompt, and check the network tab for a blocked request. A provider that fails this check comes out of `PROVIDERS` in `ai/providers.ts`.

@@ -3,6 +3,7 @@
  * reference, worked examples (the starters), and the request. `full` sends every operation and three examples
  * picked for the request; `light` (for small, fast models) the core operations and two fixed examples.
  */
+import { operations } from '@dirty-geometry/vec2/schema/schema';
 import { STARTER_CODE } from '../starters';
 import { compactReference, fullReference } from './reference';
 
@@ -13,12 +14,12 @@ export const RULES = `You write geometry definitions for the vec2 playground, a 
 
 Shape of the code:
 - Optionally \`import * as lib from '@dirty-geometry/fn/lib';\` first (only if you use lib.*).
-- Then optional helper functions: \`function name(p: Type, …) { return expression; }\`. A helper body is exactly ONE return statement (no const, no if).
+- Then optional helper functions: \`function name(p: Type, …) { const t = expression; … return expression; }\` (only const lines, then one return; no if).
 - Then exactly one \`export function definition(input: Type = literal, …): { out: Type; … } { const cell = expression; … return { out, … }; }\`.
   Inputs are the user's sliders: give each a number type and a literal default. The body is only \`const\` lines, then one \`return { … }\` of cell names. Every returned name must be a const cell and appear in the return type.
 
 Expressions: \`new Class(…)\`, static calls \`Class.member(…)\`, method calls \`value.member(…)\`, field reads \`line.from\`, index reads \`list[0]\`, list literals \`[a, b]\`, option objects \`{ arcs: { mode: 'exact' } }\`, number/string/boolean literals, \`+ - * /\`, unary \`-\` and parentheses.
-NOT available: let/var, loops, if, ternary \`? :\`, arrow functions, comparison operators, %, template strings, Math.*, spread outside arguments. Use lib.* instead:
+NOT available: loops, if, ternary \`? :\`, arrow functions, comparison operators, %, template strings, spread outside arguments. Math.PI and Math.sin/cos/sqrt/… work; for the rest use lib.*:
 - lib.sin/cos/tan/atan2/abs/min/max/pow/floor/round/mod, lib.smallerThan(a, b)/biggerThan/equal, lib.and/or/not, lib.ifElse(condition, then, otherwise)
 - lib.generate(count, fnName, undefined, data): calls \`fnName(i: Index, previous: T, count: Index, data: D)\` for i = 0…count-1 and returns the list (use it instead of loops; data is often a list of numbers like [radius, depth]).
 - lib.map(list, fnName, data) with \`fnName(item: T, i: Index, data: D)\`; lib.filter(list, fnName, data) (fn returns a boolean); lib.sort(list, fnName, data) (fn returns a number); lib.slice(list, start, end); lib.at(list, i); lib.length(list)
@@ -97,6 +98,40 @@ export function buildMessages({ prompt, mode, current }: PromptRequest): ChatMes
 }
 
 /** The follow-up that asks for a fix, with what failed. */
+/** For an error a model often makes, how to write it instead. */
+const HINTS: [RegExp, (m: RegExpMatchArray) => string][] = [
+  [
+    /found (for|while)\b/,
+    () => 'There are no loops: make the list with lib.generate(count, helperName, undefined, data).',
+  ],
+  [/found if\b/, () => 'There is no if: use lib.ifElse(condition, then, otherwise).'],
+  [
+    /found =>|Unexpected "=>"|found \(/,
+    () => 'There are no arrow functions: pass a named helper function to lib.generate/map/filter/sort.',
+  ],
+  [/Unexpected "\?"|found \?/, () => 'There is no ternary: use lib.ifElse(condition, then, otherwise).'],
+  [/Unexpected "%"/, () => 'There is no %: use lib.mod(a, b).'],
+  [/Unexpected "`"/, () => 'There are no template strings.'],
+  [
+    /found (>|<|=|!)|Unexpected "(>|<|=|!)"/,
+    () =>
+      'There are no comparison operators: use lib.smallerThan(a, b), lib.biggerThan(a, b) or lib.equal(a, b), and lib.ifElse to choose.',
+  ],
+  [/Spread items only/, () => 'No spread in lists: build the whole list with lib.generate.'],
+  [
+    /(\w+) has no method (\w+)/,
+    (m) => {
+      const names = operations.filter((op) => op.owner === m[1] && !op.static).map((op) => op.member);
+      return names.length ? `${m[1]} methods: ${names.join(', ')}.` : `Check the reference for what ${m[1]} offers.`;
+    },
+  ],
+];
+export const hintsFor = (errors: readonly string[]) => [
+  ...new Set(
+    errors.flatMap((e) => HINTS.map(([re, hint]) => e.match(re)).flatMap((m, i) => (m ? [HINTS[i]![1](m)] : []))),
+  ),
+];
+
 export function repairMessage(stage: string, errors: readonly string[]): string {
   const what =
     {
@@ -106,5 +141,6 @@ export function repairMessage(stage: string, errors: readonly string[]): string 
       evaluate: 'fails when evaluated',
       draw: 'draws nothing',
     }[stage] ?? 'failed';
-  return `That code ${what}:\n${errors.map((e) => `- ${e}`).join('\n')}\n\nFix it and answer with the complete corrected code in one \`\`\`ts block. Use only operations from the reference.`;
+  const hints = hintsFor(errors);
+  return `That code ${what}:\n${errors.map((e) => `- ${e}`).join('\n')}${hints.length ? `\n\nHint: ${hints.join(' ')}` : ''}\n\nFix it and answer with the complete corrected code in one \`\`\`ts block. Use only operations from the reference.`;
 }

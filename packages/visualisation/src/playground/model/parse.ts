@@ -10,7 +10,14 @@
  */
 import { CallError, fromCall, isCallName, type CallArg } from '@dirty-geometry/fn/calls';
 import type { Cell, Definition, Expr, Fn, Input } from '@dirty-geometry/vec2/recording/definition';
-import { isOptional, isRest, operationById, type Slot, type Type } from '@dirty-geometry/vec2/schema/schema';
+import {
+  NUMBER_TYPES,
+  isOptional,
+  isRest,
+  operationById,
+  type Slot,
+  type Type,
+} from '@dirty-geometry/vec2/schema/schema';
 import {
   isClass,
   members,
@@ -227,7 +234,11 @@ export function parseDefinition(text: string): Definition {
         expect(']');
         node = { kind: 'index', of: node, index, from: node.from, to: tokens[at - 1]!.to };
       } else if (is('!')) next();
-      else return node;
+      else if (is('as') && peek().kind === 'name' && peek(1).kind === 'name') {
+        // `x as Length`, `[a, b] as const`: a cast changes nothing here.
+        next();
+        skipType();
+      } else return node;
     }
   }
   function unary(): Node {
@@ -254,6 +265,90 @@ export function parseDefinition(text: string): Definition {
   const product = binary(['*', '/'], unary);
   const expression = binary(['+', '-'], product);
 
+  /** `node` with its children mapped by `f` (bottom up). */
+  function mapNode(node: Node, f: (n: Node) => Node): Node {
+    const m = (n: Node) => mapNode(n, f);
+    const a = (items: Arg[]) => items.map((item) => ({ ...item, node: m(item.node) }));
+    switch (node.kind) {
+      case 'list':
+        return f({ ...node, items: a(node.items) });
+      case 'object':
+        return f({ ...node, fields: node.fields.map(([k, v]) => [k, m(v)] as [string, Node]) });
+      case 'new':
+        return f({ ...node, args: a(node.args) });
+      case 'call':
+        return f({ ...node, callee: m(node.callee), args: a(node.args) });
+      case 'member':
+        return f({ ...node, of: m(node.of) });
+      case 'index':
+        return f({ ...node, of: m(node.of), index: m(node.index) });
+      case 'binary':
+        return f({ ...node, a: m(node.a), b: m(node.b) });
+      case 'neg':
+        return f({ ...node, a: m(node.a) });
+      default:
+        return f(node);
+    }
+  }
+  /** A helper's locals written into an expression. */
+  const inline = (node: Node, locals: ReadonlyMap<string, Node>) =>
+    locals.size ? mapNode(node, (n) => (n.kind === 'name' && locals.has(n.name) ? locals.get(n.name)! : n)) : node;
+  /** `Math.PI` and `Math.cos(x)` as the code's own literals and `lib` calls (`Math.sqrt(x)` is `lib.pow(x, 0.5)`). */
+  const isMath = (n: Node): n is Node & { kind: 'member' } =>
+    n.kind === 'member' && n.of.kind === 'name' && n.of.name === 'Math';
+  const MATH_CONSTANTS: Record<string, number> = { PI: Math.PI, E: Math.E };
+  const mathCalls = (node: Node) =>
+    mapNode(node, (n) => {
+      if (n.kind === 'call' && isMath(n.callee)) {
+        const callee = n.callee;
+        const fn = callee.name;
+        const lib = (name: string): Node => ({
+          ...callee,
+          of: { kind: 'name', name: 'lib', from: callee.of.from, to: callee.of.to },
+          name,
+        });
+        if (fn === 'sqrt')
+          return {
+            ...n,
+            callee: lib('pow'),
+            args: [...n.args, { spread: false, node: { kind: 'literal', value: 0.5, from: n.to, to: n.to } }],
+          };
+        if (isCallName(fn) && !['generate', 'map', 'filter', 'sort', 'slice', 'at', 'length'].includes(fn))
+          return { ...n, callee: lib(fn) };
+        return error(`Math.${fn} is not available; use lib.* (see the reference)`, callee.nameFrom, callee.to);
+      }
+      if (isMath(n) && n.name in MATH_CONSTANTS)
+        return { kind: 'literal', value: MATH_CONSTANTS[n.name]!, from: n.from, to: n.to };
+      return n;
+    });
+  /**
+   * A helper parameter's type as the link can pack it: \`Vec2 | undefined\` is \`Vec2\` (a missing argument stays
+   * missing), and a mix of number types is the widest of them (\`(Length | Coordinate)[]\` is \`Coordinate[]\`).
+   */
+  function paramType(text: string): string {
+    const plain = (type: Type): Type => {
+      if (Array.isArray(type)) return type.map(plain);
+      if (!type || typeof type !== 'object' || !('or' in type) || Object.keys(type).length !== 1) return type;
+      const options = (type.or as Type[]).filter((t) => t !== 'undefined' && t !== 'null').map(plain);
+      if (options.length === 1) return options[0]!;
+      if (!options.every((t) => typeof t === 'string' && (NUMBER_TYPES.includes(t) || t === 'number')))
+        return { or: options };
+      if (options.includes('Coordinate')) return 'Coordinate';
+      if (options.every((t) => t === 'Integer' || t === 'Index')) return 'Integer';
+      return 'number';
+    };
+    return typeName(plain(parseTypeName(text)));
+  }
+  /** A cast's type, read past and left unchecked: up to the end of the expression (outside brackets). */
+  function skipType() {
+    const stops = [')', ',', ';', ']', '}', '+', '-', '*', '/'];
+    let depth = 0;
+    while (peek().kind !== 'end' && (depth > 0 || !stops.includes(peek().text) || peek().kind === 'string')) {
+      if (['(', '[', '{', '<'].includes(peek().text)) depth++;
+      if ([')', ']', '}', '>'].includes(peek().text)) depth--;
+      next();
+    }
+  }
   /** A type annotation: the text up to one of `stops` (outside brackets), read with `parseTypeName`. */
   const typeText = (stops: string[]) => {
     const start = peek();
@@ -314,7 +409,7 @@ export function parseDefinition(text: string): Definition {
         expect('}');
       }
       expect('{');
-      while (eat('const')) {
+      while (eat('const') || eat('let')) {
         const cell = name('a cell name');
         const type = eat(':') ? typeText(['=']) : undefined;
         expect('=');
@@ -338,14 +433,25 @@ export function parseDefinition(text: string): Definition {
       while (!is(')')) {
         const param = name('a parameter name');
         expect(':', `":" and the type of ${param.text}`);
-        params.push({ name: param.text, type: typeText([',', ')']) });
+        params.push({ name: param.text, type: paramType(typeText([',', ')'])) });
         if (!eat(',')) break;
       }
       expect(')');
       if (eat(':')) typeText(['{']);
       expect('{');
-      expect('return', '"return": a function body is one return');
-      const body = expression();
+      // `const t = …;` lines before the return are written into it (expressions have no side effects).
+      const locals = new Map<string, Node>();
+      while (eat('const') || eat('let')) {
+        const local = name('a name');
+        if (locals.has(local.text) || params.some((p) => p.name === local.text))
+          error(`${local.text} is already defined in ${fnName.text}`, local.from, local.to);
+        if (eat(':')) typeText(['=']);
+        expect('=');
+        locals.set(local.text, inline(expression(), locals));
+        eat(';');
+      }
+      expect('return', '"const" or "return"');
+      const body = inline(expression(), locals);
       eat(';');
       expect('}');
       functions.push({ fn: { name: fnName.text, params }, body, from: start.from });
@@ -517,7 +623,7 @@ export function parseDefinition(text: string): Definition {
   const outFunctions: Fn[] = [];
   for (const { fn, body } of functions) {
     const params = new Map(fn.params.map((p) => [p.name, parseTypeName(p.type)]));
-    const resolved = { ...fn, body: resolve(body, params, fnMap) };
+    const resolved = { ...fn, body: resolve(mathCalls(body), params, fnMap) };
     fnTypes.set(fn.name, {
       params: fn.params.map((p) => ({ name: p.name, type: parseTypeName(p.type) })),
       returns: typeOf(resolved.body, params),
@@ -527,13 +633,13 @@ export function parseDefinition(text: string): Definition {
   }
   const refs = new Map<string, Type>();
   const outInputs: Input[] = inputs.map((input) => {
-    const value = resolve(input.value, new Map(), new Map());
+    const value = resolve(mathCalls(input.value), new Map(), new Map());
     refs.set(input.name, input.type);
     return { name: input.name, type: input.type, value };
   });
   const outCells: Cell[] = cells.map((cell) => {
     if (refs.has(cell.name)) error(`${cell.name} is already defined`, cell.from, cell.from + cell.name.length);
-    const expr = resolve(cell.node, refs, fnMap);
+    const expr = resolve(mathCalls(cell.node), refs, fnMap);
     refs.set(cell.name, cell.type ? parseTypeName(cell.type) : typeOf(expr, refs));
     return { name: cell.name, expr, ...(cell.type && { type: cell.type }) };
   });

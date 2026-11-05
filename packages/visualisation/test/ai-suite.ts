@@ -105,6 +105,22 @@ export const arcRadius =
       ? undefined
       : `no arc of radius ${radius}`;
 
+/** Some curve output reaches out to `radius` from the origin (its farthest vertex). */
+export const reaches =
+  (radius: number, tolerance = 0.05): Check =>
+  (_, evaluation) => {
+    const far = outputs(evaluation).flatMap((o) =>
+      (
+        ofClass(o.items, ['Polyline2', 'ArcPolyline2', 'Polygon2']) as {
+          vertices: readonly { x: number; y: number }[];
+        }[]
+      ).map((c) => Math.max(...c.vertices.map((v) => Math.hypot(v.x, v.y)))),
+    );
+    return far.some((d) => near(d, radius, tolerance))
+      ? undefined
+      : `no curve reaching out to ${radius} (got ${far.map((d) => d.toFixed(2)).join(', ') || 'none'})`;
+  };
+
 /** At least `n` inputs, and changing them changes what the outputs draw. */
 export const inputsDrive =
   (n = 1): Check =>
@@ -302,6 +318,27 @@ function disc(radius: Length) {
 export function definition(outer: Length = 3, inner: Length = 2): { ring: ArcPolygon2[] } {
   const ring = Boolean2.subtract([disc(outer)], [disc(inner)], { arcs: { mode: 'exact' } }).regions;
   return { ring };
+}`,
+  },
+  {
+    id: 'spiral',
+    tier: 'medium',
+    prompt: 'an Archimedean spiral of 5 turns from the origin out to radius 3, as a polyline',
+    checks: [has('Polyline2', 'ArcPolyline2'), reaches(3), inputsDrive(1)],
+    // Written the way models write it: consts in the helper, casts and Math.
+    reference: `
+import * as lib from '@dirty-geometry/fn/lib';
+
+function spiralPoint(i: Index, previous: Vec2 | undefined, count: Index, data: (Length | Coordinate)[]): Vec2 {
+  const radius = data[0] as Length;
+  const t = i / (count - 1);
+  const angle = t * (data[1] as Coordinate) * 2 * Math.PI;
+  return new Vec2(radius * t * Math.cos(angle), radius * t * Math.sin(angle));
+}
+
+export function definition(radius: Length = 3, turns: Coordinate = 5, segments: Index = 200): { spiral: Polyline2 } {
+  const spiral = new Polyline2(lib.generate(segments, spiralPoint, undefined, [radius, turns]));
+  return { spiral };
 }`,
   },
   // ---- hard ----

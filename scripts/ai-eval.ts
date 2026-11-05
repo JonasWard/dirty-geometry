@@ -121,14 +121,7 @@ const categoryOf = (kind: FailureKind, result: GenerateResult): Category => {
   return map[kind] ?? (kind as Category);
 };
 
-const lastCall = new Map<string, number>();
-async function pace(key: string, rpm: number | undefined) {
-  if (!rpm || args.dry) return;
-  const wait = (lastCall.get(key) ?? 0) + 60_000 / rpm - Date.now();
-  if (wait > 0) await Bun.sleep(wait);
-  lastCall.set(key, Date.now());
-}
-
+const realChat: Chat = (await import('../packages/visualisation/src/playground/ai/providers')).chat;
 const rows: Row[] = [];
 const skipped: string[] = [];
 const fixturesDir = path.join(repoRoot, 'packages/visualisation/test/ai-fixtures');
@@ -142,14 +135,9 @@ for (const { provider, model } of targets) {
       for (let run = 0; run < runs; run++)
         for (const c of cases) {
           const current = startOf(c);
-          // Pacing per request: each attempt is one request, so wrap the chat.
-          const base: Chat = args.dry
-            ? dryChat(c)
-            : (await import('../packages/visualisation/src/playground/ai/providers')).chat;
-          const chat: Chat = async (...call) => {
-            await pace(key, provider.rpm);
-            return base(...call);
-          };
+          // Free endpoints' rate limits are waited out inside chat (as in the browser); waits are not model time.
+          const chat: Chat = args.dry ? dryChat(c) : realChat;
+          let waited = 0;
           const started = Date.now();
           const result = await generate({
             prompt: c.prompt,
@@ -158,10 +146,15 @@ for (const { provider, model } of targets) {
             chat,
             ...(current && { current }),
             ...(effort && { effort }),
-            // Rate pacing waits are not the model's time.
-            timeoutMs: LIMITS[mode].timeoutMs * 3 + (provider.rpm ? (60_000 / provider.rpm) * 3 : 0),
+            // Generous: free endpoints are slow at times (waits for their limits extend it by themselves).
+            timeoutMs: LIMITS[mode].timeoutMs * 3,
+            onProgress: (event) => {
+              if (event.type !== 'waiting') return;
+              waited += event.seconds * 1000;
+              console.log(`  … waiting ${event.seconds} s for ${key}'s rate limit`);
+            },
           });
-          const ms = Date.now() - started;
+          const ms = Math.max(0, Date.now() - started - waited);
           if (!result.ok && result.kind === 'auth' && provider.needsKey) {
             skipped.push(`${key}: ${result.message}`);
             break;
@@ -247,7 +240,7 @@ const lines: string[] = [
   '(area, vertex count, …; see `packages/visualisation/test/ai-suite.ts`). **pass@1**: on the first answer; **pass**: after',
   'the repairs (full 2, light 1). Verdicts: full is *recommended* at ≥ 80% pass, ≥ 95% on easy and p50 < 20 s, *usable* at',
   '≥ 60%; light is *recommended* at ≥ 75% on easy + medium and p50 < 8 s, *usable* at ≥ 60%; below, the model is hidden.',
-  "Times include waiting for free endpoints' rate limits.",
+  "Times leave out waiting for free endpoints' rate limits.",
 ];
 const verdicts: {
   key: string;

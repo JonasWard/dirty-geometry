@@ -7,7 +7,7 @@ import { isSharedForm } from '@dirty-geometry/fn/forms';
 import type { Definition, Expr, Fn } from '@dirty-geometry/vec2/recording/definition';
 import { walk } from '@dirty-geometry/vec2/recording/expr';
 import { isRest, NUMBER_TYPES, operationById } from '@dirty-geometry/vec2/schema/schema';
-import { checkDefinition, members, typer } from '@dirty-geometry/vec2/schema/typing';
+import { callsItself, checkDefinition, members, typeName, typer } from '@dirty-geometry/vec2/schema/typing';
 
 export const BINDINGS = '@dirty-geometry/vec2/schema/bindings';
 /** The shared forms other than the operators print as calls on this module (`lib.max(a, b)`). */
@@ -212,9 +212,13 @@ export function printDefinition(definition: Definition): string {
   if (values.length) out.push(`import ${names(values)} from '${BINDINGS}';`);
   if (types.length) out.push(`import type ${names(types)} from '${BINDINGS}';`);
   if (lib) out.push(`import * as lib from '${LIB}';`);
+  // A function that calls itself declares its result, so the code reads back (see parse.ts).
+  const analysis = definition.functions.some(callsItself) ? checkDefinition(definition) : undefined;
   for (const fn of definition.functions) {
     const params = fn.params.map((p) => `${p.name}: ${p.type}`).join(', ');
-    out.push('', `function ${fn.name}(${params}) {`, `  return ${fit(expr(fn.body, fns), '  ')};`, '}');
+    const returns = analysis && callsItself(fn) ? analysis.fns.get(fn.name)?.returns : undefined;
+    const head = `function ${fn.name}(${params})${returns ? `: ${typeName(returns)}` : ''} {`;
+    out.push('', head, `  return ${fit(expr(fn.body, fns), '  ')};`, '}');
   }
   const inputs = definition.inputs.map((input) => `${input.name}: ${input.type} = ${expr(input.value, fns).flat}`);
   const outputs = definition.cells.filter((cell) => cell.output);

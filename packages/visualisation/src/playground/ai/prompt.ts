@@ -140,6 +140,7 @@ export function repairMessage(stage: string, errors: readonly string[]): string 
       type: 'does not type-check',
       evaluate: 'fails when evaluated',
       draw: 'draws nothing',
+      link: 'cannot be saved in the playground link',
     }[stage] ?? 'failed';
   const hints = hintsFor(errors);
   return `That code ${what}:\n${errors.map((e) => `- ${e}`).join('\n')}${hints.length ? `\n\nHint: ${hints.join(' ')}` : ''}\n\nFix it and answer with the complete corrected code in one \`\`\`ts block. Use only operations from the reference.`;

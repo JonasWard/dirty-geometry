@@ -22,6 +22,7 @@ import { parseDefinition } from '../src/playground/model/parse';
 import { printDefinition } from '../src/playground/model/print';
 import { createDefinitionSchema } from '@dirty-geometry/vec2/schema/dense/definition';
 import { createPlaygroundStore, favourites } from '../src/playground/store';
+import spiral from './fixtures/arc-spiral.json';
 
 const def = (partial: Partial<Definition>): Definition => ({
   format: 'vec2-definition',
@@ -65,6 +66,18 @@ describe('playground data', () => {
   test.each(STARTERS.map((s) => [s.id, s] as const))('starter %s type-checks and evaluates', (_, starter) => {
     const definition = starter.build();
     expect(checkDefinition(definition).issues).toEqual([]);
+    expect([...evaluate(definition).cells.values()].filter((r) => 'error' in r)).toEqual([]);
+  });
+});
+
+describe('links', () => {
+  // A spiral from a user: its `data` cell mixes Radians, Length and Coordinate inputs in one list.
+  test('a definition with a list of mixed number types survives the link', () => {
+    const definition = spiral as Definition;
+    const presets = choosePresets(definition, {}, createDefinitionSchema());
+    const store = createPlaygroundStore({ definition, options: {}, presets: {}, auto: true });
+    expect(store.getState().encoding.error).toBeUndefined();
+    expect(decodeAppState(encodeAppState({ definition, options: {}, presets })).definition).toEqual(definition);
     expect([...evaluate(definition).cells.values()].filter((r) => 'error' in r)).toEqual([]);
   });
 });

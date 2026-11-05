@@ -85,6 +85,7 @@ type Category =
   | 'type'
   | 'evaluate'
   | 'nothing-drawn'
+  | 'link'
   | 'wrong-shape'
   | 'unchanged'
   | 'timeout'

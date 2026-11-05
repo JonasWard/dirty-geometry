@@ -13,7 +13,7 @@ import { isSharedForm } from '@dirty-geometry/fn/forms';
 import { isArcOp, isLogOp, isTrigOp, isUnary } from '@dirty-geometry/fn/math';
 import type { Cell, Definition, Expr, Fn, Input, SharedExpr } from '../../src/recording/definition';
 import { DefinitionError, fail as raise } from '../../src/recording/definition';
-import { classJson, operationById, type Type } from '../schema';
+import { NUMBER_TYPES, classJson, operationById, type Type } from '../schema';
 import { checkDefinition, members, parseTypeName, typeName, typer, widen, type FnType } from '../typing';
 import dense from '../vec2.dense.json';
 
@@ -107,7 +107,23 @@ function rootKey(type: Type, where: string, why?: string): string {
   // A result that may be null is packed as its non-null type (it fits there).
   const nonNull = members(widen(type)).filter((m) => m !== 'null');
   const fallback = typeName(nonNull.length === 1 ? nonNull[0]! : { or: nonNull });
-  return fallback in ANY.variants ? fallback : fail(`${where}: a ${key} cannot be packed; declare a type for it`);
+  if (fallback in ANY.variants) return fallback;
+  // A mix of number types (`[angle, spacing]` is `(Radians | Length)[]`) is packed as plain numbers.
+  const plain = typeName(plainNumbers(nonNull.length === 1 ? nonNull[0]! : { or: nonNull }));
+  return plain in ANY.variants ? plain : fail(`${where}: a ${key} cannot be packed; declare a type for it`);
+}
+const NUMBERS = new Set([...NUMBER_TYPES, 'number']);
+/** `type` with every union of number types (at any list depth) as `number`. */
+function plainNumbers(type: Type): Type {
+  if (Array.isArray(type)) return type.map(plainNumbers);
+  if (type && typeof type === 'object' && 'or' in type && Object.keys(type).length === 1) {
+    const mapped = (type.or as Type[]).map(plainNumbers);
+    if (mapped.every((t) => typeof t === 'string' && NUMBERS.has(t))) return 'number';
+    // `number[] | number[]` (lists of mixed numbers) is one type.
+    const options = [...new Map(mapped.map((t) => [typeName(t), t])).values()];
+    return options.length === 1 ? options[0]! : { or: options };
+  }
+  return type;
 }
 
 type Names = { inputs: string[]; cells: string[]; params?: string[]; fns: Fn[] };

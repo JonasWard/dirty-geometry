@@ -8,8 +8,11 @@ import { evaluate, type Evaluation } from '@dirty-geometry/vec2/recording/evalua
 import { checkDefinition } from '@dirty-geometry/vec2/schema/typing';
 import { drawnItems } from '../draw';
 import { CodeError, parseDefinition } from '../model/parse';
+import { choosePresets } from '../presets';
+import { encodeAppState } from '../url';
+import { createDefinitionSchema } from '@dirty-geometry/vec2/schema/dense/definition';
 
-export type Stage = 'extract' | 'parse' | 'type' | 'evaluate' | 'draw';
+export type Stage = 'extract' | 'parse' | 'type' | 'evaluate' | 'draw' | 'link';
 export type Validation =
   | { ok: true; code: string; definition: Definition; evaluation: Evaluation }
   | {
@@ -79,5 +82,17 @@ export function validateCode(code: string | undefined): Validation {
         'No output draws any geometry. Return at least one geometry (Polygon2, Circle2, Line2, …) as an output.',
       ],
     };
+  // It has to fit in the link too, or the playground cannot keep or share it.
+  try {
+    encodeAppState({ definition, options: {}, presets: choosePresets(definition, {}, createDefinitionSchema()) });
+  } catch (error) {
+    return {
+      ok: false,
+      stage: 'link',
+      code,
+      definition,
+      errors: [`${(error as Error).message}. Give that cell a declared type (e.g. \`const data: number[] = …\`).`],
+    };
+  }
   return { ok: true, code, definition, evaluation };
 }

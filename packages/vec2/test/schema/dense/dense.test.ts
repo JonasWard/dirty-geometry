@@ -160,6 +160,19 @@ describe('definitions', () => {
     expect(() => encodeDefinition(def([{ name: 'p', expr: { ref: 'q' } }]))).toThrow(/not defined/);
   });
 
+  test('a list mixing number types packs as numbers', () => {
+    // `[angle, spacing, bulge]` is a (Radians | Length | Coordinate)[]: no union of its own, so plain numbers.
+    const definition = def(
+      [{ name: 'data', expr: [{ ref: 'angle' }, { ref: 'spacing' }, { ref: 'bulge' }, 1] as never }],
+      [
+        { name: 'angle', type: 'Radians', value: 0.6 },
+        { name: 'spacing', type: 'Length', value: 0.2 },
+        { name: 'bulge', type: 'Coordinate', value: 0.3 },
+      ],
+    );
+    expect(roundTrip(definition)).toEqual(definition);
+  });
+
   test('declared cell types are kept', () => {
     const definition = def([{ name: 'r', expr: 2, type: 'Length' }], [{ name: 'w', type: 'Coordinate', value: 3 }]);
     expect(roundTrip(definition)).toEqual(definition);

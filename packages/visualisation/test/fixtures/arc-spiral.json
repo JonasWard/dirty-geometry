@@ -1,0 +1,252 @@
+{
+  "format": "vec2-definition",
+  "version": 4,
+  "inputs": [
+    {
+      "name": "segments",
+      "type": "Index",
+      "value": 24
+    },
+    {
+      "name": "spacing",
+      "type": "Length",
+      "value": 0.2
+    },
+    {
+      "name": "angleStep",
+      "type": "Radians",
+      "value": 0.6
+    },
+    {
+      "name": "sagitta",
+      "type": "Coordinate",
+      "value": 0.3
+    }
+  ],
+  "functions": [
+    {
+      "name": "spiralVertex",
+      "params": [
+        {
+          "name": "i",
+          "type": "Index"
+        },
+        {
+          "name": "previous",
+          "type": "Vec2"
+        },
+        {
+          "name": "count",
+          "type": "Index"
+        },
+        {
+          "name": "data",
+          "type": "number[]"
+        }
+      ],
+      "body": {
+        "op": "Vec2.new",
+        "args": {
+          "x": {
+            "math": "*",
+            "args": [
+              {
+                "math": "*",
+                "args": [
+                  {
+                    "math": "cos",
+                    "args": [
+                      {
+                        "math": "*",
+                        "args": [
+                          {
+                            "ref": "i"
+                          },
+                          {
+                            "of": {
+                              "ref": "data"
+                            },
+                            "index": 0
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "of": {
+                      "ref": "data"
+                    },
+                    "index": 1
+                  }
+                ]
+              },
+              {
+                "math": "+",
+                "args": [
+                  {
+                    "ref": "i"
+                  },
+                  1
+                ]
+              }
+            ]
+          },
+          "y": {
+            "math": "*",
+            "args": [
+              {
+                "math": "*",
+                "args": [
+                  {
+                    "math": "sin",
+                    "args": [
+                      {
+                        "math": "*",
+                        "args": [
+                          {
+                            "ref": "i"
+                          },
+                          {
+                            "of": {
+                              "ref": "data"
+                            },
+                            "index": 0
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "of": {
+                      "ref": "data"
+                    },
+                    "index": 1
+                  }
+                ]
+              },
+              {
+                "math": "+",
+                "args": [
+                  {
+                    "ref": "i"
+                  },
+                  1
+                ]
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "spiralSagitta",
+      "params": [
+        {
+          "name": "i",
+          "type": "Index"
+        },
+        {
+          "name": "previous",
+          "type": "number"
+        },
+        {
+          "name": "count",
+          "type": "Index"
+        },
+        {
+          "name": "data",
+          "type": "number[]"
+        }
+      ],
+      "body": {
+        "of": {
+          "ref": "data"
+        },
+        "index": 2
+      }
+    }
+  ],
+  "cells": [
+    {
+      "name": "vertexCount",
+      "expr": {
+        "math": "+",
+        "args": [
+          {
+            "ref": "segments"
+          },
+          1
+        ]
+      }
+    },
+    {
+      "name": "data",
+      "expr": [
+        {
+          "ref": "angleStep"
+        },
+        {
+          "ref": "spacing"
+        },
+        {
+          "ref": "sagitta"
+        }
+      ]
+    },
+    {
+      "name": "points",
+      "expr": {
+        "list": "generate",
+        "fn": "spiralVertex",
+        "count": {
+          "ref": "vertexCount"
+        },
+        "data": {
+          "ref": "data"
+        }
+      },
+      "output": true,
+      "type": "Vec2[]"
+    },
+    {
+      "name": "sagittas",
+      "expr": {
+        "list": "generate",
+        "fn": "spiralSagitta",
+        "count": {
+          "ref": "segments"
+        },
+        "data": {
+          "ref": "data"
+        }
+      }
+    },
+    {
+      "name": "spiral",
+      "expr": {
+        "op": "ArcPolyline2.new",
+        "args": {
+          "vertices": {
+            "ref": "points"
+          },
+          "sagittas": {
+            "ref": "sagittas"
+          }
+        }
+      },
+      "output": true,
+      "type": "ArcPolyline2"
+    },
+    {
+      "name": "length",
+      "expr": {
+        "op": "ArcPolyline2.length",
+        "self": {
+          "ref": "spiral"
+        }
+      },
+      "output": true,
+      "type": "number"
+    }
+  ]
+}

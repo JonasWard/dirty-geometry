@@ -309,6 +309,12 @@ function PlaygroundView({
       })}
     />
   );
+  // A definition the link cannot hold leaves the address bar on the last one it could: say so where it is seen.
+  const linkBox = encoding.error && (
+    <div role='status' className='rounded border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800'>
+      Not saved in the link: {encoding.error}. The address bar still holds the last definition that could be saved.
+    </div>
+  );
   const noticeBox = notice && (
     <div className='rounded border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800'>
       {notice}{' '}
@@ -325,6 +331,7 @@ function PlaygroundView({
       <div className='fixed inset-x-0 top-[85px] bottom-0 z-10 flex flex-col bg-dg-canvas md:top-12'>
         {about && <div className='sr-only'>{about.title}</div>}
         {noticeBox}
+        {linkBox}
         <div className='flex h-10 shrink-0 items-center gap-1 overflow-x-auto px-2 whitespace-nowrap'>
           <ModeSwitch view={view} nodes onChange={switchTo} />
           <span aria-hidden='true' className='mx-1 h-5 w-px bg-dg-border' />
@@ -359,7 +366,12 @@ function PlaygroundView({
     return (
       <div ref={panes} className='fixed inset-x-0 top-12 bottom-0 z-10 flex bg-dg-canvas'>
         {about && <div className='sr-only'>{about.title}</div>}
-        {notice && <div className='absolute top-2 left-1/2 z-30 -translate-x-1/2'>{noticeBox}</div>}
+        {(notice || linkBox) && (
+          <div className='absolute top-2 left-1/2 z-30 -translate-x-1/2 space-y-1'>
+            {noticeBox}
+            {linkBox}
+          </div>
+        )}
         <div className='h-full min-w-0' style={{ width: `${split}%` }}>
           {nodeEditor}
         </div>
@@ -377,6 +389,7 @@ function PlaygroundView({
       {/* No help above the editor: the tool speaks for itself (the View tab's drawer keeps it on phones). */}
       {about && view === 'edit' && <div className='sr-only'>{about.title}</div>}
       {noticeBox}
+      {linkBox}
       {view === 'view' && (
         <ViewerPanel
           definition={definition}

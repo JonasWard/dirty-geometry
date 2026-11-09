@@ -50,10 +50,40 @@ export function definition(length: Length = 4, width: Length = 1): { cross: Poly
   return { cross, area };
 }`;
 
+// Recursion: a function that calls itself, with a base case; small helpers keep each expression shallow.
+const TREE = `
+import * as lib from '@dirty-geometry/fn/lib';
+
+function stem(width: Length) {
+  return Polygon2.fromAabb2(Aabb2.fromPoints(new Vec2(-width / 2, 0), new Vec2(width / 2, 1)));
+}
+
+function grow(angle: Radians, shrink: Parameter) {
+  return Mat3.translation(0, 1).multiply(Mat3.rotation(angle).multiply(Mat3.scale(shrink)));
+}
+
+function tree(level: Index, spread: Radians, shrink: Parameter): Polygon2 {
+  return lib.ifElse(
+    lib.smallerThan(level, 1),
+    stem(0.12),
+    Boolean2.union([
+      stem(0.12),
+      tree(level - 1, spread, shrink).transform(grow(spread, shrink)),
+      tree(level - 1, spread, shrink).transform(grow(-spread, shrink)),
+    ]).polygons[0],
+  );
+}
+
+export function definition(depth: Index = 4, spread: Radians = 0.5, shrink: Parameter = 0.7): { crown: Polygon2 } {
+  const crown = tree(depth, spread, shrink);
+  return { crown };
+}`;
+
 const OWN: Record<string, { label: string; code: string }> = {
   flange: { label: 'Flange: a disc with a bore and generated bolt holes', code: FLANGE },
   pattern: { label: 'A row of pentagons: one shape, copied with a translation each', code: PATTERN },
   cross: { label: 'A cross: a bar and its rotated copy, merged', code: CROSS },
+  tree: { label: 'A branching tree: a function that calls itself, with a base case', code: TREE },
 };
 
 /** Starters that build with operations (not vertex by vertex), also usable as examples. */

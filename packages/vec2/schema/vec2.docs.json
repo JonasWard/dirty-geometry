@@ -172,6 +172,7 @@
   "Line2.length": "The distance from `from` to `to`.",
   "Line2.lengthTable": "Partial sums of all the segment lengths.",
   "Line2.new": "Finite line segment between two points.",
+  "Mat3.multiply": "The two applied in turn: `other` first, then this (`translation.multiply(rotation)` rotates, then moves).",
   "Mat3.new": "3×3 matrix for 2D affine transforms in homogeneous coordinates.",
   "Mat3.rotation": "A rotation by `radians` about the origin; apply it with `.transform` (copies around a centre: one matrix per angle).",
   "Mat3.scale": "A scale by `x` and `y` about the origin (`y` defaults to `x`; a negative factor mirrors); apply it with `.transform`.",

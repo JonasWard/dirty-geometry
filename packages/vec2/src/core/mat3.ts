@@ -64,6 +64,7 @@ export class Mat3 {
     return new Mat3(m00, m01, m02, m10, m11, m12, m20, m21, m22);
   }
 
+  /** The two applied in turn: `other` first, then this (`translation.multiply(rotation)` rotates, then moves). */
   multiply(other: Mat3): Mat3 {
     const a = this.elements;
     const b = other.elements;

@@ -1,0 +1,227 @@
+{
+  "inputs": [
+    {
+      "name": "depth",
+      "type": "Index",
+      "value": 4
+    }
+  ],
+  "functions": [
+    {
+      "name": "lshape",
+      "params": [],
+      "body": {
+        "op": "Polygon2.new",
+        "args": {
+          "vertices": [
+            {
+              "op": "Vec2.new",
+              "args": {
+                "x": -0.1,
+                "y": 0
+              }
+            },
+            {
+              "op": "Vec2.new",
+              "args": {
+                "x": 0.1,
+                "y": 0
+              }
+            },
+            {
+              "op": "Vec2.new",
+              "args": {
+                "x": 0.1,
+                "y": 0.9
+              }
+            },
+            {
+              "op": "Vec2.new",
+              "args": {
+                "x": 0.5,
+                "y": 0.9
+              }
+            },
+            {
+              "op": "Vec2.new",
+              "args": {
+                "x": 0.5,
+                "y": 1.1
+              }
+            },
+            {
+              "op": "Vec2.new",
+              "args": {
+                "x": -0.1,
+                "y": 1.1
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "limb",
+      "params": [
+        {
+          "name": "level",
+          "type": "Index"
+        }
+      ],
+      "body": {
+        "if": {
+          "compare": "==",
+          "args": [
+            {
+              "ref": "level"
+            },
+            0
+          ]
+        },
+        "then": {
+          "call": "lshape",
+          "args": {}
+        },
+        "else": {
+          "of": {
+            "of": {
+              "op": "Boolean2.union",
+              "args": {
+                "polygons": [
+                  {
+                    "call": "lshape",
+                    "args": {}
+                  },
+                  {
+                    "op": "Polygon2.transform",
+                    "self": {
+                      "call": "limb",
+                      "args": {
+                        "level": {
+                          "math": "-",
+                          "args": [
+                            {
+                              "ref": "level"
+                            },
+                            1
+                          ]
+                        }
+                      }
+                    },
+                    "args": {
+                      "matrix": {
+                        "op": "Mat3.multiply",
+                        "self": {
+                          "op": "Mat3.translation",
+                          "args": {
+                            "x": 0,
+                            "y": 0.9
+                          }
+                        },
+                        "args": {
+                          "other": {
+                            "op": "Mat3.multiply",
+                            "self": {
+                              "op": "Mat3.rotation",
+                              "args": {
+                                "radians": 0.5
+                              }
+                            },
+                            "args": {
+                              "other": {
+                                "op": "Mat3.scale",
+                                "args": {
+                                  "x": 0.7
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "op": "Polygon2.transform",
+                    "self": {
+                      "call": "limb",
+                      "args": {
+                        "level": {
+                          "math": "-",
+                          "args": [
+                            {
+                              "ref": "level"
+                            },
+                            1
+                          ]
+                        }
+                      }
+                    },
+                    "args": {
+                      "matrix": {
+                        "op": "Mat3.multiply",
+                        "self": {
+                          "op": "Mat3.translation",
+                          "args": {
+                            "x": 0.5,
+                            "y": 1.0
+                          }
+                        },
+                        "args": {
+                          "other": {
+                            "op": "Mat3.multiply",
+                            "self": {
+                              "op": "Mat3.rotation",
+                              "args": {
+                                "radians": -0.5
+                              }
+                            },
+                            "args": {
+                              "other": {
+                                "op": "Mat3.scale",
+                                "args": {
+                                  "x": 0.7
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                ]
+              }
+            },
+            "field": "polygons"
+          },
+          "index": 0
+        }
+      }
+    }
+  ],
+  "cells": [
+    {
+      "name": "tree",
+      "expr": {
+        "call": "limb",
+        "args": {
+          "level": {
+            "ref": "depth"
+          }
+        }
+      },
+      "type": "Polygon2",
+      "output": true
+    },
+    {
+      "name": "area",
+      "expr": {
+        "op": "Polygon2.area",
+        "self": {
+          "ref": "tree"
+        }
+      },
+      "type": "number",
+      "output": true
+    }
+  ]
+}

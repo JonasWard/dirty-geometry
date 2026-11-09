@@ -381,7 +381,8 @@ function pack(
     const scope = new Map(params.map((p) => [p.name, p.type]));
     const returns = analysis.fns.get(fn.name)?.returns ?? 'unknown';
     fnTypes.set(fn.name, { params, returns });
-    const names = { inputs: [], cells: [], params: fn.params.map((p) => p.name), fns: def.functions.slice(0, i) };
+    // A function may call itself, so its own name is in scope (as index i).
+    const names = { inputs: [], cells: [], params: fn.params.map((p) => p.name), fns: def.functions.slice(0, i + 1) };
     return {
       name: [...fn.name],
       params: fn.params.map((p) => ({ name: [...p.name], type: canonicalType(p.type) })),
@@ -548,8 +549,16 @@ export function decodeDefinition(encoded: string, dense = createDefinitionSchema
   const functions: Fn[] = [];
   for (const f of data.functions) {
     const params = f.params.map((p: F) => ({ name: str(p.name), type: p.type as string }));
-    const names = { inputs: [], cells: [], params: params.map((p: { name: string }) => p.name), fns: [...functions] };
-    functions.push({ name: str(f.name), params, body: anyOut(f.body, names) });
+    const name = str(f.name);
+    // Its own name is in scope for a call to itself (the body is not needed to read one).
+    const self: Fn = { name, params, body: null };
+    const names = {
+      inputs: [],
+      cells: [],
+      params: params.map((p: { name: string }) => p.name),
+      fns: [...functions, self],
+    };
+    functions.push({ name, params, body: anyOut(f.body, names) });
   }
   const inputs: Input[] = data.inputs.map((i: F) => ({
     name: str(i.name),

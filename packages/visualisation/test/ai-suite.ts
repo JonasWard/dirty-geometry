@@ -7,6 +7,7 @@ import type { Definition } from '@dirty-geometry/vec2/recording/definition';
 import { evaluate, type Evaluation } from '@dirty-geometry/vec2/recording/evaluate';
 import { classNameOf } from '@dirty-geometry/vec2/recording/runtime';
 import { readLiteral } from '@dirty-geometry/vec2/recording/evaluate';
+import { callsItself } from '@dirty-geometry/vec2/schema/typing';
 import { STARTERS } from '../src/playground/starters';
 
 export type Tier = 'easy' | 'medium' | 'hard' | 'edit';
@@ -143,6 +144,10 @@ export const inputsDrive =
   };
 const json = (_: string, v: unknown) =>
   (v as { toJson?: () => unknown })?.toJson ? (v as { toJson: () => unknown }).toJson() : v;
+
+/** Some function calls itself (the case asks for recursion). */
+export const recursive = (): Check => (definition) =>
+  definition.functions.some(callsItself) ? undefined : 'no function calls itself';
 
 /** Runs a case's checks; the failures, or none. */
 export function runChecks(c: Case, definition: Definition, evaluation: Evaluation): string[] {
@@ -443,6 +448,36 @@ function corner(i: Index, previous: Vec2, n: Index, radius: Length) {
 export function definition(sides: Index = 7, radius: Length = 2): { polygon: Polygon2 } {
   const polygon = new Polygon2(lib.generate(sides, corner, undefined, radius));
   return { polygon };
+}`,
+  },
+  {
+    id: 'l-tree',
+    tier: 'hard',
+    prompt: 'an L-shaped tree made with recursion: each L carries two smaller, rotated copies of itself, 3 levels deep',
+    checks: [has('Polygon2', 'ArcPolygon2'), recursive(), inputsDrive(1)],
+    prefers: ['Polygon2.transform'],
+    reference: `
+import * as lib from '@dirty-geometry/fn/lib';
+
+function ell() {
+  return new Polygon2([new Vec2(-0.1, 0), new Vec2(0.1, 0), new Vec2(0.1, 0.9), new Vec2(0.5, 0.9), new Vec2(0.5, 1.1), new Vec2(-0.1, 1.1)]);
+}
+
+function child(x: Coordinate, y: Coordinate, angle: Radians) {
+  return Mat3.translation(x, y).multiply(Mat3.rotation(angle).multiply(Mat3.scale(0.6)));
+}
+
+function limb(level: Index): Polygon2 {
+  return lib.ifElse(
+    lib.smallerThan(level, 1),
+    ell(),
+    Boolean2.union([ell(), limb(level - 1).transform(child(0, 1, 0.5)), limb(level - 1).transform(child(0.45, 1, -0.5))]).polygons[0],
+  );
+}
+
+export function definition(depth: Index = 3): { tree: Polygon2 } {
+  const tree = limb(depth);
+  return { tree };
 }`,
   },
   // ---- edits of a starter ----

@@ -101,6 +101,7 @@ const sumSteps = (name: string, a: Polygon2[], b: Polygon2[]): Minkowski2Scenari
 /** How `sum` and `sumDisc` handle non-convex shapes, step by step. */
 export const stepScenarios: Minkowski2Scenario[][] = [
   sumSteps('L ⊕ triangle', [lShape], [triangle]),
+  sumSteps('Comb ⊕ triangle', [comb], [triangle]),
   sumSteps('Holed square ⊕ L', holedSquare, [smallL]),
   [
     { name: 'L ⊕ disc: 1 edge capsules', section: 'disc', a: [lShape], radius: 0.6, stage: 'capsules' },

@@ -3,6 +3,7 @@ import type { Mat3 } from '../../core/mat3';
 import type { Circle2 } from './circle2';
 import { Aabb2 } from '../../bounds/aabb2';
 import { Epsilon } from '../../core/epsilon';
+import { orientXY } from '../../core/predicates';
 import { Vec2, type Vec2Json } from '../../core/vec2';
 import { segmentsFromVertices } from '../curves/segments';
 import { Line2 } from '../primitives/line2';
@@ -200,6 +201,62 @@ export class Polygon2 {
     return insideByRule(windingNumber(polygons, point), rule);
   }
 
+  /**
+   * Whether the loop is convex, in either orientation. Exact: turns are decided by the orientation predicate.
+   * Repeated vertices and straight (collinear) vertices are allowed; a fold-back, an all-collinear loop or a loop
+   * that winds more than once is not convex.
+   */
+  isConvex(): boolean {
+    const edges: Vec2[] = [];
+    for (let i = 0; i < this.vertices.length; i++) {
+      const edge = this.vertices[(i + 1) % this.vertices.length]!.subtract(this.vertices[i]!);
+      if (edge.x !== 0 || edge.y !== 0) edges.push(edge);
+    }
+    if (edges.length < 3) return false;
+
+    let sign = 0;
+    let halfChanges = 0;
+    for (let i = 0; i < edges.length; i++) {
+      const previous = edges[i]!;
+      const next = edges[(i + 1) % edges.length]!;
+      const turn = Math.sign(orientXY(0, 0, previous.x, previous.y, next.x, next.y));
+      if (turn === 0 && previous.dot(next) < 0) return false;
+      if (turn !== 0) {
+        if (sign !== 0 && turn !== sign) return false;
+        sign = turn;
+      }
+      if (edgeHalf(previous) !== edgeHalf(next)) halfChanges++;
+    }
+    return sign !== 0 && halfChanges <= 2;
+  }
+
+  /**
+   * Convex hull of `points` (Andrew's monotone chain), counter-clockwise. Duplicates and points on the hull's edges
+   * are left out. `null` when fewer than three points are left (all points on one line).
+   */
+  static convexHull(points: readonly Vec2[]): Polygon2 | null {
+    const sorted = [...points].sort((a, b) => a.x - b.x || a.y - b.y);
+    if (sorted.length < 3) return null;
+
+    const chain = (ordered: readonly Vec2[]): Vec2[] => {
+      const result: Vec2[] = [];
+      for (const point of ordered) {
+        while (result.length >= 2) {
+          const a = result[result.length - 2]!;
+          const b = result[result.length - 1]!;
+          if (orientXY(a.x, a.y, b.x, b.y, point.x, point.y) > 0) break;
+          result.pop();
+        }
+        result.push(point);
+      }
+      result.pop();
+      return result;
+    };
+
+    const hull = [...chain(sorted), ...chain([...sorted].reverse())];
+    return hull.length < 3 ? null : new Polygon2(hull);
+  }
+
   signedArea(): number {
     return Polygon2.computeSignedArea(this.vertices);
   }
@@ -242,3 +299,8 @@ export type Polygon2Json = {
   type: typeof Polygon2.type;
   vertices: Vec2Json[];
 };
+
+/** 0 for directions in [0, π) (upper half, or along +x), 1 for [π, 2π). */
+function edgeHalf(edge: Vec2): number {
+  return edge.y > 0 || (edge.y === 0 && edge.x > 0) ? 0 : 1;
+}

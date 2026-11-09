@@ -18,7 +18,7 @@ Folders are layered. A module may only import from its own layer or a lower one,
 | 2     | `bounds/aabb2`, `spatial/`           | boxes, vertex dedup                                                                                                                                                                                                                                           |
 | 3     | `geometry/`                          | primitives (`Line2`, `Arc2`, `Ray2`, `InfiniteLine2`, `Hesse2`), curves (`Polyline2`, `ArcPolyline2`), regions (`Polygon2`, `ArcPolygon2`, `Circle2`, `TriMesh2`), type tags and guards in `geometry/kinds`                                                   |
 | 4     | `grid/`                              | `Grid2`, axes, cells and grid regions                                                                                                                                                                                                                         |
-| 5     | `operations/`                        | static-only classes: `Boolean2` (also on arcs, exact or approximate), `Contains2`, `Overlap2`, `Intersection2`, `DouglasPeucker`, `ConstrainedDelaunay`, `RectilinearGrid2`; their plumbing (CDT core, constraint edges, grid paths) in `operations/helpers/` |
+| 5     | `operations/`                        | static-only classes: `Boolean2` (also on arcs, exact or approximate), `Contains2`, `Overlap2`, `Intersection2`, `DouglasPeucker`, `ConstrainedDelaunay`, `RectilinearGrid2`, `Minkowski2`; their plumbing (CDT core, constraint edges, grid paths, convex pieces) in `operations/helpers/` |
 | 6     | `io/`                                | JSON codecs                                                                                                                                                                                                                                                   |
 | 7     | `recording/`                         | definitions: cells of expressions, their evaluation, recording calls by reflection, migration from version 3 (reads only the generated schema; nothing else imports it)                                                                                       |
 
@@ -53,6 +53,15 @@ Folders are layered. A module may only import from its own layer or a lower one,
 - A sagitta within epsilon is straight: `segmentOf(from, to, sagitta, epsilon)` returns a `Line2` or an `Arc2`.
 
 `ArcPolyline2` (open) and `ArcPolygon2` (closed, a region) store vertices plus one sagitta per segment, exactly 0 for a straight one. They offset with mitred joins, slice by arc length, and sample to `Polyline2` / `Polygon2`. `Contains2` and `Overlap2` handle all three exactly. `Boolean2` takes `ArcPolygon2` and `Circle2` too: with `arcs: { mode: 'exact' }` (the default) the result keeps its arcs and comes back as `regions`; with `{ mode: 'approximate', chordTolerance }` arcs become chords and the result is `polygons`, as for straight inputs.
+
+## Minkowski sums
+
+`Minkowski2` adds every point of one shape to every point of the other. Shapes are loops as for `Boolean2` (counter-clockwise outer loops, clockwise holes); results are `Boolean2Result`s.
+
+- `convexSum(a, b)`: two convex polygons, merged edge by edge in O(n + m) with exact angle order. `sumPoints` (the hull of all pairwise sums) is its slow reference.
+- `convexSumDisc(polygon, radius)` and `sumDisc(shape, radius)`: the rounded offset, with exact arcs in `regions`. A non-convex shape is united with a capsule around every edge.
+- `sum(a, b)`: any shapes. Each is split into convex pieces (`Polygon2.isConvex` loops as they are, otherwise CDT triangles merged while convex), the pieces are summed pairwise and united. That is |pieces of a| · |pieces of b| sums; past `maxPieces` (default 20 000) it throws.
+- `sumNegated(a, b)` is `a ⊕ (−b)`, the offsets at which `b` meets `a`. `erode(a, b)` is `a ⊖ b`, the points `x` where `x + b` fits in `a`, built from the complement of `a` in a box.
 
 ## Constrained Delaunay
 

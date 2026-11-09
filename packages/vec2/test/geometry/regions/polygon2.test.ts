@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test';
+import { mulberry32 } from '../../../examples/random';
 import { Circle2 } from '../../../src/geometry/regions/circle2';
 import { Polygon2 } from '../../../src/geometry/regions/polygon2';
 import { Vec2 } from '../../../src/core/vec2';
@@ -181,5 +182,68 @@ describe('Polygon2.fromCircle2', () => {
   test('needs a whole number of at least three segments', () => {
     expect(() => Polygon2.fromCircle2(circle, 2)).toThrow();
     expect(() => Polygon2.fromCircle2(circle, 4.5)).toThrow();
+  });
+});
+
+describe('Polygon2.isConvex', () => {
+  const loop = (...xy: number[]) =>
+    new Polygon2(Array.from({ length: xy.length / 2 }, (_, i) => new Vec2(xy[2 * i]!, xy[2 * i + 1]!)));
+
+  test('convex loops in either orientation', () => {
+    expect(loop(0, 0, 1, 0, 1, 1, 0, 1).isConvex()).toBe(true);
+    expect(loop(0, 0, 0, 1, 1, 1, 1, 0).isConvex()).toBe(true);
+    expect(loop(0, 0, 4, 0, 2, 3).isConvex()).toBe(true);
+  });
+
+  test('allows collinear and repeated vertices', () => {
+    expect(loop(0, 0, 1, 0, 2, 0, 2, 2, 0, 2).isConvex()).toBe(true);
+    expect(loop(0, 0, 2, 0, 2, 0, 2, 2, 0, 2).isConvex()).toBe(true);
+  });
+
+  test('rejects concave, spiked, degenerate and doubly winding loops', () => {
+    expect(loop(0, 0, 2, 0, 2, 1, 1, 1, 1, 2, 0, 2).isConvex()).toBe(false);
+    expect(loop(0, 0, 2, 0, 1, 0, 1, 2).isConvex()).toBe(false);
+    expect(loop(0, 0, 1, 0, 2, 0).isConvex()).toBe(false);
+    const star = Array.from({ length: 5 }, (_, i) => {
+      const angle = (i * 4 * Math.PI) / 5;
+      return new Vec2(Math.cos(angle), Math.sin(angle));
+    });
+    expect(new Polygon2(star).isConvex()).toBe(false);
+  });
+});
+
+describe('Polygon2.convexHull', () => {
+  test('is counter-clockwise, convex and contains every point', () => {
+    const random = mulberry32(7);
+    for (let run = 0; run < 50; run++) {
+      const points = Array.from({ length: 40 }, () => new Vec2(random() * 10 - 5, random() * 10 - 5));
+      const hull = Polygon2.convexHull(points)!;
+      expect(hull.signedArea()).toBeGreaterThan(0);
+      expect(hull.isConvex()).toBe(true);
+      for (const point of points) expect(hull.signedDistance(point)).toBeLessThanOrEqual(1e-9);
+    }
+  });
+
+  test('drops duplicates and points on edges', () => {
+    const hull = Polygon2.convexHull([
+      new Vec2(0, 0),
+      new Vec2(1, 0),
+      new Vec2(2, 0),
+      new Vec2(2, 2),
+      new Vec2(2, 2),
+      new Vec2(0, 2),
+      new Vec2(1, 1),
+    ])!;
+    expect(hull.vertices.map((v) => [v.x, v.y])).toEqual([
+      [0, 0],
+      [2, 0],
+      [2, 2],
+      [0, 2],
+    ]);
+  });
+
+  test('is null for collinear or too few points', () => {
+    expect(Polygon2.convexHull([new Vec2(0, 0), new Vec2(1, 1), new Vec2(2, 2)])).toBeNull();
+    expect(Polygon2.convexHull([new Vec2(0, 0), new Vec2(1, 1)])).toBeNull();
   });
 });

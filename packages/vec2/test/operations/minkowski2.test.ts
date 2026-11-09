@@ -252,3 +252,63 @@ describe('Minkowski2.sum', () => {
     expect(Minkowski2.sum([], [square(0, 0, 1)]).polygons).toHaveLength(0);
   });
 });
+
+describe('Minkowski2.sumNegated', () => {
+  test('a shape minus itself is centrally symmetric about the origin', () => {
+    const result = Minkowski2.sumNegated([lShape], [lShape]);
+    expect(Polygon2.isPointInside(result.polygons, Vec2.origin())).toBe(true);
+    const random = mulberry32(9);
+    for (let k = 0; k < 200; k++) {
+      const point = new Vec2(random() * 6 - 3, random() * 6 - 3);
+      expect(Polygon2.isPointInside(result.polygons, point)).toBe(
+        Polygon2.isPointInside(result.polygons, point.negate()),
+      );
+    }
+  });
+
+  test('two squares touch when their offset is in the sum', () => {
+    const result = Minkowski2.sumNegated([square(0, 0, 2)], [square(0, 0, 1)]);
+    expect(regionArea(result)).toBeCloseTo(9, 9);
+    expect(Polygon2.isPointInside(result.polygons, new Vec2(-0.9, 1.9))).toBe(true);
+    expect(Polygon2.isPointInside(result.polygons, new Vec2(2.1, 0))).toBe(false);
+  });
+});
+
+describe('Minkowski2.erode', () => {
+  const vertexBounds = (result: Boolean2Result) => {
+    const xs = result.polygons.flatMap((p) => p.vertices.map((v) => v.x));
+    const ys = result.polygons.flatMap((p) => p.vertices.map((v) => v.y));
+    return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)];
+  };
+
+  test('a centred square shrinks a square by its half-width', () => {
+    const result = Minkowski2.erode([square(0, 0, 10)], [square(-1, -1, 2)]);
+    expect(regionArea(result)).toBeCloseTo(64, 9);
+    expect(vertexBounds(result).map((v) => +v.toFixed(9))).toEqual([1, 1, 9, 9]);
+  });
+
+  test('an off-origin shape moves the result', () => {
+    const result = Minkowski2.erode([square(0, 0, 10)], [square(2, 2, 2)]);
+    expect(regionArea(result)).toBeCloseTo(64, 9);
+    expect(vertexBounds(result).map((v) => +v.toFixed(9))).toEqual([-2, -2, 6, 6]);
+  });
+
+  test('a concave shape and a hole', () => {
+    const result = Minkowski2.erode([lShape], [square(-0.25, -0.25, 0.5)]);
+    expect(regionArea(result)).toBeCloseTo(1.5 * 0.5 * 2 - 0.5 * 0.5, 9);
+    const holed = Minkowski2.erode([square(0, 0, 10), square(4, 4, 2).inverse()], [square(-1, -1, 2)]);
+    expect(regionArea(holed)).toBeCloseTo(64 - 16, 9);
+  });
+
+  test('opening (erode, then sum) stays inside the shape', () => {
+    const b = [loop(-0.2, -0.2, 0.2, -0.2, 0, 0.3)];
+    const opened = Minkowski2.sum(Minkowski2.erode([lShape], b).polygons, b);
+    expect(regionArea(opened)).toBeLessThanOrEqual(3 + 1e-9);
+    expect(Boolean2.subtract(opened.polygons, [lShape]).polygons.reduce((s, p) => s + p.area(), 0)).toBeLessThan(1e-9);
+  });
+
+  test('a shape too big to fit leaves nothing', () => {
+    expect(Minkowski2.erode([square(0, 0, 1)], [square(0, 0, 2)]).polygons).toHaveLength(0);
+    expect(Minkowski2.erode([], [square(0, 0, 2)]).polygons).toHaveLength(0);
+  });
+});

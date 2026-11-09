@@ -747,8 +747,10 @@
         "members": {
           "convexSum": { "static": true, "params": { "a": "Polygon2", "b": "Polygon2" }, "returns": "Polygon2" },
           "convexSumDisc": { "static": true, "params": { "polygon": "Polygon2", "radius": "Length", "options": { "type": "Minkowski2Options", "optional": true } }, "returns": "ArcPolygon2" },
+          "erode": { "static": true, "params": { "a": ["Polygon2"], "b": ["Polygon2"], "options": { "type": "Minkowski2Options", "optional": true } }, "returns": "Boolean2Result" },
           "sum": { "static": true, "params": { "a": ["Polygon2"], "b": ["Polygon2"], "options": { "type": "Minkowski2Options", "optional": true } }, "returns": "Boolean2Result" },
           "sumDisc": { "static": true, "params": { "shape": ["Polygon2"], "radius": "Length", "options": { "type": "Minkowski2Options", "optional": true } }, "returns": "Boolean2Result" },
+          "sumNegated": { "static": true, "params": { "a": ["Polygon2"], "b": ["Polygon2"], "options": { "type": "Minkowski2Options", "optional": true } }, "returns": "Boolean2Result" },
           "sumPoints": { "static": true, "params": { "a": ["Vec2"], "b": ["Vec2"] }, "returns": { "or": ["Polygon2", "null"] } }
         }
       },

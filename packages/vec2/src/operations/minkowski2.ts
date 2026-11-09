@@ -1,6 +1,7 @@
+import { Aabb2 } from '../bounds/aabb2';
 import { Epsilon } from '../core/epsilon';
 import type { Index, Length } from '../core/numbers';
-import type { Vec2 } from '../core/vec2';
+import { Vec2 } from '../core/vec2';
 import { ArcPolygon2 } from '../geometry/regions/arc-polygon2';
 import { Polygon2 } from '../geometry/regions/polygon2';
 import { Boolean2, type Boolean2Result } from './boolean2';
@@ -85,4 +86,32 @@ export class Minkowski2 {
     const sums = piecesA.flatMap((p) => piecesB.map((q) => Minkowski2.convexSum(p, q)));
     return Boolean2.union(sums, { slack });
   }
+
+  /** `a ⊕ (−b)`: the offsets at which `b` touches or overlaps `a` (configuration space, collision tests). */
+  static sumNegated(a: readonly Polygon2[], b: readonly Polygon2[], options: Minkowski2Options = {}): Boolean2Result {
+    return Minkowski2.sum(a, b.map(negated), options);
+  }
+
+  /**
+   * Erosion `a ⊖ b`: the points `x` where `x + b` fits inside `a`. Built from the complement of `a` in a box,
+   * `(box − a) ⊕ (−b)`, subtracted from `a` moved by minus a vertex of `b` (every point of the erosion lies there).
+   */
+  static erode(a: readonly Polygon2[], b: readonly Polygon2[], options: Minkowski2Options = {}): Boolean2Result {
+    const slack = options.slack ?? Epsilon.preferIn;
+    const vertices = b.flatMap((loop) => loop.vertices);
+    if (a.length === 0 || vertices.length === 0) return { polygons: [] };
+    const anchor = vertices[0]!;
+    const reach = Math.max(...vertices.map((v) => Math.max(Math.abs(v.x - anchor.x), Math.abs(v.y - anchor.y))));
+    const bounds = Aabb2.fromPointList(a.flatMap((loop) => loop.vertices));
+    const margin = new Vec2(reach + 1, reach + 1).add(bounds.max().subtract(bounds.min()).scale(0.01));
+    const box = Polygon2.fromAabb2(Aabb2.fromMinMax(bounds.min().subtract(margin), bounds.max().add(margin)));
+    const outside = Minkowski2.sumNegated([box, ...a.map((loop) => loop.inverse())], b, options);
+    const shifted = a.map((loop) => new Polygon2(loop.vertices.map((v) => v.subtract(anchor))));
+    return Boolean2.subtract(shifted, outside.polygons, { slack });
+  }
+}
+
+/** The loop turned half a turn about the origin; its orientation is unchanged. */
+function negated(loop: Polygon2): Polygon2 {
+  return new Polygon2(loop.vertices.map((v) => v.negate()));
 }

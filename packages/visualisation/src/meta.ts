@@ -4,6 +4,7 @@
  */
 import { aabb2VisualisationMeta } from './demos/vec2/aabb2/meta';
 import { arcBoolean2VisualisationMeta } from './demos/vec2/arc-boolean2/meta';
+import { minkowski2VisualisationMeta } from './demos/vec2/minkowski2/meta';
 import { arcsVisualisationMeta } from './demos/vec2/arcs/meta';
 import { boolean2VisualisationMeta } from './demos/vec2/boolean2/meta';
 import { cdtVisualisationMeta } from './demos/vec2/constrained-delaunay/meta';
@@ -67,6 +68,7 @@ export const visualisationMetas: readonly DemoMeta[] = [
     overlap2VisualisationMeta,
     boolean2VisualisationMeta,
     arcBoolean2VisualisationMeta,
+    minkowski2VisualisationMeta,
     aabb2VisualisationMeta,
     interval2VisualisationMeta,
     grid2VisualisationMeta,

@@ -178,6 +178,7 @@
   "Mat3.translation": "A move by `(x, y)`; apply it with `.transform` (several copies: one matrix each).",
   "Minkowski2.convexSum": "Sum of two convex polygons (either orientation), counter-clockwise.",
   "Minkowski2.convexSumDisc": "A convex polygon (either orientation) grown by a disc of `radius`: edges moved outward, corners rounded by arcs.",
+  "Minkowski2.sum": "Sum of two shapes of any form, holes included.",
   "Minkowski2.sumDisc": "`shape` grown by a disc of `radius` (rounded offset), with exact arcs in `regions`.",
   "Minkowski2.sumPoints": "Convex hull of every pairwise sum `a[i] + b[j]`; `null` when the sums lie on one line.",
   "Overlap2.overlaps": "`InfiniteLine2` and `Hesse2` act as half-planes (`signedDistance <= 0`); rays are unbounded.",

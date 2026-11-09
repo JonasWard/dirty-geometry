@@ -60,7 +60,7 @@
     "LineLike2IntersectionResult": { "or": ["LineLike2", "Vec2", "null"] },
     "Mat3Json": { "elements": { "tuple": ["Coordinate", "Coordinate", "Coordinate", "Coordinate", "Coordinate", "Coordinate", "Coordinate", "Coordinate", "Coordinate"] } },
     "MathJson": { "or": ["Vec2Json", "Mat3Json", "AngleJson", "Line2Json", "Arc2Json", "Ray2Json", "InfiniteLine2Json", "Hesse2Json", "Polyline2Json", "Polygon2Json", "ArcPolyline2Json", "ArcPolygon2Json", "Interval2Json", "Aabb2Json", "TriMesh2Json", "Circle2Json", "GridCell2Json", "Frame2Json", "AxisJson", "Grid2Json", "GridLine2Json", "GridPolyline2Json", "GridPolygon2Json", "GridRectangle2Json", "CellCollectionJson", "EpsilonJson"] },
-    "Minkowski2Options": { "slack": { "type": "Epsilon", "optional": true } },
+    "Minkowski2Options": { "slack": { "type": "Epsilon", "optional": true }, "maxPieces": { "type": "Index", "optional": true } },
     "Polygon2Json": { "vertices": ["Vec2Json"] },
     "Polyline2Json": { "vertices": ["Vec2Json"] },
     "Ray2Json": { "start": "Vec2Json", "direction": "Vec2Json" },
@@ -747,6 +747,7 @@
         "members": {
           "convexSum": { "static": true, "params": { "a": "Polygon2", "b": "Polygon2" }, "returns": "Polygon2" },
           "convexSumDisc": { "static": true, "params": { "polygon": "Polygon2", "radius": "Length", "options": { "type": "Minkowski2Options", "optional": true } }, "returns": "ArcPolygon2" },
+          "sum": { "static": true, "params": { "a": ["Polygon2"], "b": ["Polygon2"], "options": { "type": "Minkowski2Options", "optional": true } }, "returns": "Boolean2Result" },
           "sumDisc": { "static": true, "params": { "shape": ["Polygon2"], "radius": "Length", "options": { "type": "Minkowski2Options", "optional": true } }, "returns": "Boolean2Result" },
           "sumPoints": { "static": true, "params": { "a": ["Vec2"], "b": ["Vec2"] }, "returns": { "or": ["Polygon2", "null"] } }
         }

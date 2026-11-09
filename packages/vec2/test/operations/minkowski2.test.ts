@@ -1,9 +1,13 @@
 import { describe, expect, test } from 'bun:test';
 import { mulberry32 } from '../../examples/random';
 import { Vec2 } from '../../src/core/vec2';
+import { Circle2 } from '../../src/geometry/regions/circle2';
 import type { ArcPolygon2 } from '../../src/geometry/regions/arc-polygon2';
 import { Polygon2 } from '../../src/geometry/regions/polygon2';
 import type { Boolean2Result } from '../../src/operations/boolean2';
+import { Boolean2 } from '../../src/operations/boolean2';
+import { ConstrainedDelaunay } from '../../src/operations/constrained-delaunay';
+import { mergeTriangles } from '../../src/operations/helpers/minkowski/convex-pieces';
 import { Minkowski2 } from '../../src/operations/minkowski2';
 
 const loop = (...xy: number[]) =>
@@ -142,5 +146,109 @@ describe('Minkowski2.sumDisc', () => {
   test('empty input and radius 0', () => {
     expect(regionArea(Minkowski2.sumDisc([], 1))).toBe(0);
     expect(regionArea(Minkowski2.sumDisc([lShape], 0))).toBeCloseTo(3, 12);
+  });
+});
+
+/** A star-shaped loop of `count` vertices at random radii around `center`, counter-clockwise. */
+function randomStar(random: () => number, center: Vec2, count: number): Polygon2 {
+  return new Polygon2(
+    Array.from({ length: count }, (_, i) => {
+      const angle = (2 * Math.PI * i) / count;
+      const r = 0.5 + random() * 1.5;
+      return center.add(new Vec2(r * Math.cos(angle), r * Math.sin(angle)));
+    }),
+  );
+}
+
+/** The sum by brute force: every triangle of `a` plus every triangle of `b`, united. */
+function bruteForceSum(a: readonly Polygon2[], b: readonly Polygon2[]): number {
+  const triangles = (loops: readonly Polygon2[]) => {
+    const mesh = Boolean2.union(loops, { mesh: true }).triMesh!;
+    return mesh.triangles.map(([i, j, k]) => [mesh.vertices[i]!, mesh.vertices[j]!, mesh.vertices[k]!]);
+  };
+  const sums = triangles(a).flatMap((p) => triangles(b).map((q) => Minkowski2.sumPoints(p, q)!));
+  return regionArea(Boolean2.union(sums));
+}
+
+describe('mergeTriangles', () => {
+  test('merges a triangulated convex polygon into one piece', () => {
+    const hexagon = Polygon2.fromCircle2(new Circle2(Vec2.origin(), 1), 6);
+    const mesh = Boolean2.union([hexagon], { mesh: true }).triMesh!;
+    expect(mesh.triangleCount).toBe(4);
+    const pieces = mergeTriangles(mesh);
+    expect(pieces).toHaveLength(1);
+    expect(pieces[0]!.area()).toBeCloseTo(hexagon.area(), 12);
+  });
+
+  test('keeps every piece convex and the area unchanged', () => {
+    const random = mulberry32(5);
+    for (let run = 0; run < 20; run++) {
+      const star = randomStar(random, Vec2.origin(), 30);
+      const pieces = mergeTriangles(Boolean2.union([star], { mesh: true }).triMesh!);
+      expect(pieces.every((piece) => piece.isConvex() && piece.signedArea() > 0)).toBe(true);
+      expect(pieces.reduce((sum, piece) => sum + piece.area(), 0)).toBeCloseTo(star.area(), 9);
+      expect(pieces.length).toBeLessThan(30 - 2);
+    }
+  });
+
+  test('ignores an unconnected mesh', () => {
+    const mesh = ConstrainedDelaunay.triangulate([new Vec2(0, 0), new Vec2(1, 0), new Vec2(0, 1)]);
+    expect(mergeTriangles(mesh)).toHaveLength(1);
+  });
+});
+
+describe('Minkowski2.sum', () => {
+  test('an L plus a unit square', () => {
+    const result = Minkowski2.sum([lShape], [square(0, 0, 1)]);
+    expect(result.polygons).toHaveLength(1);
+    expect(regionArea(result)).toBeCloseTo(8, 9);
+  });
+
+  test('two convex loops take the fast path', () => {
+    const result = Minkowski2.sum([square(0, 0, 1)], [loop(0, 0, 1, 0, 0, 1)]);
+    expect(result.polygons).toHaveLength(1);
+    expect(result.polygons[0]!.vertices).toHaveLength(5);
+  });
+
+  test('matches the brute-force sum of triangles for random stars', () => {
+    const random = mulberry32(17);
+    for (let run = 0; run < 10; run++) {
+      const a = [randomStar(random, Vec2.origin(), 12)];
+      const b = [randomStar(random, new Vec2(3, 1), 7)];
+      const area = regionArea(Minkowski2.sum(a, b));
+      expect(area / bruteForceSum(a, b)).toBeCloseTo(1, 9);
+      for (const p of a[0]!.vertices) {
+        for (const q of b[0]!.vertices) {
+          expect(Polygon2.isPointInside(Minkowski2.sum(a, b).polygons, p.add(q))).toBe(true);
+        }
+      }
+    }
+  });
+
+  test('a hole shrinks by the other shape', () => {
+    const shape = [square(0, 0, 10), square(3, 3, 4).inverse()];
+    const result = Minkowski2.sum(shape, [square(0, 0, 1)]);
+    expect(result.polygons).toHaveLength(2);
+    expect(regionArea(result)).toBeCloseTo(121 - 9, 9);
+  });
+
+  test('disjoint loops stay apart', () => {
+    const result = Minkowski2.sum([square(0, 0, 1), square(10, 0, 1)], [lShape]);
+    expect(result.polygons).toHaveLength(2);
+    expect(regionArea(result)).toBeCloseTo(2 * 8, 9);
+  });
+
+  test('touching pieces leave no gaps', () => {
+    const comb = loop(0, 0, 5, 0, 5, 3, 4, 3, 4, 1, 3, 1, 3, 3, 2, 3, 2, 1, 1, 1, 1, 3, 0, 3);
+    const thin = loop(0, 0, 0.5, 0, 0.5, 0.01);
+    const result = Minkowski2.sum([comb], [thin]);
+    expect(regionArea(result) / bruteForceSum([comb], [thin])).toBeCloseTo(1, 9);
+    expect(result.polygons).toHaveLength(1);
+  });
+
+  test('throws past maxPieces, empty input gives an empty result', () => {
+    const star = randomStar(mulberry32(1), Vec2.origin(), 40);
+    expect(() => Minkowski2.sum([star], [star], { maxPieces: 10 })).toThrow();
+    expect(Minkowski2.sum([], [square(0, 0, 1)]).polygons).toHaveLength(0);
   });
 });

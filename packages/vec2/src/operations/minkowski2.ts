@@ -1,17 +1,22 @@
 import { Epsilon } from '../core/epsilon';
-import type { Length } from '../core/numbers';
+import type { Index, Length } from '../core/numbers';
 import type { Vec2 } from '../core/vec2';
 import { ArcPolygon2 } from '../geometry/regions/arc-polygon2';
 import { Polygon2 } from '../geometry/regions/polygon2';
 import { Boolean2, type Boolean2Result } from './boolean2';
 import { convexLoop } from './helpers/minkowski/convex-loop';
 import { mergeConvex } from './helpers/minkowski/edge-merge';
+import { convexPieces } from './helpers/minkowski/convex-pieces';
 import { capsule, roundedConvex } from './helpers/minkowski/rounded';
 
 export type Minkowski2Options = {
   /** Tolerance for merging points and dropping tiny pieces (default `Epsilon.preferIn`). */
   slack?: Epsilon;
+  /** Throw when the sum would need more convex piece pairs than this (default 20 000). */
+  maxPieces?: Index;
 };
+
+const DEFAULT_MAX_PIECES = 20_000;
 
 /**
  * Minkowski sums: every point of one shape plus every point of the other. Shapes are given as boundary loops,
@@ -60,5 +65,24 @@ export class Minkowski2 {
       ),
     );
     return Boolean2.union([...shape, ...capsules], { slack, arcs: { mode: 'exact' } });
+  }
+
+  /**
+   * Sum of two shapes of any form, holes included. Each shape is split into convex pieces (triangles merged
+   * while convex), every pair of pieces is summed with {@link convexSum}, and the sums are united.
+   * Costs |pieces of a| · |pieces of b| sums and their union; throws past `maxPieces` pairs.
+   */
+  static sum(a: readonly Polygon2[], b: readonly Polygon2[], options: Minkowski2Options = {}): Boolean2Result {
+    const slack = options.slack ?? Epsilon.preferIn;
+    const piecesA = convexPieces(a, slack);
+    const piecesB = convexPieces(b, slack);
+    const pairs = piecesA.length * piecesB.length;
+    if (pairs === 0) return { polygons: [] };
+    if (pairs > (options.maxPieces ?? DEFAULT_MAX_PIECES)) {
+      throw new Error(`Minkowski2: ${pairs} piece pairs exceed maxPieces`);
+    }
+    if (pairs === 1) return { polygons: [Minkowski2.convexSum(piecesA[0]!, piecesB[0]!)] };
+    const sums = piecesA.flatMap((p) => piecesB.map((q) => Minkowski2.convexSum(p, q)));
+    return Boolean2.union(sums, { slack });
   }
 }

@@ -7,6 +7,7 @@ import type { Geometry2 } from '@dirty-geometry/vec2/geometry/kinds';
 import { ArcPolygon2 } from '@dirty-geometry/vec2/geometry/regions/arc-polygon2';
 import {
   evaluateMinkowskiScenario,
+  explainDisc,
   minkowskiScenarioRows,
   type Minkowski2Scenario,
 } from '@dirty-geometry/vec2/examples/minkowski2/scenarios';
@@ -25,29 +26,48 @@ const COLORS = {
   background: '#0b0d12',
 } as const;
 
+/** One hue per capsule. */
+const CAPSULE_HUES = ['#4cc9f0', '#f72585', '#ffd166', '#06d6a0', '#ef476f', '#8338ec', '#fb8500', '#90be6d'];
+const hue = (index: number) => CAPSULE_HUES[index % CAPSULE_HUES.length]!;
+
 function MinkowskiCell({ scenario, offset }: { scenario: Minkowski2Scenario; offset: Vec2 }) {
-  const { regions, fit, milliseconds } = useMemo(() => {
+  const { regions, capsules, fit, milliseconds } = useMemo(() => {
     const start = performance.now();
     const result = evaluateMinkowskiScenario(scenario);
     const milliseconds = performance.now() - start;
     // Straight results are drawn the same way as arc results.
     const regions = [...(result.regions ?? []), ...result.polygons.map((p) => ArcPolygon2.fromPolygon(p))];
-    const geometries: Geometry2[] = [...scenario.a, ...(scenario.b ?? []), ...regions];
-    return { regions, fit: fitGeometriesToFrame(geometries), milliseconds };
+    const capsules = scenario.stage === 'capsules' ? explainDisc(scenario.a, scenario.radius ?? 0) : [];
+    // Both stages of one example fit the same frame: the result bounds them all.
+    const geometries: Geometry2[] = [...scenario.a, ...(scenario.b ?? []), ...regions, ...capsules];
+    return { regions, capsules, fit: fitGeometriesToFrame(geometries), milliseconds };
   }, [scenario]);
+
+  // The capsule stage shows the capsules instead of the result.
+  const showResult = scenario.stage !== 'capsules';
 
   const outer = regions.filter((region) => region.signedArea() > 0);
   const holes = regions.filter((region) => region.signedArea() < 0);
   const area = regions.reduce((sum, region) => sum + region.signedArea(), 0);
   const outline = (points: readonly Vec2[]) => points.map((point) => vec2ToTuple(fit(point), offset));
   const detail = scenario.section === 'disc' ? `r ${scenario.radius}` : scenario.section;
+  const stepLine = scenario.stage === 'capsules' ? `${capsules.length} capsules, one per edge` : null;
 
   return (
     <group>
       <Line points={frameCorners(offset)} color='#3a4150' lineWidth={1} />
 
+      {capsules.map((region, index) => (
+        <Line
+          key={`capsule-${index}`}
+          points={outline(arcChainDisplayPoints(region.segments(), true, displayChordTolerance(fit)))}
+          color={hue(index)}
+          lineWidth={1.25}
+        />
+      ))}
+
       {/* Result interiors, then holes painted over in the background colour. */}
-      {outer.map((region, index) => (
+      {(showResult ? outer : []).map((region, index) => (
         <ContainerInteriorMesh
           key={`fill-${index}`}
           container={region}
@@ -59,7 +79,7 @@ function MinkowskiCell({ scenario, offset }: { scenario: Minkowski2Scenario; off
           renderOrder={-2}
         />
       ))}
-      {holes.map((region, index) => (
+      {(showResult ? holes : []).map((region, index) => (
         <ContainerInteriorMesh
           key={`hole-${index}`}
           container={region}
@@ -95,7 +115,7 @@ function MinkowskiCell({ scenario, offset }: { scenario: Minkowski2Scenario; off
         />
       ))}
 
-      {regions.map((region, index) => (
+      {(showResult ? regions : []).map((region, index) => (
         <Line
           key={`region-${index}`}
           points={outline(arcChainDisplayPoints(region.segments(), true, displayChordTolerance(fit)))}
@@ -110,9 +130,7 @@ function MinkowskiCell({ scenario, offset }: { scenario: Minkowski2Scenario; off
           <div className='text-white/70'>
             {detail} · area {area.toFixed(3)} · {milliseconds.toFixed(1)} ms
           </div>
-          <div className='text-green-300'>
-            {outer.length} region(s) · {holes.length} hole(s)
-          </div>
+          <div className='text-green-300'>{stepLine ?? `${outer.length} region(s) · ${holes.length} hole(s)`}</div>
         </div>
       </Html>
     </group>

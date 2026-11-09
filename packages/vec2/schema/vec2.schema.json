@@ -717,6 +717,12 @@
           "pointIn": { "static": true, "params": { "container": "Container2", "point": "Vec2", "slack": { "type": "Epsilon", "optional": true } }, "returns": "boolean" }
         }
       },
+      "ConvexDecomposition2": {
+        "members": {
+          "decompose": { "static": true, "params": { "loops": ["Polygon2"], "slack": { "type": "Epsilon", "optional": true } }, "returns": ["Polygon2"] },
+          "fromMesh": { "static": true, "params": { "mesh": "TriMesh2" }, "returns": ["Polygon2"] }
+        }
+      },
       "DouglasPeucker": {
         "members": {
           "simplify": { "static": true, "params": { "curve": { "or": ["Polyline2", "Polygon2"] }, "tolerances": { "type": "DouglasPeuckerTolerances", "optional": true } }, "returns": { "or": ["Polyline2", "Polygon2"] } },

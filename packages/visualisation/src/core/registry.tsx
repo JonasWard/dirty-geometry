@@ -16,6 +16,12 @@ const components: Record<string, LazyExoticComponent<ComponentType>> = {
   'vec2/minkowski2': lazy(() =>
     load(import('../demos/vec2/minkowski2/Minkowski2Visualisation'), (m) => m.Minkowski2Visualisation),
   ),
+  'vec2/convex-decomposition2': lazy(() =>
+    load(
+      import('../demos/vec2/convex-decomposition2/ConvexDecomposition2Visualisation'),
+      (m) => m.ConvexDecomposition2Visualisation,
+    ),
+  ),
   'vec2/arcs': lazy(() => load(import('../demos/vec2/arcs/ArcsVisualisation'), (m) => m.ArcsVisualisation)),
   'vec2/intersection-lines': lazy(() =>
     load(

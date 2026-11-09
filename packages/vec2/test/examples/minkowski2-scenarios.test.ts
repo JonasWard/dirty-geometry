@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { evaluateMinkowskiScenario, minkowskiScenarios } from '../../examples/minkowski2/scenarios';
+import { evaluateMinkowskiScenario, explainDisc, minkowskiScenarios } from '../../examples/minkowski2/scenarios';
 import type { Boolean2Result } from '../../src/operations/boolean2';
 
 const area = (result: Boolean2Result) =>
@@ -16,4 +16,11 @@ describe('Minkowski2 demo scenarios', () => {
       else expect(area(result)).toBeGreaterThan(input);
     });
   }
+});
+
+describe('Minkowski2 demo disc steps', () => {
+  test('one capsule per edge', () => {
+    const scenario = minkowskiScenarios.find((s) => s.stage === 'capsules')!;
+    expect(explainDisc(scenario.a, scenario.radius!)).toHaveLength(scenario.a[0]!.vertices.length);
+  });
 });

@@ -18,7 +18,7 @@ Folders are layered. A module may only import from its own layer or a lower one,
 | 2     | `bounds/aabb2`, `spatial/`           | boxes, vertex dedup                                                                                                                                                                                                                                           |
 | 3     | `geometry/`                          | primitives (`Line2`, `Arc2`, `Ray2`, `InfiniteLine2`, `Hesse2`), curves (`Polyline2`, `ArcPolyline2`), regions (`Polygon2`, `ArcPolygon2`, `Circle2`, `TriMesh2`), type tags and guards in `geometry/kinds`                                                   |
 | 4     | `grid/`                              | `Grid2`, axes, cells and grid regions                                                                                                                                                                                                                         |
-| 5     | `operations/`                        | static-only classes: `Boolean2` (also on arcs, exact or approximate), `Contains2`, `Overlap2`, `Intersection2`, `DouglasPeucker`, `ConstrainedDelaunay`, `RectilinearGrid2`, `Minkowski2`; their plumbing (CDT core, constraint edges, grid paths, convex pieces) in `operations/helpers/` |
+| 5     | `operations/`                        | static-only classes: `Boolean2` (also on arcs, exact or approximate), `Contains2`, `Overlap2`, `Intersection2`, `DouglasPeucker`, `ConstrainedDelaunay`, `RectilinearGrid2`, `ConvexDecomposition2`, `Minkowski2`; their plumbing (CDT core, constraint edges, grid paths, convex pieces) in `operations/helpers/` |
 | 6     | `io/`                                | JSON codecs                                                                                                                                                                                                                                                   |
 | 7     | `recording/`                         | definitions: cells of expressions, their evaluation, recording calls by reflection, migration from version 3 (reads only the generated schema; nothing else imports it)                                                                                       |
 
@@ -60,8 +60,17 @@ Folders are layered. A module may only import from its own layer or a lower one,
 
 - `convexSum(a, b)`: two convex polygons, merged edge by edge in O(n + m) with exact angle order. `sumPoints` (the hull of all pairwise sums) is its slow reference.
 - `convexSumDisc(polygon, radius)` and `sumDisc(shape, radius)`: the rounded offset, with exact arcs in `regions`. A non-convex shape is united with a capsule around every edge.
-- `sum(a, b)`: any shapes. Each is split into convex pieces (`Polygon2.isConvex` loops as they are, otherwise CDT triangles merged while convex), the pieces are summed pairwise and united. That is |pieces of a| · |pieces of b| sums; past `maxPieces` (default 20 000) it throws.
+- `sum(a, b)`: any shapes. Each is split into convex pieces (loops that are already convex are used as they are, otherwise `ConvexDecomposition2.decompose`, below), the pieces are summed pairwise and united. That is |pieces of a| · |pieces of b| sums; past `maxPieces` (default 20 000) it throws.
 - `sumNegated(a, b)` is `a ⊕ (−b)`, the offsets at which `b` meets `a`. `erode(a, b)` is `a ⊖ b`, the points `x` where `x + b` fits in `a`, built from the complement of `a` in a box.
+
+## Convex decomposition
+
+`ConvexDecomposition2.decompose(loops)` splits a region (loops as for `Boolean2`, holes included) into convex, counter-clockwise pieces that tile it without overlapping:
+
+1. **Triangulate.** `Boolean2.union(loops, { mesh: true })` gives the constrained Delaunay triangles inside the region; triangles in holes are left out.
+2. **Merge** (Hertel–Mehlhorn, `fromMesh`). Every triangle starts as a piece. For each edge shared by two pieces, the two are joined without that edge if both of its ends still turn convex (exact orientation tests). Removing an edge can only break convexity at its ends, so no other corner is checked.
+
+The result has at most four times the fewest possible pieces. Which pieces come out depends on the triangulation: an L becomes two rectangles, a comb its teeth and its base. A single convex loop comes back as itself.
 
 ## Constrained Delaunay
 

@@ -2,7 +2,10 @@
 import type { Length } from '../../src/core/numbers';
 import { Vec2 } from '../../src/core/vec2';
 import { Polygon2 } from '../../src/geometry/regions/polygon2';
+import type { ArcPolygon2 } from '../../src/geometry/regions/arc-polygon2';
+import { Epsilon } from '../../src/core/epsilon';
 import type { Boolean2Result } from '../../src/operations/boolean2';
+import { capsule } from '../../src/operations/helpers/minkowski/rounded';
 import { Minkowski2 } from '../../src/operations/minkowski2';
 import { mulberry32 } from '../random';
 
@@ -16,7 +19,14 @@ export type Minkowski2Scenario = {
   b?: Polygon2[];
   /** The disc radius (`disc` only). */
   radius?: Length;
+  /**
+   * A step of a disc sum of a non-convex shape, to draw instead of the result: the capsule around every edge,
+   * or their union. (The steps of `sum` are in the convex decomposition demo.)
+   */
+  stage?: Minkowski2Stage;
 };
+
+export type Minkowski2Stage = 'capsules' | 'union';
 
 const loop = (...xy: number[]) =>
   new Polygon2(Array.from({ length: xy.length / 2 }, (_, i) => new Vec2(xy[2 * i]!, xy[2 * i + 1]!)));
@@ -35,10 +45,45 @@ function star(seed: number, count: number, center: Vec2, scale: number): Polygon
   );
 }
 
-const lShape = loop(0, 0, 4, 0, 4, 2, 2, 2, 2, 4, 0, 4);
-const comb = loop(0, 0, 7, 0, 7, 4, 6, 4, 6, 1, 5, 1, 5, 4, 4, 4, 4, 1, 3, 1, 3, 4, 2, 4, 2, 1, 1, 1, 1, 4, 0, 4);
-const holedSquare = [rectangle(0, 0, 6, 6), rectangle(2, 2, 2, 2).inverse()];
-const triangle = loop(0, 0, 1.2, 0, 0.6, 1);
+/** Shapes shared with the convex decomposition demo. */
+export const lShape = loop(0, 0, 4, 0, 4, 2, 2, 2, 2, 4, 0, 4);
+export const comb = loop(
+  0,
+  0,
+  7,
+  0,
+  7,
+  4,
+  6,
+  4,
+  6,
+  1,
+  5,
+  1,
+  5,
+  4,
+  4,
+  4,
+  4,
+  1,
+  3,
+  1,
+  3,
+  4,
+  2,
+  4,
+  2,
+  1,
+  1,
+  1,
+  1,
+  4,
+  0,
+  4,
+);
+export const holedSquare = [rectangle(0, 0, 6, 6), rectangle(2, 2, 2, 2).inverse()];
+export const triangle = loop(0, 0, 1.2, 0, 0.6, 1);
+export const smallL = loop(0, 0, 0.8, 0, 0.8, 0.4, 0.4, 0.4, 0.4, 0.8, 0, 0.8);
 
 export const convexScenarios: Minkowski2Scenario[] = [
   {
@@ -68,7 +113,7 @@ export const sumScenarios: Minkowski2Scenario[] = [
     name: 'Holed square ⊕ L',
     section: 'sum',
     a: holedSquare,
-    b: [loop(0, 0, 0.8, 0, 0.8, 0.4, 0.4, 0.4, 0.4, 0.8, 0, 0.8)],
+    b: [smallL],
   },
 ];
 
@@ -78,7 +123,19 @@ export const differenceScenarios: Minkowski2Scenario[] = [
   { name: 'Comb ⊖ small triangle', section: 'erode', a: [comb], b: [loop(-0.3, -0.2, 0.3, -0.2, 0, 0.3)] },
 ];
 
-export const minkowskiScenarioRows = [convexScenarios, discScenarios, sumScenarios, differenceScenarios] as const;
+/** How `sumDisc` handles a non-convex shape: a capsule around every edge, then their union with the shape. */
+export const discStepScenarios: Minkowski2Scenario[] = [
+  { name: 'L ⊕ disc: 1 edge capsules', section: 'disc', a: [lShape], radius: 0.6, stage: 'capsules' },
+  { name: 'L ⊕ disc: 2 union', section: 'disc', a: [lShape], radius: 0.6, stage: 'union' },
+];
+
+export const minkowskiScenarioRows = [
+  convexScenarios,
+  discScenarios,
+  sumScenarios,
+  differenceScenarios,
+  discStepScenarios,
+] as const;
 
 export const minkowskiScenarios: Minkowski2Scenario[] = minkowskiScenarioRows.flat();
 
@@ -96,4 +153,13 @@ export function evaluateMinkowskiScenario(scenario: Minkowski2Scenario): Boolean
     case 'erode':
       return Minkowski2.erode(a, b);
   }
+}
+
+/** The step of `Minkowski2.sumDisc` for a non-convex shape: a capsule around every edge. */
+export function explainDisc(shape: readonly Polygon2[], radius: Length): ArcPolygon2[] {
+  return shape.flatMap((polygon) =>
+    polygon.vertices.flatMap(
+      (v, i) => capsule(v, polygon.vertices[(i + 1) % polygon.vertices.length]!, radius, Epsilon.preferIn) ?? [],
+    ),
+  );
 }

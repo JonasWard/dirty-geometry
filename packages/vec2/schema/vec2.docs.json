@@ -99,6 +99,8 @@
   "ConstrainedDelaunay.report": "ConstrainedDelaunay.triangulate, plus the constraints it could not insert and operation counts.",
   "ConstrainedDelaunay.triangulate": "Constrained Delaunay triangulation of `points`.",
   "Contains2.aabbIn": "True when `box` lies entirely inside `container`.",
+  "ConvexDecomposition2.decompose": "Convex pieces of the region of `loops` (counter-clockwise outer loops, clockwise holes, non-zero rule as in `Boolean2`), counter-clockwise and without overlaps.",
+  "ConvexDecomposition2.fromMesh": "The triangles of `mesh` merged across their shared edges while the merged piece stays convex (exact turns at the two ends of the removed edge).",
   "DouglasPeucker.simplify": "Simplify a polyline or polygon; the result has the same type as `curve`.",
   "DouglasPeucker.simplifyVertices": "Simplify a vertex list, open or `closed`.",
   "Epsilon.custom": "Resolve boolean, numeric, or pre-built slack to an `Epsilon` tolerance.",

@@ -1,13 +1,10 @@
 import { describe, expect, test } from 'bun:test';
 import { mulberry32 } from '../../examples/random';
 import { Vec2 } from '../../src/core/vec2';
-import { Circle2 } from '../../src/geometry/regions/circle2';
 import type { ArcPolygon2 } from '../../src/geometry/regions/arc-polygon2';
 import { Polygon2 } from '../../src/geometry/regions/polygon2';
 import type { Boolean2Result } from '../../src/operations/boolean2';
 import { Boolean2 } from '../../src/operations/boolean2';
-import { ConstrainedDelaunay } from '../../src/operations/constrained-delaunay';
-import { mergeTriangles } from '../../src/operations/helpers/minkowski/convex-pieces';
 import { Minkowski2 } from '../../src/operations/minkowski2';
 
 const loop = (...xy: number[]) =>
@@ -169,33 +166,6 @@ function bruteForceSum(a: readonly Polygon2[], b: readonly Polygon2[]): number {
   const sums = triangles(a).flatMap((p) => triangles(b).map((q) => Minkowski2.sumPoints(p, q)!));
   return regionArea(Boolean2.union(sums));
 }
-
-describe('mergeTriangles', () => {
-  test('merges a triangulated convex polygon into one piece', () => {
-    const hexagon = Polygon2.fromCircle2(new Circle2(Vec2.origin(), 1), 6);
-    const mesh = Boolean2.union([hexagon], { mesh: true }).triMesh!;
-    expect(mesh.triangleCount).toBe(4);
-    const pieces = mergeTriangles(mesh);
-    expect(pieces).toHaveLength(1);
-    expect(pieces[0]!.area()).toBeCloseTo(hexagon.area(), 12);
-  });
-
-  test('keeps every piece convex and the area unchanged', () => {
-    const random = mulberry32(5);
-    for (let run = 0; run < 20; run++) {
-      const star = randomStar(random, Vec2.origin(), 30);
-      const pieces = mergeTriangles(Boolean2.union([star], { mesh: true }).triMesh!);
-      expect(pieces.every((piece) => piece.isConvex() && piece.signedArea() > 0)).toBe(true);
-      expect(pieces.reduce((sum, piece) => sum + piece.area(), 0)).toBeCloseTo(star.area(), 9);
-      expect(pieces.length).toBeLessThan(30 - 2);
-    }
-  });
-
-  test('ignores an unconnected mesh', () => {
-    const mesh = ConstrainedDelaunay.triangulate([new Vec2(0, 0), new Vec2(1, 0), new Vec2(0, 1)]);
-    expect(mergeTriangles(mesh)).toHaveLength(1);
-  });
-});
 
 describe('Minkowski2.sum', () => {
   test('an L plus a unit square', () => {

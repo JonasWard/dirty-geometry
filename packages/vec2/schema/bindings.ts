@@ -28,6 +28,7 @@ import { GridRectangle2 } from '../src/grid/regions/grid-rectangle2';
 import { Boolean2 } from '../src/operations/boolean2';
 import { ConstrainedDelaunay } from '../src/operations/constrained-delaunay';
 import { Contains2 } from '../src/operations/contains2';
+import { ConvexDecomposition2 } from '../src/operations/convex-decomposition2';
 import { DouglasPeucker } from '../src/operations/douglas-peucker';
 import { convexHullLoop } from '../src/operations/helpers/cdt/hull';
 import { emptyCdtStats } from '../src/operations/helpers/cdt/stats';
@@ -59,6 +60,7 @@ export const classes = {
   Circle2,
   ConstrainedDelaunay,
   Contains2,
+  ConvexDecomposition2,
   DouglasPeucker,
   Epsilon,
   Frame2,
@@ -111,6 +113,7 @@ export {
   Circle2,
   ConstrainedDelaunay,
   Contains2,
+  ConvexDecomposition2,
   DouglasPeucker,
   Epsilon,
   Frame2,

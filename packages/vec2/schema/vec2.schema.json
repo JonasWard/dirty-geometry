@@ -742,6 +742,12 @@
           "segmentCrossings": { "static": true, "params": { "segments": ["Line2"], "slack": { "type": "Epsilon", "optional": true } }, "returns": ["SegmentCrossing"] }
         }
       },
+      "Minkowski2": {
+        "members": {
+          "convexSum": { "static": true, "params": { "a": "Polygon2", "b": "Polygon2" }, "returns": "Polygon2" },
+          "sumPoints": { "static": true, "params": { "a": ["Vec2"], "b": ["Vec2"] }, "returns": { "or": ["Polygon2", "null"] } }
+        }
+      },
       "Overlap2": {
         "members": {
           "overlaps": { "static": true, "params": { "a": "Geometry2", "b": "Geometry2", "slack": { "type": "Epsilon", "optional": true } }, "returns": "boolean" }

@@ -41,6 +41,7 @@ import {
   isAxisAlignedPolygonPath,
 } from '../src/operations/helpers/grid-polygon-path';
 import { Intersection2 } from '../src/operations/intersection2';
+import { Minkowski2 } from '../src/operations/minkowski2';
 import { Overlap2 } from '../src/operations/overlap2';
 import { RectilinearGrid2 } from '../src/operations/rectilinear-grid2';
 import { defaultRegistry } from '../src/io/default-registry';
@@ -74,6 +75,7 @@ export const classes = {
   Interval2,
   Line2,
   Mat3,
+  Minkowski2,
   Overlap2,
   Polygon2,
   Polyline2,
@@ -125,6 +127,7 @@ export {
   Interval2,
   Line2,
   Mat3,
+  Minkowski2,
   Overlap2,
   Polygon2,
   Polyline2,

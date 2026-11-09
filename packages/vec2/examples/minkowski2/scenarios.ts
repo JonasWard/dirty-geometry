@@ -2,7 +2,11 @@
 import type { Length } from '../../src/core/numbers';
 import { Vec2 } from '../../src/core/vec2';
 import { Polygon2 } from '../../src/geometry/regions/polygon2';
+import type { ArcPolygon2 } from '../../src/geometry/regions/arc-polygon2';
+import { Epsilon } from '../../src/core/epsilon';
 import type { Boolean2Result } from '../../src/operations/boolean2';
+import { convexPieces } from '../../src/operations/helpers/minkowski/convex-pieces';
+import { capsule } from '../../src/operations/helpers/minkowski/rounded';
 import { Minkowski2 } from '../../src/operations/minkowski2';
 import { mulberry32 } from '../random';
 
@@ -16,7 +20,14 @@ export type Minkowski2Scenario = {
   b?: Polygon2[];
   /** The disc radius (`disc` only). */
   radius?: Length;
+  /**
+   * A step of how a non-convex shape is handled, to draw instead of (or under) the result: the convex pieces,
+   * every pair of pieces summed, the union of those sums, or (for `disc`) the capsule around every edge.
+   */
+  stage?: Minkowski2Stage;
 };
+
+export type Minkowski2Stage = 'pieces' | 'pairs' | 'union' | 'capsules';
 
 const loop = (...xy: number[]) =>
   new Polygon2(Array.from({ length: xy.length / 2 }, (_, i) => new Vec2(xy[2 * i]!, xy[2 * i + 1]!)));
@@ -78,7 +89,32 @@ export const differenceScenarios: Minkowski2Scenario[] = [
   { name: 'Comb ⊖ small triangle', section: 'erode', a: [comb], b: [loop(-0.3, -0.2, 0.3, -0.2, 0, 0.3)] },
 ];
 
-export const minkowskiScenarioRows = [convexScenarios, discScenarios, sumScenarios, differenceScenarios] as const;
+const smallL = loop(0, 0, 0.8, 0, 0.8, 0.4, 0.4, 0.4, 0.4, 0.8, 0, 0.8);
+
+/** The same sum three times: split into convex pieces, every pair of pieces summed, the union of the sums. */
+const sumSteps = (name: string, a: Polygon2[], b: Polygon2[]): Minkowski2Scenario[] => [
+  { name: `${name}: 1 convex pieces`, section: 'sum', a, b, stage: 'pieces' },
+  { name: `${name}: 2 pair sums`, section: 'sum', a, b, stage: 'pairs' },
+  { name: `${name}: 3 union`, section: 'sum', a, b, stage: 'union' },
+];
+
+/** How `sum` and `sumDisc` handle non-convex shapes, step by step. */
+export const stepScenarios: Minkowski2Scenario[][] = [
+  sumSteps('L ⊕ triangle', [lShape], [triangle]),
+  sumSteps('Holed square ⊕ L', holedSquare, [smallL]),
+  [
+    { name: 'L ⊕ disc: 1 edge capsules', section: 'disc', a: [lShape], radius: 0.6, stage: 'capsules' },
+    { name: 'L ⊕ disc: 2 union', section: 'disc', a: [lShape], radius: 0.6, stage: 'union' },
+  ],
+];
+
+export const minkowskiScenarioRows = [
+  convexScenarios,
+  discScenarios,
+  sumScenarios,
+  differenceScenarios,
+  ...stepScenarios,
+] as const;
 
 export const minkowskiScenarios: Minkowski2Scenario[] = minkowskiScenarioRows.flat();
 
@@ -96,4 +132,23 @@ export function evaluateMinkowskiScenario(scenario: Minkowski2Scenario): Boolean
     case 'erode':
       return Minkowski2.erode(a, b);
   }
+}
+
+/** The steps of `Minkowski2.sum`: the convex pieces of each shape and the sum of every pair of them. */
+export function explainSum(a: readonly Polygon2[], b: readonly Polygon2[]) {
+  const piecesA = convexPieces(a, Epsilon.preferIn);
+  const piecesB = convexPieces(b, Epsilon.preferIn);
+  const pairs = piecesA.flatMap((p, i) =>
+    piecesB.map((q, j) => ({ pieceA: i, pieceB: j, sum: Minkowski2.convexSum(p, q) })),
+  );
+  return { piecesA, piecesB, pairs };
+}
+
+/** The step of `Minkowski2.sumDisc` for a non-convex shape: a capsule around every edge. */
+export function explainDisc(shape: readonly Polygon2[], radius: Length): ArcPolygon2[] {
+  return shape.flatMap((polygon) =>
+    polygon.vertices.flatMap(
+      (v, i) => capsule(v, polygon.vertices[(i + 1) % polygon.vertices.length]!, radius, Epsilon.preferIn) ?? [],
+    ),
+  );
 }

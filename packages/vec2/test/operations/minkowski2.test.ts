@@ -1,7 +1,9 @@
 import { describe, expect, test } from 'bun:test';
 import { mulberry32 } from '../../examples/random';
 import { Vec2 } from '../../src/core/vec2';
+import type { ArcPolygon2 } from '../../src/geometry/regions/arc-polygon2';
 import { Polygon2 } from '../../src/geometry/regions/polygon2';
+import type { Boolean2Result } from '../../src/operations/boolean2';
 import { Minkowski2 } from '../../src/operations/minkowski2';
 
 const loop = (...xy: number[]) =>
@@ -74,5 +76,71 @@ describe('Minkowski2.convexSum', () => {
 describe('Minkowski2.sumPoints', () => {
   test('is null when the sums lie on one line', () => {
     expect(Minkowski2.sumPoints([new Vec2(0, 0), new Vec2(1, 0)], [new Vec2(0, 0), new Vec2(2, 0)])).toBeNull();
+  });
+});
+
+/** The L of three unit squares: area 3, perimeter 8, one reflex corner. */
+const lShape = loop(0, 0, 2, 0, 2, 1, 1, 1, 1, 2, 0, 2);
+
+const regionArea = (result: Boolean2Result) =>
+  (result.regions ?? []).reduce((sum, region) => sum + region.signedArea(), 0) +
+  result.polygons.reduce((sum, polygon) => sum + polygon.signedArea(), 0);
+
+const arcSweep = (region: ArcPolygon2) =>
+  region.segments().reduce((sum, segment) => sum + ('sweep' in segment ? Math.abs(segment.sweep()) : 0), 0);
+
+describe('Minkowski2.convexSumDisc', () => {
+  test('a square grows by edge strips and quarter circles', () => {
+    const r = 0.75;
+    const grown = Minkowski2.convexSumDisc(square(0, 0, 2), r);
+    expect(grown.signedArea()).toBeCloseTo(4 + 8 * r + Math.PI * r * r, 9);
+    expect(grown.sagittas.every((s) => s <= 0)).toBe(true);
+    expect(arcSweep(grown)).toBeCloseTo(2 * Math.PI, 9);
+  });
+
+  test('every boundary point is at distance r from the polygon', () => {
+    const random = mulberry32(3);
+    const polygon = randomConvex(random, Vec2.origin(), 9);
+    const grown = Minkowski2.convexSumDisc(polygon.inverse(), 0.5);
+    for (let k = 0; k < 100; k++) {
+      const point = grown.evaluateAtLength((grown.length() * k) / 100);
+      expect(polygon.distanceToPoint(point)).toBeCloseTo(0.5, 9);
+    }
+  });
+
+  test('radius 0 keeps the polygon, a negative radius throws', () => {
+    expect(Minkowski2.convexSumDisc(square(0, 0, 1), 0).signedArea()).toBe(1);
+    expect(() => Minkowski2.convexSumDisc(square(0, 0, 1), -1)).toThrow();
+  });
+});
+
+describe('Minkowski2.sumDisc', () => {
+  test('a convex loop is built directly', () => {
+    const result = Minkowski2.sumDisc([square(0, 0, 2)], 0.5);
+    expect(result.regions).toHaveLength(1);
+    expect(regionArea(result)).toBeCloseTo(4 + 4 + Math.PI / 4, 9);
+  });
+
+  test('an L loses a square of r² at its reflex corner', () => {
+    const r = 0.25;
+    const result = Minkowski2.sumDisc([lShape], r);
+    expect(result.regions).toHaveLength(1);
+    expect(regionArea(result)).toBeCloseTo(3 + 8 * r + ((5 * Math.PI) / 4) * r * r - r * r, 9);
+  });
+
+  test('a hole shrinks, then closes once r passes half its width', () => {
+    const outer = square(0, 0, 10);
+    const hole = square(4, 4, 2).inverse();
+    const small = Minkowski2.sumDisc([outer, hole], 0.5);
+    expect(small.regions).toHaveLength(2);
+    expect(regionArea(small)).toBeCloseTo(100 + 40 * 0.5 + Math.PI * 0.25 - 1, 9);
+    const large = Minkowski2.sumDisc([outer, hole], 1.5);
+    expect(large.regions).toHaveLength(1);
+    expect(regionArea(large)).toBeCloseTo(100 + 40 * 1.5 + Math.PI * 2.25, 9);
+  });
+
+  test('empty input and radius 0', () => {
+    expect(regionArea(Minkowski2.sumDisc([], 1))).toBe(0);
+    expect(regionArea(Minkowski2.sumDisc([lShape], 0))).toBeCloseTo(3, 12);
   });
 });
